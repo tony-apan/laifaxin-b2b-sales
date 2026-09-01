@@ -1,0 +1,31 @@
+# 敏感/临时不提交
+*.log
+/tmp/
+/tmp_*
+operation-raft-record.md.tmp
+# 凭证防泄漏
+.env
+.env.*
+*.token
+*secret*
+*.pem
+# 依赖/本地
+__pycache__/
+*.pyc
+node_modules/
+# 密钥/证书
+*.key
+*.p12
+*.pfx
+# 本地隐私数据(不入 Git)
+.local/
+*.db
+*.sqlite
+*.sqlite3
+*.bak
+# 虚拟环境
+.venv/
+venv/
+# 发布/复核报告（防误提交，仅本地留档）
+PUBLISH-REPORT.md
+RELEASE-REVIEW.md

@@ -1,0 +1,37 @@
+# status值域: 现行/历史/过时/模板/参考 (2026-08-30 完善语义)
+path	category	title	status	tags
+INDEX.md	其他	INDEX	现行	
+RULES.md	其他	RULES	现行	
+SKILL-PLAN.md	其他	SKILL-PLAN	现行	
+README.md	其他	README	现行	
+SKILL.md	其他	SKILL	现行	
+review-cycle.md	其他	review-cycle	现行	
+docs/00-overview.md	docs	00-overview	参考	
+docs/01-customer-search.md	docs	01-customer-search	参考	
+docs/02-filter-customers.md	docs	02-filter-customers	参考	
+docs/03-save-customers.md	docs	03-save-customers	过时	outdated(以specs/domain-scale-sop为准)
+docs/04-tags-views.md	docs	04-tags-views	参考	
+docs/05-email-marketing.md	docs	05-email-marketing	参考	
+docs/06-email-sequence.md	docs	06-email-sequence	参考	
+docs/07-ai-cold-email.md	docs	07-ai-cold-email	参考	
+docs/08-workflow-ops.md	docs	08-workflow-ops	过时	outdated(以RULES/node-playbook为准)
+glossary/glossary.md	其他	glossary	参考	
+lessons/fixation.md	lessons	fixation	现行	
+lessons/lessons-learned.md	lessons	lessons-learned	现行	
+methodology/best-practices.md	methodology	best-practices	现行	
+methodology/checklists.md	methodology	checklists	现行	
+methodology/decision-trees.md	methodology	decision-trees	现行	
+specs/api-reference.md	specs	api-reference	现行	
+specs/data-structure.md	specs	data-structure	现行	
+specs/domain-scale-sop.md	specs	domain-scale-sop	现行	
+specs/marketing-rules-2.0.md	specs	marketing-rules-2.0	现行	
+specs/node-playbook.md	specs	node-playbook	现行	
+specs/operations-sop.md	specs	operations-sop	现行	
+specs/sequence-config.md	specs	sequence-config	现行	
+specs/threshold-method.md	specs	threshold-method	现行	
+wiki/faq.md	wiki	faq	参考	
+wiki/guided-tour.md	wiki	guided-tour	参考	
+runs/_template/README.md	runs	template-README	模板	
+runs/_template/operation-record.md	runs	operation-record-template	模板	
+runs/_template/reflection.md	runs	reflection-template	模板	
+tools/README.md	其他	tools-README	现行	

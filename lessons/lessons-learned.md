@@ -1,0 +1,573 @@
+---
+title: "问题库（踩坑记录 · Lessons Learned）"
+description: "所有踩过的坑：问题/根因/影响/修复/教训/预防，持续更新，防止再犯"
+created: 2026-08-21
+updated: 2026-08-30
+author: "AI Agent + 运营方"
+source: "实战踩坑记录（2026-08-21 会话）"
+related: [specs/api-reference, methodology/checklists, specs/sequence-config]
+tags: [问题库, 踩坑, 反思, lessons]
+status: verified
+audience: 人+AI
+---
+
+# 🐛 问题库（Lessons Learned）
+
+> **目的**：每个踩过的坑都记录成可检索的问题条目——问题/根因/影响/修复/教训/预防。
+> **原则**：宁可记录 100 条看似重复的，也不要漏掉 1 条会再犯的。
+
+## 📋 问题索引（速查表）
+
+| # | 问题 | 严重度 | 状态 | 发生阶段 |
+|---|------|--------|------|---------|
+| L-01 | contact-add 传 views:["all"] 导致 139 万联系人全加 | 🔴 高 | 已修复 | 加联系人 |
+| L-02 | API 直调保存任务 0 保存 | 🔴 高 | 已摸清 | 保存 |
+| L-03 | 公司/联系人标签 ID 混用 | 🟡 中 | 已修复 | 保存 |
+| L-04 | 保存任务标签名 vs 标签 ID | 🟡 中 | 已修复 | 保存 |
+| L-05 | 审计精准度判断标准漂移（70% vs 80%） | 🟡 中 | 已固化 | 筛选 |
+| L-06 | 抽样看"累计"而非"本页" | 🟡 中 | 已固化 | 筛选 |
+| L-07 | template-add 参数不全（name+subject） | 🟢 低 | 已记录 | 模板 |
+| L-08 | step-list 参数用 id 而非 seqId | 🟢 低 | 已记录 | 步骤 |
+| L-09 | pageSize 必须 ≥10 | 🟢 低 | 已记录 | 查询 |
+| L-10 | 域名搜索任务 waiting（维护期） | 🟡 中 | 已识别 | 搜索 |
+| L-11 | 中文文件名/链接混乱 | 🟢 低 | 已修复 | 文档 |
+| L-12 | 只抓主 bundle 漏了懒加载 chunk 接口 | 🟡 中 | 已固化 | 抓接口 |
+| L-13 | 保存/搜索引擎维护期（2026/3/27） | 🟡 中 | 已识别 | 搜索 |
+| L-14 | selectKeys 最多 256 个 | 🟡 中 | 已修复 | 保存 |
+| L-15 | 泛词搜 id 是临时 id（域名搜才是权威） | 🟡 中 | 已破解 | 保存 |
+| L-16 | 邮箱提取是异步的（公司入库立即/邮箱分批） | 🟡 中 | 已识别 | 保存 |
+| L-17 | 每日配额 500 次日自动重置 | 🟢 低 | 已识别 | 配额 |
+| L-18 | 判断精准度必须看完整一页（10条） | 🔴 高 | 已纠正 | 审计 |
+| L-19 | 抽样粒度 50 页一跳 | 🟢 低 | 已要求 | 审计 |
+| L-20 | 审计工具词库误判（服装一票否决制造假波动） | 🔴 高 | 已修复 | 审计 |
+| L-21 | 判定标准=产品匹配率≥70%（不是_score） | 🔴 高 | 已纠正 | 审计 |
+| L-22 | 判比例必须逐条读描述（不靠工具%+抽查） | 🔴 高 | 已纠正 | 审计 |
+| L-23 | 统计必须全分页（save-list 只返回部分） | 🔴 高 | 已修复 | 统计 |
+| L-24 | 批量删除（异步/软删/单任务上限50000） | 🟡 中 | 已记录 | 删除 |
+| L-25 | 70%临界点必须从前往后精确找 | 🔴 高 | 已固化 | 审计 |
+| L-26 | 判断=AI语义反思，不是关键词匹配 | 🔴 高 | 已固化 | 审计 |
+| L-27 | 标签 id 与 name 混用（删除重建后失效） | 🟡 中 | 已修复 | 标签 |
+| L-28 | 保存"前N条"=直接创建保存任务，不是收集id | 🟡 中 | 已纠正 | 保存 |
+| L-29 | 前N精确API=selectOption:"front"（≠current） | 🔴 高 | 已破解 | 保存 |
+| L-30 | 模板变量必须 code 包裹 + 差异化 | 🔴 高 | 已固化 | 模板 |
+| L-31 | 邮件认证/合规/冷启动（Terra 红队 P0） | 🔴 高 | 待整改（发信认证缺口(平台侧)/05 open） | 发信 |
+| L-32 | 时序：等保存 finished 后才能 contact-add | 🔴 高 | 已固化 | 序列 |
+| L-33 | 排除判断错误：total截断+补位 + exclude需value/valueType | 🔴 高 | 已解决 | 保存 |
+| L-34 | 用户强制规则须入唯一真源+教训 | 🔴 高 | 部分固化（强制规则固化缺口 open） | 规则 |
+| L-35 | 记忆锚污染：旧结论须随方法更新删除 | 🟡 中 | 已固化 | 文档 |
+| L-36 | 接口参数以实测/用户给的完整payload为准，别猜 | 🔴 高 | 已纠正 | 接口 |
+| L-37 | 两套"产品档案"别混淆（inference-product vs product） | 🔴 高 | 已记录 | 产品档案 |
+| L-38 | 清空≠只删显性数据 + 视图删除用 view-delete | 🔴 高 | 已修复 | 清空 |
+| L-39 | 模板脚本漂移+删除接口错+签名未绑昵称 | 🔴 高 | 已修复 | 模板 |
+| L-40 | 模板id必须用完整24位（截断→step-list 500） | 🔴 高 | 已修复 | 模板 |
+| L-41 | 序列步长：首步30分钟(立即)非5天 | 🔴 高 | 已修复 | 序列 |
+| L-42 | 发送规则拍板：30000/5 + 询盘不发标签 + 纽约时区 | 📌 拍板 | 已拍板 | 发信 |
+| L-43 | 模板差异/重建四连环坑（模板差异实测·模板id校验） | 🔴 高 | 已修复 | 模板 |
+
+> 当前共 **43 条**（L-01~L-43）。
+
+---
+
+## 📝 详细问题记录
+
+### L-01 🔴 contact-add 传 views:["all"] 导致 139 万联系人全加
+
+- **问题**：新建序列加联系人时，`contact-add` 传了 `views:["all"]`（所有联系人视图），导致**全部 1398445 个联系人**加进序列（序列 active 显示 1398445）
+- **根因**：`views` 是**主过滤条件**，`["all"]` 覆盖了 `tags` 过滤。我误以为 views 是辅助筛选
+- **影响**：序列被 139 万联系人污染（未激活未发信，但数据脏）
+- **修复**：删除序列重建；改用 `views:[]`（空数组）只靠 tags 过滤
+- **教训**：⚠️ **加联系人必须 `views:[]`，永远不要 `views:["all"]`**；批量操作前**先小批量验证**（先加 1 个标签看 add 数量，确认后再全量）
+- **预防**：
+  1. 知识库 api-reference 已标注 🔴
+  2. 工具脚本 contact-add 内置 `views:[]` 默认值 + 数量确认
+  3. 操作清单加"加联系人前验证 add 数量"
+
+### L-02 🔴 API 直调保存任务 0 保存（★已破解·纯API可用）
+
+- **问题**：直接调 `refine/company-save` 传 keyword 创建保存任务 → 任务 finished:0，validSave:0
+- **根因（2026-08-21 破解）**：
+  1. **缺 `selectKeys`（选中客户 ID 数组）**！保存的是**勾选的客户**不是搜索词（浏览器抓包发现完整 payload）
+  2. **系统去重**——重复保存 validSave=0（正常）
+  3. `validCount=0` 也可能是该批客户本身无邮箱（emailsCount:0），不是保存失败
+- **影响**：试了 9 次 0 保存；生成 9 个垃圾任务
+- **修复**：**纯 API 可用**（不需浏览器）！`refine/company-save` + 完整 payload（selectKeys 从 refine/company-list 的 id 取）→ 实测成功（Whiskit Cat Food → <email>）
+- **教训**：⚠️ **保存 = refine/company-save + selectKeys**；先确认客户有邮箱（emailsCount>0）再保存
+- **预防**：保存工具内置完整 payload（⚠️ 注：旧版批量脚本已 deprecated 未随库分发，现行保存工具=save_first_n.py）
+
+### L-03 🟡 公司/联系人标签 ID 混用
+
+- **问题**：保存任务里 companyTags 传了联系人标签 ID → 被服务端当作"新建标签名"存成名为 ID 的公司标签
+- **根因**：公司标签（type=company，18个）和联系人标签（type=contacts，159个）是**两个独立体系**
+- **修复**：companyTags 用公司标签 ID（<tagId>），contactTags 用联系人标签 ID（<tagId>）
+- **教训**：⚠️ 标签先查 `tags-list` 的 type，公司/联系人分开
+- **预防**：api-reference 标注；工具脚本强制校验
+
+### L-04 🟡 保存任务标签名 vs 标签 ID
+
+- **问题**：创建保存任务传标签名"猫粮-宠物食品分销商" → 存成 <tagId>（ID 码）
+- **根因**：保存接口要求**标签 ID**（先创建标签拿 ID）
+- **修复**：先 `tags-list` 查 ID，或 `tags-add` 创建后拿 ID
+- **教训**：⚠️ 所有"标签"参数传 ID 不传名称
+- **预防**：工具封装"按名称查/建标签 ID"
+
+### L-05 🟡 审计精准度判断标准漂移
+
+- **问题**：审计客户精准度时，先宽松算 70%，再严格算 30-40%，**同一条数据两种答案**
+- **根因**：判定标准没写死（"宠物行业算不算匹配"）→ 主观漂移
+- **修复**：`audit_company.py` 把判定标准写成**规则表**（MATCH/REJECT/MARGINAL + 杂货一票否决），逐条输出判定+理由
+- **教训**：⚠️ 任何"判断"必须**可复现**——标准写死在代码/规则里，不靠主观
+- **预防**：审计工具 + 规则表固化；判定标准文档化（methodology）
+
+### L-06 🟡 抽样看"累计"而非"本页"
+
+- **问题**：审计时按"累计平均"判断精准度，但官方要求看**本页**精准度
+- **根因**：理解错了抽样方法（抽查前 1~5 页+末尾页，判断的是"当前页"）
+- **修复**：逐页独立判断（第 1000 页 30% 就是本页）
+- **教训**：⚠️ 官方标准：抽样看**本页** ≥80% 才保存
+- **预防**：checklists 写入"看本页"
+
+### L-07 🟢 template-add 参数不全
+
+- **问题**：template-add 只传 name 报"subject 是必须的"
+- **根因**：模板必填 name+subject（html 建议）
+- **修复**：补全 `{name, subject, html, foid}`
+- **教训**：必填字段逐个测（空 body → 看报错）
+
+### L-08 🟢 step-list 参数用 id 而非 seqId
+
+- **问题**：step-list 传 id 报"seqId 是必须的"
+- **根因**：step 接口统一用 `seqId`（序列 ID），不是 step 的 id
+- **修复**：`{seqId, current, pageSize}`
+- **教训**：⚠️ sequences 系列接口的关联字段是 **seqId**
+
+### L-09 🟢 pageSize 必须 ≥10
+
+- **问题**：templates-list / domain-emails / contacts/show 传 pageSize<10 报错
+- **根因**：接口限制 pageSize≥10
+- **修复**：统一 pageSize=10/20
+- **教训**：⚠️ 来发信分页接口 pageSize≥10
+
+### L-10 🟡 域名搜索任务 waiting
+
+- **问题**：tasks/create type=domain 创建成功但 status:waiting、domainCount:0
+- **根因**：搜索/保存引擎维护期（2026/3/27 恢复）；且单域名精确命中 1 条
+- **修复**：用提纯搜（refine/company-list）替代；多域名换行拼
+- **教训**：⚠️ 域名搜索任务需要等待/维护；替代方案：提纯搜
+
+### L-11 🟢 中文文件名/链接混乱
+
+- **问题**：docs 文件名用中文，内部链接混乱，不利于 AI 检索
+- **根因**：最初用中文命名
+- **修复**：全部改英文（00-overview.md 等），加 frontmatter
+- **教训**：⚠️ 文件名英文，元信息用 frontmatter
+
+### L-12 🟡 只抓主 bundle 漏了懒加载 chunk 接口
+
+- **问题**：sequences 接口（25个）在主 bundle 抓不到
+- **根因**：序列功能在懒加载 chunk（sequence-create-dialog），主 bundle 只有定义
+- **修复**：跟踪懒加载 chunk（从 vite 依赖图找）
+- **教训**：⚠️ 抓接口要**跟踪懒加载 chunk**，不能只抓主 bundle
+
+### L-13 🟡 保存/搜索引擎维护期
+
+- **问题**：tasks/create keyword 类型返回"客户搜索维护中，预计2026/3/27恢复"
+- **根因**：平台维护期
+- **修复**：等恢复/用替代接口（refine 提纯搜可用）
+- **教训**：⚠️ 维护期识别 + 替代方案
+
+### L-14 🟡 selectKeys 最多 256 个（★新坑）
+
+- **问题**：批量保存 500 家报错 `"selectKeys" 必须最多包含 256 个成员`（14 批失败，仅 240 家成功）
+- **根因**：refine/company-save 的 selectKeys 数组上限 256
+- **修复**：分批 ≤256（每批 256 家）
+- **教训**：⚠️ 保存批大小 = min(selectKeys 上限 256, 点数预算)
+- **预防**：旧版批量脚本 BATCH=256（⚠️ 注：已 deprecated 未随库分发——现行保存=save_first_n.py 的 front+selectTotal，不翻页收集 id（铁律3）；本条仅作 selectKeys 旧法上限记录）
+
+### L-15 🟡 权威 id vs 搜索会话临时 id（★曾误判）
+
+- **问题**：泛关键词搜（electric bike dealer）拿的 id 保存 validSave=0，误判为"valid 邮箱不保存"
+- **根因**：泛词搜返回的是**搜索会话临时 id**（存不了）；**域名搜（refine+域名 keyword）返回权威 id**（validSave 大量 >0）
+- **修复**：用域名搜的 id（选一批"每批"）
+- **教训**：⚠️ valid 邮箱**能**保存！关键是 id 用**域名搜的权威 id**（一次搜上万，无需滚雪球）
+- **预防**：api-reference/domain-scale-sop 已标注 ⭐
+
+### L-16 🟡 邮箱提取是异步的（★规模化保存重要真相）
+
+- **问题**：9500 家保存后 validSave 只有 332（部分批 valid=0），误以为保存失败
+- **根因**：**保存任务 = 公司入库+标签（立即）**；**邮箱提取是异步的**（refine 返回 emailsCount 多为 0-2 → 提取分批增长）
+- **修复**：等待提取 / 用 domain-emails 主动触发
+- **教训**：⚠️ 验证保存成功看**联系人库 total 增长** + validSave 分批累计，不是立即看全部
+- **预防**：domain-scale-sop 已记录；检查用 contacts/show total
+
+### L-17 🟢 每日配额次日自动重置
+
+- **问题**：daily 500 用尽被拦，以为今天不能继续
+- **根因**：dailyLimit 500 是**每日**配额，次日**自动重置**（实测 dailyUsed 500→1）
+- **修复**：等重置 / 界面确认扣点解锁
+- **教训**：⚠️ 规模化前先 `refine-data` 查 dailyUsed；用尽就等明日，别白试
+
+### L-18 🔴 判断精准度必须看完整一页（★用户纠正）
+
+- **问题**：第950页只抽样3条就下结论"≥90%"，实际完整10条只有 7/10（70%）——**判断错误**
+- **根因**：抽样 3 条有幸存者偏差（恰好抽到好的3条）；**一页10条必须全部看**
+- **修复**：完整看10条逐条判断（列表3/3 → 是假象）
+- **教训**：⚠️ **判断"本页精准度"必须完整看该页全部10条**；抽样只在"选页"时用（跳页），**一旦选中某页就全看**
+- **预防**：audit 工具打印完整10条；SOP 写明"逐条看10条再判定"
+
+### L-19 🟢 抽样粒度：50页一跳（★用户要求）
+
+- **问题**：跳点抽样间隔太大（1/500/950/1000），漏了中间的下降趋势
+- **根因**：粒度 500 页太大，无法定位精准度下降过程
+- **修复**：**50页一跳**（1,50,100...1000），20 次查看即可覆盖全程（配额可控）
+- **教训**：⚠️ 抽样粒度 50 页（不是 500 页）；20 次查看 = 完整趋势
+- **预防**：audit --pages 传 50 步进
+
+### L-20 🔴 审计工具词库误判（★曾制造假波动）
+
+- **问题**：审计工具判"精准度波动大（60-90%）"，实际数据 90-100%——**假象**
+- **根因**：HARD_REJECT 含 `clothing/服装`，**自行车零售商卖骑行服被一票否决**（行业正常商品被当杂货）
+- **修复**：①移除 HARD_REJECT 的 apparel/clothing/fashion/服装/服饰 ②规则1改为"仅无产品匹配词时"才杂货一票否决
+- **教训**：⚠️ **工具判定必须人工抽查核对**（工具只是初筛）；词库要适配行业（服装=自行车店正常商品）
+- **预防**：audit 工具已修正；结论前人工看1-2页完整条
+
+### L-21 🔴 判定 = 产品匹配率 + 语义判断（★核心）
+
+- **问题**：误用 `_score`（与网址相似度）判断；且用"含某字样"词匹配替代**语义判断**
+- **根因**：`_score` 是向量相似度展示；词匹配（含"自行车"=匹配）**会误判**（Bicis Camacho 含"自行车"但是目录商→非采购）
+- **修复**：
+  1. **产品匹配率 ≥70%**（一页10条里几个潜在采购方）
+  2. **语义判断**：读完整描述，问"会不会采购/配套"（严格/中等/宽松可配，**默认中等**）
+     - 中等：零售商/经销商/批发商/制造商/配件商/耗材商 ✅；目录商/媒体/不相关 ❌
+  3. 工具只是初筛，**结论人工读描述核对**
+- **教训**：⚠️ 不用 _score / 不抠字样；读描述语义；中等默认（海外制造商、没卖该品但配套的也算目标）
+- **预防**：domain-scale-sop 三档标准已固化；先确认用户要哪档
+
+### L-22 🔴 判产品匹配率必须逐条读描述（★反复被纠正）
+
+- **问题**：用工具 % + 抽查1页就下"100%"，未**逐条读完整描述**
+- **根因**：工具是词匹配（L-20 bug 过）；抽查有幸存者偏差（L-18 犯过）
+- **修复**：**50页粒度 + 每页完整读10条**，逐条问"是否产品行业客户"（中等：经销商/制造商/配件/耗材算；媒体/目录不算）**数出比例**（10/10、8/10）
+- **教训**：⚠️ **判定 = 逐条读描述数比例**，不用工具% 就定论；数字**独立核实**（不照搬别的产品）
+- **预防**：audit 打印完整10条+人工核对；对抗审查加强
+
+### L-23 🔴 统计必须全分页（save-list 只返回部分）
+
+- **问题**：电动自行车统计成"9500家/332邮箱"，实际 **32879家/17729邮箱**——严重低估
+- **根因**：save-list **分页返回**（一页默认部分），我只查了最新50条，漏算后面批次
+- **修复**：**全分页拉取**（current 循环直到空）再累计；或用 count 接口
+- **教训**：⚠️ **列表类接口统计必须全分页**，不能只看第一页；数据口径（total=保存家数，valid+unkown=邮箱数）
+- **预防**：统计脚本全分页；对抗审查验证
+
+### L-24 🟡 批量删除（异步/软删/单任务上限）
+
+- **问题**：删除 142 万联系人，逐批提交，发现删除是**异步后台任务 + 软删入回收站 + 单任务50000上限**
+- **关键事实**：
+  1. **删除 = 异步**（`/api/contacts/contacts/delete` 返回 backendId，后台执行）
+  2. **软删**：删的联系人进**回收站**（`/api/contacts/recycle/show`），非永久删（永久删可能需清空回收站）
+  3. **单任务上限**：`selectTotal` 提交上限 50000，且**同时只允许一个未完成删除任务**（提交新批时报"存在未完成删除任务"）
+  4. 删除慢（每批 ~几万，等上批完成才提交下批）
+- **批量删除接口**：
+  - 联系人：`POST /api/contacts/contacts/delete` `{selectTotal, selectKeys:[], selectOption:"all", filter:{}}`（异步）
+  - 序列：`POST /api/sequences/sequence-delete` `{id}`（需先暂停 active）
+  - 标签：`POST /api/tags/tag-delete` `{type, id}`
+  - 模板分组：`POST /api/mailbox/template-folder-delete` `{id}`
+  - 模板：`POST /api/mailbox/template-delete` `{id}` / `templates-delete` `{ids}`（★L-39 实测：templates-delete 批量 **500 勿用**，统一 template-delete 单删）
+- **教训**：⚠️ **删数据前先确认"软删or硬删"（看回收站）**；大批量删系统"单任务串行"，**脚本要检测"未完成任务"等待**；**先暂停激活序列**再删
+- **预防**：删除脚本（按 L-36 正确参数封装+循环等待，未随库分发）；先小批测再全量
+
+### L-25 🔴 70%临界点必须从前往后精确找（★用户严厉纠正）
+
+- **问题**：皮筏艇审计看到第500页60%、700页50%、900页70%——我看后面（已跌破/波动）的页，**没往前精确找临界点**
+- **根因**：**临界点 = 最后一张≥70%的页**；500页60%已跌破，就应**往前看400/450**二分逼近，而不是看500之后的页（看后面没意义）
+- **修复**：
+  1. **从前往后**找"最后一张 ≥70% 的页" = 临界点，之前全保存
+  2. **二分**：达标区(低页) vs 不达标区(高页)之间逼近，再**线性微调**到精确页
+  3. 复用了 `find_threshold.py`（二分自动找）
+  4. 保存范围 = 临界页 × 每页10
+- **教训**：⚠️ **临界点只在"达标→不达标"的过渡带往前找**；一旦某页<70%，它之后的页都是杂质（不用看），只往前找真正≥70%的**边界页**
+- **预防**：find_threshold.py 二分找；保存前人工复核临界页前后
+
+### L-26 🔴 判断=AI语义反思，不是关键词匹配（★用户核心纠正）
+
+- **问题**：工具（audit/find_critical）用关键词匹配判断，**漏判水上运动客户**（船只/海洋/风筝冲浪/帆船/桨板），400页说50%实际80%——判断错误
+- **根因**：**关键词匹配 ≠ 语义判断**。"会不会买"要靠**读描述推理业务链**，不是"含某词"
+- **修复**：**AI 语义反思**——对每条描述，AI反思"这是外贸B端客户，**会不会买这个品？能买=匹配**"
+  - 水上/船艇/潜水/冲浪/桨板/皮划艇/渔船装备零售与经营服务商 = 匹配
+  - 服装/泳装/内容评测/APP/军事/能源/球类/疗法设备/中国区 = 不匹配
+  - **AI反思 + 人工读 两两印证**（皮筏艇470=8/10、471=8/10、472=4/10 一致）
+- **教训**：⚠️ **判断标准 = AI 反思"客户能不能买"**（外贸B端语义推理），**绝不靠关键词**；工具只做趋势初筛，结论必须 AI/人工语义判断
+- **预防**：critical 判断用 AI subagent 反思；threshold-method.md 已固化
+
+### L-27 🟡 标签 id 与 name 混用（删除重建后失效）
+
+- **问题**：保存用了标签 id `<tagId>/<tagId>`（旧），后来删除重建 → 标签 id 变 `<tagId>/<tagId>`，name 存了旧值。**已保存数据挂在失效标签上**
+- **根因**：`tags-list` 返回 `{id, name}`，但删除重建后 id 变（我误把 name 当 id 用）
+- **修复**：**用标签的真实 `id`（tags-add 返回的 id）**；删除重建后重新确认 id；保存/打标签用 id 不是 name
+- **教训**：⚠️ **标签一律用 `id`（tags-add/tags-list 返回的 id）**，不是 name；删除重建会换 id，保存前先确认最新 id
+- **预防**：保存/加序列前先查 tags-list 拿最新 id
+
+### L-28 🟡 保存"前N条"= 直接创建保存任务，不是收集id（★用户纠正）
+
+- **问题**：我理解"前8000条"= 收集8000个id放selectKeys（pageSize100翻80页），**多余且错误**
+- **根因**：**界面的"高级→选择前N条"是创建一个保存任务**，让系统直接处理"前N条"（后端支持），**不需要前端收集id**
+- **修复**：
+  1. ⚠️ **"保存前N条" = refine/company-save 传 selectTotal:N（+ 合适的selectOption）**，系统自动保存前N条，**不收集id**
+  2. 用界面"高级→选择前N条"确认它传的payload（应含 selectOption 让系统取前N）
+  3. 我之前 selectKeys空+selectTotal:N 保存了全部（15080）——**selectOption 或别字段不对**，**必须抓包界面确认正确参数**（可能是 selectOption 特定值，或 selectKeys 由后端填充）
+- **教训**：⚠️ **保存前N = 创建任务（界面高级/系统处理），NOT收集id**；API参数必须抓包界面确认（别乱猜）
+- **预防**：保存前N用界面对照的参数；记录准确API
+- **修复依据**：用户提示直接创建保存任务——确认前N条由保存任务处理，非手收集id
+
+### L-29 🔴 保存"前N条"精确API = selectOption:"front"（★不是current！）
+
+- **问题**：我用 `selectOption:"current"` + selectTotal 保存 → **邮箱0**；前端"选择前8000"能提邮箱 —— 差异在 selectOption
+- **根因**：**`selectOption:"front"` = 选择前N且提取邮箱**；`"current"` = 不提取邮箱（我一直用current全错）
+- **修复（★实测，前端payload=准确）**：
+  ```json
+  refine/company-save {
+    "selectKeys": [],          // 空
+    "selectTotal": N,          // 前N
+    "selectOption": "front",   // ★ 关键！front才提邮箱
+    "contactMaxCount": 5,      // ★ 界面默认5（不是3）——⚠️ 已废：每公司邮箱数裁决默认3，阶梯3→6→9
+    "companyTags":[...],"contactTags":[...]
+  }
+  ```
+  实测：front+selectTotal:8000 → **contactSaveCount 持续增长**（fin702→contactSave1427）＝提邮箱！
+- **关键**：
+  - **验证用 `backend-task-status`**（data.contactSaveCount=邮箱数），不是 company-save-list（误导）
+  - 前端"选择前8000"的完整payload = front + selectTotal + max5（用户抓包确认）
+- **教训**：⚠️ **selectOption:"front"**（提邮箱）≠"current"（不提）；~~contactMaxCount:5~~（★已废：每公司邮箱数裁决**默认3**，存不到数据才按 3→6→9 升阶；"界面默认5"仅为当时抓包事实）；验证用 backend-task-status
+- **预防**：save_first_n.py 用 front（原 max5 已随 每公司邮箱数裁决 改 **max3**，tools/save_first_n.py `--max` default=3）；api-reference已记录
+
+---
+
+### L-30 🔴 模板变量必须 code 包裹 + 差异化（★用户强制）
+
+- **问题**：模板变量用 `{联系人:名称}` 裸文本/英文/双大括号 → **发信不替换**（变量无效）
+- **根因**：**变量必须用 `<code class="lfxFieldVeriable" contenteditable="false">` 包裹**，否则不生效
+- **修复（★准确格式）**：
+  ```html
+  <p>Hi <code class="lfxFieldVeriable" contenteditable="false">{联系人:名称}</code></p>
+  ```
+  - 变量冒号是**半角 `:`**（实测0x3a,非全角：）（★真实字段 title）：`{联系人:名称}`、`{联系人:邮箱}`、`{联系人:职位}` 等——**字段=title（中文标题），非 dataIndex**；来源 `fields/contacts-fields`/`company-fields` 接口；格式 {联系人:<title>}/{公司:<title>}
+  - **标题(subject)不插变量**（纯文案）——避免标题预览问题
+  - **每模板差异度≥30%**（不同痛点/切入/文案），防同质化被拒/风控
+- **教训**：⚠️ **模板变量=code包裹(lfxFieldVeriable)+中文变量名**；标题纯文案；每模板差异≥30%
+- **预防**：sequence-config 已固化；旧版专用模板脚本已由统一生成器 gen_templates.py 替代（⚠️ 注：旧脚本后手改漂移受损，未随库分发，见 L-39）
+
+---
+
+### L-31 🔴 邮件认证/合规/冷启动（Terra 红队 P0）
+
+- **问题**：光建序列/发信不够——**没配 SPF/DKIM/DMARC**、**没退订**、**单日30000太激进** → 邮件进垃圾箱/法律风险（★2026-08-30 拍板注记：30000=用户最终拍板 发送上限拍板记录 closed、"新账号/新IP保温不存在"——本条"30000太激进/冷启动"部分**作废**；保留项=认证/合规 发信认证缺口(平台侧)/05）
+- **根因**：只关注"保存/模板/序列"，忽略了**底层认证 + 合规 + 冷启动**
+- **修复（★必做）**：
+  1. **SPF/DKIM/DMARC** 配齐测通（否则全进垃圾箱）
+  2. **邮件底部加退订链接** + 发件身份认证（CAN-SPAM/GDPR/CASL）
+  3. **冷启动**：单日从几百封/域名起，逐周倍增（不是30000/日）
+  4. **去重 + 邮箱验证**（MX/SMTP，防退信）
+  5. **监测**：退信<2-3%、投诉<0.1%
+- **教训**：⚠️ **发信前的认证/合规/冷启动/去重 = 必做**（P0），不是可选项
+- **预防**：平台侧缺口整改清单（未随库分发；以 RULES/marketing-rules-2.0 为准）
+
+---
+
+### L-32 🔴 时序：等联系人保存任务 finished 后才能 contact-add（★用户强制）
+
+- **问题**：保存任务 status:running（邮箱提取中）就 contact-add 加序列 → **add:0**（标签下联系人都还没入库/打标签）
+- **根因**：邮箱提取是异步的，`refine/company-save` 任务 running 时标签下没有联系人；必须等 `backend-task-status` = finished（提取完成、联系人打上标签）后，标签/视图才能进序列
+- **修复（★时序守卫）**：
+  1. 保存后轮询 `operation/backend-task-status` 到 `status:"finished"`
+  2. 校验标签联系人 count>0（contacts/contacts-count，间歇空则重试）
+  3. 全部通过才 `contact-add`（views:[]铁律）
+- **工具**：`tools/wait_save_done.py --task <id> --tag <tag>`（自动等 finished+校验>0）
+- **教训**：⚠️ **contact-add 前必须 `保存任务 finished` + `标签联系人>0`**（否则 add=0，标签/视图加不进序列）
+- **预防**：RULES.md 铁律⑥；序列建好后用 wait_save_done.py 确认再 contact-add
+
+---
+
+### L-33 🔴 排除判断错误：total不变=截断+补位≠排除无效 + exclude需value/valueType
+
+- **问题**：我用"排除后 total 不减"判断"排除无效"——**错**！用户点破：total=10000 是截断上限，排除后后排未显示的补上来，**total 不变是正常的**
+- **正确判断**：看**列表内容**（有无 CN/TW/HK/MO），不看 total
+- **正确 exclude schema（缺 value:""/valueType:"select" 则无效）**：
+  ```json
+  {"property":"country_code","operator":"exclude","value":"","values":["CN","TW","HK","MO"],"valueType":"select"}
+  ```
+- **实测**：<seed-domain>+exclude → 含4区 **6→1**（仅剩种子公司自身；种子是非CN则无残留）；保存时CN公司不提取邮箱
+- **教训**：⚠️ **total 截断+补位 ≠ 排除无效**；schema 必须带 value:""+valueType:"select"；**判断看列表内容**
+- **预防**：save_first_n.py 已用正确 schema；domain-scale-sop 已固化
+
+---
+
+### L-34 🔴 用户强制规则须入唯一真源+教训（MOQ/买者视角/去重）
+
+- **问题**：用户强制"模板结合客户实际信息(MOQ 10kg不写1kg)/买者视角/去重"——只散落 sequence-config/session，**RULES(唯一真源)无记载、lessons无教训** → AI易忘
+- **根因**：固化不完整；用户指令只在会话，没提升到规则总纲
+- **修复**：用户强制规则必须**同时**：①RULES铁律/子规则 ②lessons教训 ③specs细则；缺失=未固化
+- **教训**：⚠️ **用户强制=3处固化**(RULES+lessons+specs)；MOQ结合实际/买者视角/去重等都在此列
+- **预防**：每次用户新指令→立即查RULES/lessons/specs三处都覆盖
+
+### L-35 🟡 记忆锚污染：lessons旧结论须随方法更新删除
+
+- **问题**：lessons 旧版第417行（当时记作"L-417"=**行号引用，非编号教训**）"保存走Playwright界面(不用API)"与L-02(纯API可用)/现行front+selectTotal直接矛盾——旧结论没删，AI被污染（该行即本文件"固化后的行为"第2条，2026-08-29 已改纯API）
+- **根因**：方法更新(L-28/29破解)后旧记忆锚未删/未标注deprecated
+- **修复**：方法升级时**同步清理旧锚**；review-cycle检查"新旧矛盾"
+- **教训**：⚠️ **记忆库最危险=过时结论残存**；每升一级方法删/更新对应旧锚；引用旧工具(lfx_mass_save)标deprecated
+- **预防**：RULES/lessons 升级时 grep 旧法关键词核对
+
+---
+
+### L-36 🔴 接口参数以【实测/用户给的完整payload】为准，别猜（contacts/show & delete & backend-progress）
+
+- **问题**：我清空联系人库时：①用 `backend-task-status` 查删除进度（只返回id无status/progress——**误判"删除没生效"**）②`contacts/show` 用 `filter:{}`（正确应 `viewId:"all"+keyword+keyword_fields+filters+sort+logic`）③`contacts/delete` 用 `selectOption:"current"`（正确应 `"all"`+selectSort+sort+selectAll）
+- **根因**：**凭空猜接口参数/schema**，没有用实测/用户给的完整 payload 模板
+- **修复（★正确模板，用户实测）**：
+  - `contacts/show`：`{"viewId":"all","keyword":"","keyword_fields":["name","domain","keywords","seo_description"],"filters":[],"current":1,"pageSize":20,"sort":{"create_time":-1},"logic":"and"}`
+  - `contacts/delete`：`{"selectAll":false,"selectKeys":[],"selectSort":{"create_time":-1},"selectTotal":N,"selectOption":"all","filters":[],"keyword":"","logic":"and","sort":{"create_time":-1}}`
+  - **进度查 `backend-progress`**（有 status/total/finished/progress），**不是** backend-task-status（无进度）
+- **教训**：⚠️ **任何接口参数先看实测抓包/用户给的payload，禁止猜**；删数据/查询用"用户验证过"的模板；查进度用 backend-progress；**已删除4万（89936→49936）证明删除其实在跑，是我用错查询才误判**
+- **预防**：tools 封装正确参数；接口参数新增都记 api-reference（用户给的真实payload即模板）
+
+---
+
+### L-37 🔴 两套"产品档案"别混淆（inference-product vs product）
+
+- **问题**：删"产品档案"时我用了 `profile/inference-product-delete`（AI推演产品），但用户界面"产品档案"(/settings/product-profile) 是 **`profile/product-*`**（product-add/list/delete，字段=product_name/main_business/core_value_proposition/excluded_customer_types/other_message）
+- **根因**：同名"产品档案"但有**两套系统**：基础(product-*) 和 AI推演(inference-product-*)
+- **修复（用户实测）**：删基础产品档案 = `profile/product-delete` `{"id":<_id>}`（用列表 _id）；查 = `product-list` `{"current":1,"pageSize":10,"filter":{},"sort":{"create_time":-1},"keyword":""}`
+- **教训**：⚠️ **同名概念先确认是哪套接口**（基础 vs inference）；清空数据前用**用户界面所在的正确接口**；product-delete 用 id 不是 product_id
+- **预防**：api-reference 已补两套；清空产品工具（按正确参数封装，未随库分发）
+
+---
+
+### L-38 🔴 清空≠只删显性数据:查全部类别 + 视图删除用 view-delete
+
+- **问题**：清空时只查了 序列/模板/产品/标签/联系人=0，但**视图(views)还有用户自建**（"111"/"排除"）——"看似清空实则残留"
+- **根因**：视图是独立系统（mineViews）；删除接口用错（views-delete 404，正确 **view-delete**）
+- **修复（对抗实测）**：
+  - 清空清单**必须含**：序列/模板/模板分组/产品档案(product-*和inference-product-*)/标签/视图(mineViews)/联系人——一个都不能漏
+  - 视图= `views/views-list {"type":"companyDbSearch"}` → data.systemViews(系统默认,"所有企业"勿删)/mineViews(用户自建,可删)/othersViews
+  - 删视图 = **`views/view-delete {"viewId":<id>,"type":"companyDbSearch"}`**（不是 views-delete→404）
+- **教训**：⚠️ **清空数据先盘点所有类别**（视图是易漏项）；接口名一字之差=404（view-delete vs views-delete）；系统默认视图勿删
+- **预防**：api-reference 补 view 接口；delete_all 工具组含视图
+
+---
+
+### L-39 🔴 模板脚本漂移+删除接口错+签名未绑昵称（对抗审查发现）
+
+- **问题**：
+  1. 5个 create_en_*_12rounds.py 手改注入 preview → **脚本漂移/损坏**（glass 循环残留、mpowder/raft/stepper/ebike 的 nm="英-{rnd}-{zh}-V01" 缺前缀+变体号，命名会重叠）
+  2. **删除模板接口错**：`templates-delete`（批量）→ **500 坏的**；正确 = **`template-delete`（单删, {"id":<_id>}）**——之前以为"软删无效"其实是用错接口！
+  3. **签名写死 Alex**：模板 `<p>Alex</p>`，应 = **GATE0 用户昵称**（`<昵称>`）——用户发现模板签名与用户昵称不一致
+- **修复**：
+  1. 统一生成器 **gen_templates.py**（一个文件管所有产品：preview渲染视图/签名=--name/12轮x10变体/角度正文/生成）——替代5个漂移脚本（标 deprecated）
+  2. 删除模板用 **template-delete 单删**（120/120 成功）；templates-delete 500 勿用
+  3. 签名 = `--name`（默认昵称），模板 html 尾 `<p>{SIGN_NAME}</p>`
+- **教训**：⚠️ **手改多个同构脚本=漂移温床→统一生成器**；接口先测对（template-delete vs templates-delete）；**模板签名=用户昵称（GATE0），不是写死**
+- **预防**：gen_templates.py 唯一入口；旧5脚本加 deprecated 注释；api-reference 补 template-delete
+
+---
+
+### L-40 🔴 模板id必须用完整24位（截断tid[:14]→step-list 500）
+
+- **问题**：玻璃瓶序列跟进页 step-list **500**（用户发现）——我 step-create 绑定的 template_ids 是**截断的假id**（截断值仅14位，真实完整值 `<templateId>`）
+- **根因**：生成脚本 `print(f"{nm} -> {tid[:14]}")` 打印**截断id**，我用日志解析截断id绑定步骤 → 序列步骤挂坏id → 渲染step-list 500
+- **修复**：
+  1. **模板id用完整24位**：从 `templates-list` 按 name→id 映射取**完整id**（不是从生成日志截断解析）
+  2. gen_templates.py 打印**完整id**（去掉 tid[:14]）
+  3. 重建序列（12步用完整id）→ step-list 返回12步 ✅
+- **教训**：⚠️ **id绝不用截断**（API返回的id=完整值，任何`[:14]`都危险）；**绑定关系用模板库name→full_id映射**，不用日志打印的缩短值
+- **预防（★模式层升级，旁观者审查）**：
+  - **根因=stdout 当数据契约**：展示值(截断id)≠数据值；日志只给人看，**绑定只读机读工件**（gen_templates --out 落 name→id 映射）
+  - **id 格式断言**：模板/序列/任务=24hex；工具 add() 断言；verify_sequence.py 终检(激活前硬闸门)
+  - **模式4**：展示值/日志值≠数据值（L-03/04/15/37/40 同族——参数语义/身份语义想当然）
+  - 旧脚本真正退役(sys.exit DEPRECATED)；flow_orchestrator S8/S9 指向工具非空转
+
+---
+
+### L-41 🔴 序列步长节点错误: 首步应30分钟(立即)非5天（用户纠正+对抗修正）
+
+- **问题**：玻璃瓶序列步骤 wait 建成 step1=5天/step2=15天/step3+=30天——**用户纠正：step1=添加后30分钟(或立即)、step2=5天、step3=15天、step4+=30天**
+- **根因**：把首步当常规间隔；未理解"第一步=添加后半小时热触达(破冰趁热)"策略；wait_mode 支持 minute/hour/day（前端确认）
+- **修复**：step1=`wait_mode:"minute",wait_time:30`；step2=day/5；step3=day/15；step4-12=day/30（序列重建<seqId> + verify_sequence 断言更新）（⚠️ 注：<seqId>=**玻璃瓶**序列，已于 2026-08-30 清空删除（db/runs.tsv=cleared）；步长规则本身现行有效，皮筏艇现行序列=<seqId> 同规则）
+- **教训**：⚠️ **首步=30分钟/立即（热触达），第二步5天，第三步15天，后续30天一轮**；wait_mode 支持 minute/hour/day；序列步长是策略参数（首步热、递进放缓）
+- **预防**：RULES/sequence-config 已改；verify_sequence.py 断言 (minute,30)/(day,5)/(day,15)/(day,30)
+
+---
+
+### L-42 📌 发送规则完善（用户拍板）：30000/5 + 询盘不发标签 + 纽约时区
+
+- **用户拍板**：①单日上限30000、单家公司5 ②新建"询盘"+"不发"标签并加入 notSentTags（询盘=有询盘打标,不发=退订打标）③时区默认**纽约**
+- **已做**：标签 询盘=<tagId>/不发=<tagId>；序列 <seqId> 规则已更新（30000/5/notSentTags=[<tagId>,<tagId>]）（⚠️ 注：<seqId>=玻璃瓶序列，2026-08-30 已清空删除；同一套规则现用于皮筏艇序列 **<seqId>**（inactive，10211人，db/runs.tsv））
+- **✅ 纽约已确认**：schedule_id=`<scheduleId>`（America/New_York,用户界面设默认,★**本租户快照**——2026-08-30 拍板:各账号 id 不同,禁止硬编码,运行时 `tools/resolve_schedule.py --tz "America/New_York"` 解析）；sequence-save 已用纽约+30000+5+[询盘,不发]
+- **教训**：⚠️ notSentTags 硬编码假标签id(<tagId>/<tagId>**不存在**)→序列触发器失效；**界面sequence-save会覆盖API设置**,最终以用户拍板+界面复核为准；发送上限=用户拍板30000
+- **预防**：标签id用 tags-add 返回真id；规则更新后 sequence-details 校验
+
+---
+
+### L-43 🔴 模板差异/重建四连环坑（模板差异实测/模板id校验，对抗审查实测）
+
+- **问题 1（假达标）**：`check_template_diff.py` 从 `templates-list` 取 `html`——**该接口 list 项根本没有 html 字段（只有 subject）**→ 空html恒 Jaccard=0 → 假"✅差异≥30%达标"。实测（template-info 取真html）：皮筏艇120模板 **580 对相似度>0.70，最大 0.82**——"差异≥30%"是空头支票
+- **问题 2（boilerplate 同质）**：旧 gen_templates 正文 = 固定 boilerplate（"You'll get/Just reply/落款"约15词）+ 同轮共享 angle，变体仅差 3-4 词 → 同轮变体 Jaccard 必 >0.70
+- **问题 3（接口不校验）**：`step-save` 传 `"FAIL:模板名称已存在"` 字符串也返回 success → step-list 直接 **500**；`step-delete` 有 **"至少保留一个步骤"** 约束；`step-save` 拒绝**空 template_ids**（"邮件模板不能为空"）；被序列引用的模板 **不可删**（"模板使用中,请在序列中删除"）；模板 **名称唯一**（重名 add 失败）
+- **修复**：
+  1. `check_template_diff.py` 改为**逐模板 `template-info` 取真实 html** 再算 Jaccard
+  2. `gen_templates.py` 正文 = **轮次 angle 全句 + 变体 body 全句**（仅 Hi+签名固定）→ 本地验证 120 模板最大 Jaccard 0.62（皮筏艇）/0.66（玻璃瓶），0 违例（★服务器端实测=**0.61**（皮筏艇 RT2，template-info 取真 html，证据=本地验证明细；玻璃瓶已清空仅留本地值），与 模板差异实测（工具级） "实测0.61" 一致）
+  3. `gen_templates.py` 生成后**断言全部 24hex** 否则 exit(1)（防坏 id 进序列）；`--out` 落盘 name→id 映射
+  4. 重建顺序铁律（`rebuild_templates.py`）：**先解引用（删步骤/改步骤）→ 删旧模板 → 建新模板 → 步骤指向新 id**；重名时用新后缀（-RT2）避开
+  5. 审批硬闸门（工具级）：写工具 `--approval <id>` 校验 `.local/approvals.tsv` 才执行
+- **教训**：⚠️ **测量工具的输入字段必须先验证非空**（空数据恒"达标"是假阴性）；**写接口不校验输入，客户端必须自己断言 id 格式再写**；序列步骤与模板之间有"引用锁"（使用中不可删、至少保留1步、模板非空、名称唯一）——重建必须按依赖顺序
+- **预防**：verify_sequence.py 终检 12 步+24hex；check_template_diff 实测入模板差异实测；重建前先 step-list 快照
+
+---
+
+## 🔍 问题模式总结（元认知）
+
+**我犯的错可以归为 3 类模式**：
+
+### 模式 1：参数语义想当然（L-01, L-03, L-04, L-08）
+- **表现**：根据字段名猜测语义（views=辅助、标签名=标签ID、id=关联ID）
+- **本质**：**没有实测就下结论**
+- **解法**：⚠️ **所有参数先实测**（空 body → 报错提示 → 补全 → 验证结果），不猜
+
+### 模式 2：判断标准不固化（L-05, L-06）
+- **表现**：同一个判断，不同时刻给出不同答案（70% vs 40%）
+- **本质**：**标准没写死**，靠主观
+- **解法**：⚠️ **判断标准写成规则**（代码/表格），可复现，不漂移
+
+### 模式 3：接口逆向不完整（L-02, L-12）
+- **表现**：只看到接口存在就以为能用；只抓主 bundle
+- **本质**：**验证不充分**（接口是记录 vs 接口真执行）
+- **解法**：⚠️ **接口要实测**（真调用看结果），**懒加载 chunk 要跟踪**
+
+---
+
+## 🧠 反思与记忆（Reflection & Memory）
+
+### 为什么会犯这些错？
+1. **乐观假设**：默认接口参数如我所想（views=辅助筛选）→ 实际是主过滤
+2. **快速尝试**：参数猜错就换下一个，不先验证语义
+3. **标准漂移**：没有"写死标准"的意识，随场景变化
+4. **验证浅**：看到"success"就以为成功，没看 data 里的真实数字（add:1398445 才是真相）
+
+### 如何记住？（记忆锚点）
+- **L-01 记忆**：⚠️ `views:[]` 是铁律——加联系人先看 add 数量（add:8140 ✅ / add:1398445 ❌）
+- **L-02 记忆**：⚠️ 保存=`refine/company-save` + **selectKeys**（权威 id，≤256）+ 纯 API 可用！
+- **L-05 记忆**：⚠️ 审计=规则表（audit_company.py），标准不漂移
+- **L-06 记忆**：⚠️ 精准度看"本页"≥80%
+
+### 固化后的行为（下次自动执行）
+1. **加联系人** → 先查 tags-list → contact-add 用 views:[] → 看 add 数量确认
+2. **保存** → **纯 API**（save_first_n.py, selectOption:"front"+selectTotal, 见 L-02/L-28/29/33）——旧结论"走 Playwright 界面"已被 API 破解替代（L-02）,勿再用界面
+3. **审计** → 跑 audit_company.py（规则表）
+4. **抓接口** → 跟踪懒加载 chunk + 全量 dump
+5. **任何参数** → 先空 body 试探，再补全，再验证结果
+
+## 🔒 固化机制（如何防止再犯）
+
+见 [lessons/fixation.md](fixation.md)（固化机制设计）
+
+---
+
+> **真实案例演示**：数字与域名为公开仓库作者当时实际运行结果，仅作方法演示，与读者业务无关。

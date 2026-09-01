@@ -1,0 +1,27 @@
+{
+  "product": "",
+  "seq_id": "",
+  "ts": "",
+  "sequence": {
+    "name": "",
+    "status": "inactive",
+    "active": 0,
+    "schedule_id": "<运行时 tools/resolve_schedule.py --tz <time_zone> 解析,勿硬编码>"
+  },
+  "rules": {
+    "max_emails_per_day": 30000,
+    "domain_emails_per_day": 5,
+    "notSentTags": ["<tagId>", "<tagId>"]
+  },
+  "tags": {
+    "company": {"id": "", "name": "客户群体中文名"},
+    "contact": {"id": "", "name": "客户群体中文名"}
+  },
+  "templates": {
+    "count": 120,
+    "diff_verified": "check_template_diff 实测最大相似度(须≤0.70)"
+  },
+  "contacts_total": 0,
+  "steps_source": "verify-seq.txt (step-list 12步, step1=30分/step2=5天/step3=15天/step4+=30天)",
+  "steps": []
+}

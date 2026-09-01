@@ -1,0 +1,7 @@
+# 来发信获客工具依赖（换机器先装）
+# pip install -r requirements.txt
+# ★主流程（save_first_n/gen_templates/verify_*/flow_orchestrator 等）纯 API，只用 Python 标准库（subprocess 调 curl），无第三方依赖。
+# playwright 仅 cap_*/capture_*/collect_* 研究/抓包脚本用（tools.tsv 标 research，勿生产引用）：
+playwright>=1.40
+# 需额外: playwright install chrome（用真实Chrome channel="chrome"）
+# 系统依赖: curl, python3, bash, grep, awk, tail, head（macOS/Linux自带; Windows需WSL/GitBash）

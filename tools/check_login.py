@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""★流程第一步·登录检查（只读）：验证来发信 accesstoken 是否有效（benefits/refine-data 只读，不搜客/不保存/不扣点/不发信）。
+无 token / 失效时打印官方教程引导，让用户获取后交给 AI。
+用法:
+  python3 check_login.py --token '<accesstoken完整串>'   # org 自动从 token 提取(官方:accesstoken已含账号信息)
+  python3 check_login.py --token '<...>' --org <orgId>   # 也可显式传
+官方教程: https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
+"""
+import json, subprocess, argparse, sys
+
+GUIDE_URL = "https://www.laifa.xin/share/ai/laifaxin-ai-account-connection"
+
+def guide(reason):
+    print(f"❌ {reason}")
+    print(f"""
+📖 获取 token 官方教程: {GUIDE_URL}
+  方法一（小白，不敲代码）: 登录 web.laifaxin.com → 页面右键"检查" → 顶部"应用程序"(Application) →
+      左侧 存储→本地存储→https://web.laifaxin.com → 找到 accesstoken → 复制右侧"值"的完整长串
+  方法二（更快）: 页面右键"检查" → 顶部"控制台"(Console) → 粘贴执行:
+      copy(localStorage.getItem("accesstoken"));
+      显示 undefined = 已复制到剪贴板
+  ⚠️ 只复制"值"整串（别只复制单词 accesstoken、别带引号/空格/换行）
+  ❓ 得到 null = 未登录/页面不对 → 确认在 web.laifaxin.com 且已登录，刷新重试，仍不行退出重登
+  🔄 换账号/退出重登后需重新获取
+拿到后把它直接发给 AI（本命令: --token '<粘贴整串>'）——首次连接只做本只读检查，不搜客/不保存/不发信。""")
+
+ap = argparse.ArgumentParser()
+ap.add_argument("--token", default="", help="accesstoken 完整串（用户按教程复制）")
+ap.add_argument("--org", default="", help="orgId（可省略：token=web.laifaxin.com&<orgId>&<hash>，自动提取中段）")
+args = ap.parse_args()
+
+if not args.token:
+    guide("未传 token")
+    sys.exit(1)
+
+# ★token 形状校验（B1-4/AI-6: 复制不全是高频错误——提前用人话拦截,不触网）
+tok = args.token.strip()
+if tok != args.token:
+    print("⚠️ token 首尾带空格/换行——已自动去除（下次复制时注意别带上）")
+args.token = tok
+segs = tok.split("&")
+if args.org:
+    org = args.org
+elif len(segs) >= 3:
+    org = segs[1]
+    print(f"# org 自动从 token 提取: {org}（官方: accesstoken 已含账号信息，无需单独取 UID）")
+else:
+    print("❌ token 格式不对（应有 3 段: web.laifaxin.com&<orgId>&<长串>，你给的只有 %d 段）——大概率是没复制完整。" % len(segs))
+    print("   ★建议改用方法二一键复制（控制台 copy 命令），或对照教程重新复制整串；也可显式传 --org <orgId>。")
+    sys.exit(2)
+
+cmd = ["curl","-sSL","-m","30","-X","POST",f"https://web.laifaxin.com/api/benefits/refine-data?uid={org}",
+       "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}","-d","{}"]
+r = None
+try:
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
+    d = json.loads(r.stdout) if r.stdout.strip() else {}
+except Exception:
+    d = {}
+
+# ★B7-1/terra 3-①: 三分类——curl层失败(rc!=0)=网络; 空/非JSON=平台接口间歇空(已知)(轻文案); success=false=token
+if r is not None and r.returncode != 0:
+    print("❌ 网络不通/超时（curl 层失败, rc={}）：这不是 token 问题，不用重新登录！".format(r.returncode))
+    print("   下一步：检查网络（公司网/VPN/代理）或等几分钟后重跑本命令。")
+    sys.exit(3)
+if r is not None and r.returncode == 0 and not d:
+    body = (r.stdout or "").strip()
+    if not body:
+        print("ℹ️ 已连通但返回为空——已知问题 平台接口间歇空(已知)（接口偶发抽风）：等 5-10 分钟重跑本命令即可，无需重登、无需重取 token。")
+    else:
+        print("ℹ️ 返回了非 JSON 内容（可能是网关错误页, 前 60 字: {}）——等几分钟重跑；反复出现再查网络。".format(body[:60]))
+    print("   教程备查: " + GUIDE_URL)
+    sys.exit(3)
+if not d and r is None:
+    print("❌ 请求未完成（超时/异常）——稍等重跑；这不是 token 问题。")
+    sys.exit(3)
+
+if d.get("success") is True:
+    data = d.get("data", {}) or {}
+    print("✅ 登录有效（账号已连接）")
+    print(f"   vip={data.get('vip')} | 日查看配额={data.get('dailyLimit')} 已用={data.get('dailyUsed')} | 月配额={data.get('monthlyLimit')} 已用={data.get('monthlyUsed')}")
+    dl, du = data.get('dailyLimit') or 0, data.get('dailyUsed') or 0  # 缺字段按0,不裸None
+    if dl and du >= dl:
+        print(f"   ⚠️ 今日查看配额已用满（{du}/{dl}）——搜索/翻页会被限，一般次日自动重置；保存不受影响（见 wiki/faq）")
+    print("   下一步(AI): 请用户提供 昵称+产品信息(+可选精准网址) → gate_check → 按 RULES 状态机 S0-S12 执行")
+    sys.exit(0)
+else:
+    msg = d.get("message") or (r.stdout[:80] if isinstance(r.stdout, str) else "")
+    guide(f"token 无效或未登录（接口返回: {msg}）")
+    sys.exit(1)
