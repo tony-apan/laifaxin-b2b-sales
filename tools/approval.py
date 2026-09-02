@@ -14,6 +14,7 @@ KB = Path(__file__).resolve().parent.parent
 os.makedirs(KB / ".local", exist_ok=True)  # 等价 (KB/".local").mkdir(exist_ok=True)
 APPROVALS = KB / ".local" / "approvals.tsv"
 VALID_STATUS = ("confirmed", "backfilled")
+COLUMNS = ["id","project_id","state","decision","user_quote","memo","time","status"]
 
 
 def _rows():
@@ -23,6 +24,9 @@ def _rows():
     if not lines:
         return []
     header = lines[0]
+    # ★ISS-51: 首行若以 ap- 开头 = 无表头(record 曾首次建文件不写表头) → 用标准列名, 不把数据行当 header
+    if str(header[0]).lower().startswith("ap-"):
+        return [dict(zip(COLUMNS, l)) for l in lines if len(l) == len(COLUMNS)]
     return [dict(zip(header, l)) for l in lines[1:] if len(l) == len(header)]
 
 
@@ -61,10 +65,14 @@ def require_approval(approval_id, project, states, what=""):
 
 def record(project, state, decision, quote, params_hash, status="confirmed"):
     """追加一行审批并返回 id（编排器/人工确认后调用）"""
-    row = _rows()
+    _rows()
     t = time.strftime("%Y-%m-%d %H:%M:%S")
     aid = gen_id(project, state, quote, t)
     line = f"{aid}\t{project}\t{state}\t{decision}\t{quote}\t{params_hash}\t{t}\t{status}\n"
+    # ★ISS-51: 首次创建文件须写表头（否则首行数据被当 header，闸门全失效）
+    if not APPROVALS.exists() or APPROVALS.stat().st_size == 0:
+        with open(APPROVALS, "w") as f:
+            f.write("\t".join(COLUMNS) + "\n")
     with open(APPROVALS, "a") as f:
         f.write(line)
     return aid

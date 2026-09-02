@@ -58,10 +58,11 @@ audience: 人+AI
 
 ### S3 SEED_PENDING（种子确认）
 - **判据（来源）**：`../RULES.md` L26「展示候选种子及采购可能；用户确认后才搜相似」；`../RULES.md` L100 决策节点②选种子：候选种子+代表客户，按**精准度/邮箱率/是否会采购**展示并给建议。
-- **通过条件**：用户确认种子网址（或输入新种子）。
+- **通过条件**：用户确认种子**网址/域名**（或输入新种子）。
+- **★种子必须解析成域名**（L-45 卡点1）：`refine/company-list` 返回的公司**无 domain 字段**，不能拿公司名直接搜相似（会命中同名异司）。流程：候选公司名 → `POST /api/search/company-search {keyword:公司名}` 反查真实 domain → **用域名做种子**（company-search 支持直接传域名反查单家）。展示种子时须带**域名**而非仅公司名。
 - **API**：`POST /api/search/company-search`（精确找单家拿域名，keyword/keyword_fields/current/pageSize）——API L55；`POST /api/refine/company-list`（展示候选列表）——API L54。
 - **脚本**：无独立脚本（`flow_orchestrator.py` S3 打印候选 + stdin 确认）。
-- **产出记录**：`.local/approvals.tsv`（S3_种子行）；种子记 `runs/<运营方>/<产品>/operation-record.md`。
+- **产出记录**：`.local/approvals.tsv`（S3_种子行）；种子记 `runs/<运营方>/<产品>/operation-record.md`（须含域名）。
 
 ### S4 AUDIT_RUNNING（临界审计——★判据核心 = AI 反思）
 - **判据（来源）**：`../RULES.md` L27「只读搜客和AI语义审计；50页跳→三页平均→逐页→跌破往前；未完成不能保存」；`specs/threshold-method.md` 全文：**判定标准 = AI 语义反思「这个外贸 B 端客户会不会买我的产品？能买=匹配」**（L19-27，★不是关键词匹配）；50页一跳全局（L30-36）→ 三页滑动平均 ≥70%（L38-44）→ 临界附近逐页精确到1页（L46-48）→ **一旦某页/三页平均跌破70%就【往前找】，不看后面**（L50-53）→ 工具只做趋势初筛、**临界页必须人工逐条读完整10条**（L55-58）；阈值默认 70%（`specs/marketing-rules-2.0.md` L21-27：中等默认70%，严格80/宽松60 需用户指定）。

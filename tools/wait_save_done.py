@@ -34,9 +34,9 @@ while time.time() - start < args.timeout:
 else:
     print(f"❌ 超时({args.timeout}s)仍 {status}，禁止 contact-add"); sys.exit(1)
 
-# 校验标签联系人>0（contacts/contacts/show 间歇空则重试）
+# 校验标签联系人>0（★ISS-52: 按标签过滤须 filters 数组, filter.tags 返全库假通过）
 for i in range(6):
-    d = api("contacts/contacts/show", {"current":1,"pageSize":10,"filter":{"tags":[args.tag]},"sort":{}})
+    d = api("contacts/contacts/show", {"current":1,"pageSize":10,"filters":[{"property":"tags","operator":"include","value":args.tag,"values":[args.tag],"valueType":"select"}],"sort":{}})
     data = d.get("data")
     if data is not None:
         try: n = int(data.get("total")) if isinstance(data, dict) else int(data)

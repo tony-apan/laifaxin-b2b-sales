@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""⚠️ 流程编排器【原型/向导,非一键】——只做节点确认向导+approvals记账；保存/模板/序列/contact-add 须由人工/对应工具执行，本脚本不自动执行。例外：S2 的租户本地推演写(product-add+inference-segment-generate)用于展示候选客群,客群选择仍须用户确认。
+"""⚠️ 流程编排器【原型/向导,非一键】——只做节点确认向导+approvals记账；保存/模板/序列/contact-add 须由人工/对应工具执行，本脚本不自动执行。例外：S2 的租户本地推演写(inference-product-add+inference-segment-generate)用于展示候选客群,客群选择仍须用户确认。
 用法:
   python3 flow_orchestrator.py --token <TOKEN> --org <orgId> --nickname <昵称> \
       --product "金属粉末" --product-info "金属粉末/3D打印/增材/分销" \
@@ -134,19 +134,24 @@ if not pathA:
     # ★B-3: 写操作(建产品档案+推演客群)必须在用户确认后才执行——先确认, 后写
     if confirm("S2_客群", "将执行产品档案+推演（写操作，租户本地）——客群合适吗？", STATE["params"]):
         if not args.dry_run:
-            # 产品档案(基础)确保存在: 若无则提示; 用 product-add
-            pa=api("profile/product-add",{"product_name":args.product,"main_business":args.product_info,"excluded_customer_types":"中国客户","other_message":""})
-            pid=pa.get("data",{}).get("product_id") or pa.get("data",{}).get("id") or (pa.get("data") if isinstance(pa.get("data"),str) else "")
+            # ★ISS-48: 建【推理档案】须用 inference-product-add(字段 zh/en/desc_zh/exclusions)——旧用基础档案 product-add 会导致 inference-segment-generate 返回 500
+            pa=api("profile/inference-product-add",{"product_name":args.product,"product_zh":args.product,"product_en":args.product,"product_desc_zh":args.product_info,"product_exclusions":""})
+            pid=pa.get("data",{}).get("product_id") or pa.get("data",{}).get("_id") or pa.get("data",{}).get("id") or (pa.get("data") if isinstance(pa.get("data"),str) else "")
             pa_ok = "成功" if pa.get("success") else "未成功(token/网络? 检查S0登录检查输出)"
-            print("   产品档案add: {} {}".format(pa_ok, str(pid)[:16] if pid else ""))
+            print("   推理档案add: {} {}".format(pa_ok, str(pid)[:16] if pid else ""))
             if not pid:
-                print("  ❌ 产品档案创建失败（多半 token 失效/网络——看上方登录检查输出）——流程终止,勿确认空客群")
+                print("  ❌ 推理档案创建失败（多半 token 失效/网络——看上方登录检查输出）——流程终止,勿确认空客群")
                 sys.exit(1)
-            # 推演
-            seg=api("profile/inference-segment-generate",{"product_id":pid})
-            segs=api("profile/inference-segment-list",{"product_id":pid}).get("data",[])
-            print("   ★推演客群(默认4):")
+            # 推演（★接口慢: generate 后须轮询 list 直到非空, 最长~60s; 立即 list 常为空）
+            api("profile/inference-segment-generate",{"product_id":pid})
+            segs=[]
+            for _i in range(6):
+                segs=api("profile/inference-segment-list",{"product_id":pid}).get("data",[]) or []
+                if segs: break
+                time.sleep(10)
+            print("   ★推演客群(默认4+; 按 v2 客户线人工剔除跨产品污染簇, 见 threshold-method):")
             for s in segs: print(f"    - {s.get('segment_name')} | {s.get('value_path')}")
+            if not segs: print("   ⚠️ 推演返回空(平台慢/未落库)——等 1-2 分钟重跑本向导, 或改跑 tools/segments_infer.py")
 
 # ---------- S3 SEED(快速路径也需确认; B4-4: 换种子真正生效) ----------
 def show_seed_candidates(kw):
@@ -183,7 +188,7 @@ if args.dry_run: print("  (dry-run 跳过审计)")
 else:
     kw = args.seed
     if kw:
-        print(f"  种子={kw}: 请用 audit_company.py + AI 反思找 70% 临界(本条人工/AI执行, 输出临界页)")
+        print(f"  种子={kw}: ★按 v2 三条客户线(直采/OEM/拓品, threshold-method.md)逐条 AI 判定+判定表留痕; 50页跳→三页平均→逐页→跌破往前; 边界案例做敏感性检查; 未完成不能保存")
 
 # ---------- S5 SAVE_PENDING (B4-5: 解析并回显 N) ----------
 print("●S5 SAVE_PENDING: 展示 临界N/标签/排除/max/点数 → 确认后保存")

@@ -114,6 +114,13 @@ audience: 人+AI
 - 示例：金属粉末 `MOQ 1 kg` ❌ → `MOQ 10 kg` ✅（行业实际）
 - **买者视角**：痛点+利益+行动，3句
 
+## ★ 钩子规范（★L-45 后立，2026-09-02：防"能力陈述"式开场）
+- **❌ 反例（我方能力开场）**："Direct source manufacturing for lightweight tents…" / "Our factory runs dedicated production lines…" —— 陈述自己，读者一眼划过。
+- **✅ 钩子 = 对方处境/痛点/利益/好奇开头**，再落到你：痛点钩（*"Are your spring tent SKUs locked in yet?"*）· 利益钩（*"A supplier that pre-stocks your bestsellers before the rush"*）· 身份钩（*"For distributors stocking alpine-grade shelters…"*）· 稀缺钩（*仅当属实*）。
+- **结构铁律**：**第一句必须是钩子（对方视角），不是自我介绍**；自我介绍放第二句后。每轮钩子不同，同轮变体换不同钩子角度。
+- **事实红线**：钩子里的数字/承诺必须属实——无认证不写标准号、无数据不写百分比、无真实档期不写"名额将满"；假稀缺=违例。
+- **校验**：生成前抽查 3-5 封确认首句=钩子；生成后模板审查清单"买者视角三要素"据此执行。
+
 ## ★ 每模板差异度 ≥30%（★用户要求；方向差异=硬保证，变体差异须实测）
 - 同轮/同序列模板**正文差异度≥30%**（不同痛点/切入/文案），不能重复
 - 防止同质化被拒/风控

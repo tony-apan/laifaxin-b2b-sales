@@ -145,7 +145,7 @@ if args.task:
 for tg in tags:
     got = None
     for i in range(6):
-        d = api("contacts/contacts/show", {"current":1,"pageSize":10,"filter":{"tags":[tg]},"sort":{}})
+        d = api("contacts/contacts/show", {"current":1,"pageSize":10,"filters":[{"property":"tags","operator":"include","value":tg,"values":[tg],"valueType":"select"}],"sort":{}})
         data = d.get("data")
         try:
             n = int(data.get("total")) if isinstance(data, dict) else int(data)

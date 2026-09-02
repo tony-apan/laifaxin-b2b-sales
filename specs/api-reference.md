@@ -159,8 +159,8 @@ POST /api/operation/backend-task-status  { "type":"cluesSave", "id":"<save任务
 
 | 接口 | 用途 | 关键参数 |
 |------|------|---------|
-| `POST /api/contacts/companies/show` | 公司列表 | filter.tags:[标签ID] |
-| `POST /api/contacts/contacts/show` | 联系人列表 | ⚠️双口径: filter.tags（wait_save_done/contact_add 用）或 viewId:all（delete_all_contacts 用）——★见下方「联系人正确参数」节 |
+| `POST /api/contacts/companies/show` | 公司列表 | ★按标签过滤用 filters 数组: `filters:[{property:tags,operator:include,value:<标签ID>,values:[<标签ID>],valueType:select}]`（filter.tags 失效返全库,ISS-52）|
+| `POST /api/contacts/contacts/show` | 联系人列表 | ⚠️按标签过滤须用 **filters 数组**(见上,实测精确;filter.tags 返全库 total 假通过 ISS-52)；viewId:all（delete_all_contacts 用）——★见下方「联系人正确参数」节 |
 | `POST /api/contacts/contacts/save` | 保存联系人 | |
 | `POST /api/contacts/contacts/delete` | **批量删联系人（异步·软删）** | ⚠️ `{selectTotal, selectKeys:[], selectOption:"all", filters:[]}` → 返回backendId；软删入回收站；单任务上限50000(串行)（完整实测payload见文末★联系人正确参数） |
 | `POST /api/contacts/contacts/select-count` | 选择计数 | |

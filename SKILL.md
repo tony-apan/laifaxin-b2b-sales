@@ -31,6 +31,7 @@ audience: AI优先
 | "模板重建 / 换模板" | `tools/rebuild_templates.py`（⚠️半自动，顺序铁律见 L-43，需人工分步）|
 | "清空重来" | 危险操作，先用户确认 → 按 `specs/api-reference.md` 清空工具节执行（清空脚本未随库分发）|
 | "出问题了 / 记教训" | 本地问题登记（`db/issues.tsv`，本地数据不入 Git）+ `lessons/lessons-learned.md` |
+| **"对抗审查 / 这个准不准 / 审一下"** | **RULES.md「🛡 操作对抗审查」（★用户强制：决策/产出必经空白子代理对抗）→ 按四类固定清单/执行前反思矩阵审 → 产出 `dialogue/reviews/rev-<日期>-<时分>-<操作>.md`（只放行/整改P0P1P2）→ 写操作三凭证：用户确认(approvals)+对抗审查(reviews)+操作流水(ops-log)** |
 | "查当前数据 / 最近跑批" | 本地运行记录（`db/runs.tsv`，本地数据不入 Git）+ 本地状态（`.local/`）|
 
 ## 2️⃣ 必备前置（硬条件，缺一停）
@@ -54,9 +55,9 @@ audience: AI优先
 |------|-----------|
 | S0 INPUT_GATE | 昵称+产品信息齐了才准动，缺一停 |
 | S1 PATH_PENDING | 有精准网址→快速路径 A；无→标准路径 B；两条都要用户确认 |
-| S2 SEGMENT_PENDING | 推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认 |
+| S2 SEGMENT_PENDING | 推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add，非 product-add，否则 generate 500；generate 后轮询 list 至非空）|
 | S3 SEED_PENDING | 展示候选种子+采购可能+邮箱率，用户确认后才搜相似 |
-| S4 AUDIT_RUNNING | 只读+AI 语义反思找 70% 临界（50页跳→三页平均→逐页→跌破往前）；未完成不能保存 |
+| S4 AUDIT_RUNNING | 只读+AI 语义反思找 70% 临界（50页跳→三页平均→逐页→跌破往前）；**★按 v2 三条客户线(直采/OEM/拓品)逐条判定+判定表留痕+边界敏感性检查**；未完成不能保存 |
 | S5 SAVE_PENDING | 展示临界 N/标签/排除4区/max/点数，用户确认后才保存（→输出 approval_id）|
 | S6 SAVE_RUNNING | front 保存；等任务 status:finished；用标签结果对账 |
 | S7 TEMPLATE_PENDING | 只生草稿，展示 3-8 个**渲染后视图**（render_preview.py）+理由，确认后才批量创建 |
