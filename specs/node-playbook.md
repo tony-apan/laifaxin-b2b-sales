@@ -45,7 +45,7 @@ audience: 人+AI
 ### S1 PATH_PENDING（路径分支）
 - **判据（来源）**：`../RULES.md` L24「有精准网址走快速路径；无网址走标准路径；两者都不能跳过确认」；`../methodology/decision-trees.md` 主逻辑图（A=快速/B=标准）。
 - **通过条件**：路径确定 +（快速路径）确认该网址是**客户方**而非用户自己公司、相关产品、非4区（`specs/operations-sop.md`「四、网址找相似」确认原则；网址确认原则）。
-- **API**：`POST /api/refine/company-list`（keyword=网址，海量搜相似）——API L54；`POST /api/domain/base-info`（提炼网址行业/NAICS）——API L57；`POST /api/domain/similar-list`（10条相似）——API L56。
+- **API**：`POST /api/refine/company-list`（keyword=网址，海量搜相似）——API L54；`POST /api/domain/base-info`（提炼网址行业/NAICS）——API L57；`POST /api/domain/similar-list`（⚠️已弃用——统一走 refine/company-list keyword=域名）——API L56。
 - **脚本**：无独立脚本（纯分支决策，对话确认即可；`flow_orchestrator.py` 仅打印分支提示）。
 - **产出记录**：对话确认；种子进入 S3。
 

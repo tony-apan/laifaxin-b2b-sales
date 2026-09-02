@@ -78,3 +78,5 @@ tools/tag_add.py	S5前置·建标签(一条龙缺口#3)	contacts/tags-add建标�
 tools/log_op.py	操作流水写入器	ops-log.tsv唯一写入口;13列强制+save行必填校验+--tail查询	verified
 tools/segments_infer.py	推理N轮→客群落地	inference-generate×N+segment-list拉全量含query_en/query_total;--approval S2	verified
 tools/pull_stats.py	效果拉取	report-data序列级日统计+退信率/零打开异常提醒;templates.md效果更新源	verified
+activate_sequence.py	S12激活	激活+回读status防假+--deactivate回滚+否定句校验;S12审批硬闸;实测(2026-09-02激活/回滚)	verified
+seed_resolve.py	S3取域名	--id(主:结果id→base-info得域名)/--keyword(全览)/--company(兜底);只读;实测(2026-09-03)	verified

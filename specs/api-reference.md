@@ -2,7 +2,7 @@
 title: "API 接口规范（全功能速查）"
 description: "来发信全接口按模块分类：认证/推演/搜索/筛选/保存/标签视图/客户管理/邮件营销；含实测结论与注意"
 created: 2026-08-21
-updated: 2026-08-21
+updated: 2026-09-03
 author: "AI Agent + 运营方"
 source: "前端 bundle 逆向 + 实测"
 related: [docs/01-customer-search, docs/08-workflow-ops]

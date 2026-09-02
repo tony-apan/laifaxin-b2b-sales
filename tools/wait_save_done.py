@@ -40,7 +40,7 @@ for i in range(6):
     data = d.get("data")
     if data is not None:
         try: n = int(data.get("total")) if isinstance(data, dict) else int(data)
-        except: n = data
+        except (TypeError, ValueError, AttributeError): n = None  # ★形状异常(间歇空)→重试,勿裸崩(对齐 contact_add)
         if n and n > 0:
             print(f"✅ 标签 {args.tag} 联系人={n} >0 → 可以 contact-add")
             sys.exit(0)
