@@ -54,7 +54,7 @@ audience: AI优先
 
 | 节点 | 一句话判据 |
 |------|-----------|
-| S0 INPUT_GATE | 昵称+产品信息齐了才准动，缺一停 |
+| S0 INPUT_GATE | 昵称+产品信息齐了才准动，缺一停。★**产品画像="AI出方案→用户选"**：用户说不清画像时，AI 按"卖什么/给谁用/卖到哪/凭什么买"先给 **A/B/C/D 组合方案**（含推荐与淘汰理由），用户点选/组合/修改，最后才是自由填写——不逼新手从零描述 |
 | S1 PATH_PENDING | 有精准网址→快速路径 A；无→标准路径 B；两条都要用户确认 |
 | S2 SEGMENT_PENDING | 推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add，非 product-add，否则 generate 500；generate 后轮询 list 至非空）|
 | S3 SEED_PENDING | ①query_en 作关键词→AI 数据库搜索第一页（25字段/条，含★id，无domain）②代表买家 id→`domain/base-info`→域名（seed_resolve --id）③**域名作 keyword 再搜主搜="找相似"**（非 similar-list 接口）→S4 审计④保存 `save_first_n --keyword <审计所用keyword>`（域名/长文本均实测✅：保存=列表同批） |
