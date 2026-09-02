@@ -41,7 +41,7 @@ ERROR_BLOCKED: 异常、参数变化、对账不一致或规则冲突时，只�
 - “自由发挥/不用看”只豁免**指定节点展示**，不得豁免Gate0、客群、保存、contact-add或激活。
 - 产品、种子、临界N、标签、模板、配额任一变化，原确认失效并回到对应状态。
 - 可自由执行的只有只读查询、格式整理、读取重试和报告；所有写操作须有本节点确认。
-- **★审批硬闸门（工具级）**：写操作工具（`save_first_n.py`/`gen_templates.py`/`rebuild_templates.py`）执行前必须带 `--approval <id> --project <产品>`，工具会校验 `.local/approvals.tsv`（id+project+state前缀+status∈confirmed/backfilled；本地流水，不入 Git）；无凭证或状态不符**直接拒绝写入 exit(1)**。approval_id 由编排器/确认节点输出（见 `tools/approval.py`）。
+- **★审批硬闸门（工具级）**：写操作工具（`save_first_n.py`/`gen_templates.py`/`rebuild_templates.py`）执行前必须带 `--approval <id> --project <产品>`，工具会校验 `.local/approvals.tsv`（id+project+state前缀+status∈confirmed/backfilled；本地流水，不入 Git）；无凭证或状态不符**直接拒绝写入 exit(1)**。approval_id 由编排器/确认节点输出（见 `tools/approval.py`）。★换机器/新 clone 后 `.local` 为空，写操作前须经确认节点重新生成凭证（`approval.py` 首次建文件自动写表头）。
 
 ### 面向用户的输出纪律（B7-4）
 - 任何英文错误/术语（FAIL:/ERR:/None/undefined/null/接口 message）出现在给用户看的输出前，**先给一句中文解释 + 下一步**；不确定就说"这是系统内部日志，我来看，你不用操作"。
@@ -81,7 +81,7 @@ ERROR_BLOCKED: 异常、参数变化、对账不一致或规则冲突时，只�
 
 **四类产出的固定审查清单**（审查代理照单执行，不得自由发挥成走过场）：
 1. **客群分析（S2 产出）**：①客群真实性=语义判据（是真独立客群还是同一客群换说法）②五维评分每项有据（产能=query_total+AI评估，非拍脑袋）③英文搜索词地道可搜（母语者会这么搜吗）④排序逻辑（客群确认→产能为主→询盘快→周期短）⑤语言/市场标注
-2. **种子筛选（S3 产出）**：①是客户方不是用户自己公司 ②精准度证据（引用前几页实际内容）③邮箱率数据 ④非4区 ⑤为何选此不选彼
+2. **种子筛选（S3 产出）**：①是客户方不是用户自己公司 ②**候选公司名已用 seed_resolve.py 反查真实域名（记录含 domain 非仅公司名——L-45）** ③精准度证据（引用前几页实际内容，L-46：P1+P50 角色构成>70%买家才用）④邮箱率数据 ⑤非4区 ⑥为何选此不选彼
 3. **邮件模板（S7/S8 产出）**：①语言与目标客群一致 ②买者视角三要素（痛点+利益+行动）③事实可举证（标准号写到底/数字有来源/无假前提假稀缺/无漂绿）④spam 词 ⑤差异 check_template_diff 实测≤0.70 ⑥变量格式+标题纯文案 ⑦**首句=钩子（对方视角）非能力陈述**（sequence-config 钩子规范：抽 3-5 封首句须勾住买家；"We manufacture/Our factory…" 开场=违例）
 4. **序列配置（S9 产出）**：①12步步长 30分/5/15/30 ②时区与语言市场匹配（英语→纽约，西语→马德里/圣保罗）③30000/5/notSentTags ④语言三方配对 ⑤tmap 网格校验
 

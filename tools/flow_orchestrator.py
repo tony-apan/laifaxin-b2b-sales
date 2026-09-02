@@ -169,6 +169,7 @@ if not args.dry_run:
     else:
         print("  暂无候选种子——把一个精准客户网址直接打在回复里，或回复「确认」由 AI 走关键词路径")
         print("  （标准路径：向用户要 query_en 客群画像描述做文本搜种子发现；从结果页挑真实渠道商做种子——文本搜结果本身不直接保存）")
+        print("  ★种子须用【域名】：候选公司名无 domain 字段，先用 tools/seed_resolve.py --company \"<公司名>\" 反查真实域名（L-45）")
 while True:
     r3 = confirm("S3_种子", "用上述种子搜相似?", STATE["params"])
     if r3 is False:

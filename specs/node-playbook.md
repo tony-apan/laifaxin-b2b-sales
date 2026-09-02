@@ -61,7 +61,7 @@ audience: 人+AI
 - **通过条件**：用户确认种子**网址/域名**（或输入新种子）。
 - **★种子必须解析成域名**（L-45 卡点1）：`refine/company-list` 返回的公司**无 domain 字段**，不能拿公司名直接搜相似（会命中同名异司）。流程：候选公司名 → `POST /api/search/company-search {keyword:公司名}` 反查真实 domain → **用域名做种子**（company-search 支持直接传域名反查单家）。展示种子时须带**域名**而非仅公司名。
 - **API**：`POST /api/search/company-search`（精确找单家拿域名，keyword/keyword_fields/current/pageSize）——API L55；`POST /api/refine/company-list`（展示候选列表）——API L54。
-- **脚本**：无独立脚本（`flow_orchestrator.py` S3 打印候选 + stdin 确认）。
+- **脚本**：`python3 tools/seed_resolve.py --company "<候选公司名>"`（反查真实域名，同名多司列出选；只读）——S3 候选确认前必跑；`flow_orchestrator.py` S3 打印候选 + stdin 确认。
 - **产出记录**：`.local/approvals.tsv`（S3_种子行）；种子记 `runs/<运营方>/<产品>/operation-record.md`（须含域名）。
 
 ### S4 AUDIT_RUNNING（临界审计——★判据核心 = AI 反思）
@@ -137,8 +137,8 @@ audience: 人+AI
 ### S12 ACTIVE（仅用户明确确认 + 发送前检查）
 - **判据（来源）**：`../RULES.md` L35「仅明确"确认激活/激活序列<名称>"才激活（★SPF/DKIM/退订等"发送前检查"=禁止项）」；★2026-08-31 用户拍板：SPF/DKIM/DMARC 认证与退订/合规检查**禁止执行**（发信走平台系统通道，域名/IP/认证/退订均属来发信平台职责，运营方不做、不要求、不阻塞激活）；内部整改清单（未随库分发）P0-1/P0-2 作废。激活时仅做：目标序列 id 逐字核对（防误激 legacy）+ notSentTags/上限等序列规则已由 verify 断言。
 - **通过条件**：用户明确正向命令（「确认激活」/「激活序列<名称>」）+ （★SPF/DKIM/退订=禁止项，平台职责）+ verify_sequence 已过。禁止自行激活。
-- **API**：`POST /api/sequences/sequence-active {"id":<seqId>,"active":true}`——API L262。⚠️ **平台接口未就绪(激活接口500) open**：此接口实测 500（服务端错误，非参数问题）→ **【待实测/待服务端恢复】**，激活前必须确认服务端已恢复。
-- **脚本**：❌ **缺激活脚本**（且激活必须仅用户确认后人工执行，符合规则）。
+- **API**：`POST /api/sequences/sequence-active {"id":<seqId>,"active":true}`——API L262。✅ **已实测恢复**（曾 500，2026-09-02 实证 success+回读 active，见 L-47）；仍须**回读验证**防假成功。
+- **脚本**：`tools/activate_sequence.py`（激活+回读 status:active 防假；--status 只读查；须 S12 审批+用户原话含"激活"）。★空序列测完激活后**须回滚 inactive**（防后续加联系人即真发）；激活必须仅用户明确"确认激活"后执行。
 - **产出记录**：`.local/approvals.tsv`（激活确认行）；本地运行记录 status→active（不入 Git）。
 
 ### ERROR_BLOCKED（异常兜底）
@@ -174,12 +174,12 @@ audience: 人+AI
 | S9 | ~~建序列无专用脚本~~ ✅ 已补 `tools/build_sequence.py`（tz/notSentTags 运行时按名解析+12步；实测验证 2026-08-30） | 审批闸门(工具级)/新手门槛整改(工具级) | — |
 | S10 | ~~contact-add 无专用脚本~~ ✅ 已补 `tools/contact_add.py`（时序守卫+views:[] 铁律+add 数核对） | 审批闸门(工具级)/新手门槛整改(工具级) | — |
 | S11/S12 | 测试不激活无技术封锁（可直接调 sequence-active） | 测试不激活约束 open | 仅规则约束 + 人工守 |
-| S12 | 激活接口 sequence-active 实测 500 | 平台接口未就绪(激活接口500) open | 待服务端恢复，标"待实测" |
+| S12 | 激活接口 sequence-active 曾 500 | 已恢复(2026-09-02 实证) | 走 activate_sequence.py(激活+回读防假) |
 | 全局 | gate_check.sh 仅 grep 字符串存在性检查，不拦功能缺陷 | 闸门检查局限 open | 人工核验工具真排除 |
 | S1/S2/S3 | 无独立脚本（决策/展示节点；flow_orchestrator.py 原型部分覆盖） | `../db/tools.tsv` flow_orchestrator=prototype | 对话确认 + 手工 API |
 
 ### API 缺口
-- S12 `sequence-active`：api-reference 有记录（API L262）但实测 500（平台接口未就绪(激活接口500)），标【待实测/待服务端恢复】；其余 S0-S11 所需接口在 api-reference 均有实测说明（见矩阵各节点行号）。
+- S12 `sequence-active`：✅ 已实测恢复（曾 500，2026-09-02 实证，见 L-47）；激活走 `tools/activate_sequence.py`（回读防假）。其余 S0-S11 所需接口在 api-reference 均有实测说明（见矩阵各节点行号）。
 
 ### 已知不一致（供修复参考，本表已按实测为准）
 - 时序校验接口：L-32 写 `contacts/contacts-count`，但 `tools/wait_save_done.py` 实际用 `contacts/contacts/show` 的 total（api-reference 收录的也是 show 而非 count）——执行以工具/API 实测为准。
