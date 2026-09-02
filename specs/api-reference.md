@@ -53,8 +53,8 @@ audience: AI优先（人可参考）
 |------|------|---------|
 | **`POST /api/refine/company-list`** | ⭐ **AI 数据库主搜索（海量·域名搜上万）** | keyword(域名或描述句), current, pageSize, filters[], logic → 返回 total + 权威 id |
 | `POST /api/search/company-search` | 精确匹配（total:1）· 拿域名 | keyword, keyword_fields, current, pageSize |
-| `POST /api/domain/similar-list` | 域名找相似（10条/页，可翻页） | domain → **每条自带 domain**（挑相似客户/取下一锚直接用，无需名字反查）+ _score/emailsCount/client_focus/confidence |
-| `POST /api/domain/base-info` | 域名基础信息 | domain → NAICS/行业/公司名 |
+| `POST /api/domain/similar-list` | 域名找相似（10条/页） | domain → 每条含 id 等（⚠️流程不依赖此接口——获客统一走 AI 数据库搜索 keyword 路径） |
+| `POST /api/domain/base-info` | 公司信息（含★域名） | **入参是 id**（搜索结果项的 32hex id，字段名叫 domain 但值传 id）→ 返回 domain/公司名/NAICS/角色/中英摘要/电话——★取域名的正道：AI数据库搜索第一页每条的 id → 本接口 → domain |
 | `POST /api/domain/resolve-domain-name` | 域名解析 | id |
 | `POST /api/search/tasks/create` | 创建搜索任务 | type:domain(可用)/keyword(🚧维护中), keyword, language, country |
 | `POST /api/search/tasks/show` | 任务详情 | taskId, pageSize, current, filter, sort |

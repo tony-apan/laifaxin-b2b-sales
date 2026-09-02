@@ -107,7 +107,8 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 
 | 版本 | 日期 | 内容 |
 |------|------|------|
-| **v0.2.1** | 2026-09-03 | S3 选种子纠偏：双路径（query_en 文本直存 / 相似列表自带域名直接取），域名反查降级为兜底 |
+| **v0.2.2** | 2026-09-03 | S3 链路定稿：统一 AI 数据库搜索；取域名=结果 id→详情接口（seed_resolve 重写） |
+| v0.2.1 | 2026-09-03 | S3 选种子纠偏：双路径（query_en 文本直存 / 相似列表自带域名直接取），域名反查降级为兜底 |
 | v0.2.0 | 2026-09-02 | 正式修复回落：S2 推理档案建档（inference-product-add，修 generate 500）；审批闸门表头修复（新账号首次建文件）；按标签查人改 filters 数组（修 filter.tags 返全库假对账）；新增 `activate_sequence.py`（激活+回读防假）；新增 `seed_resolve.py`（种子域名反查，S3 前置）；清空工具防呆；钩子式模板规范 + 教训 L-44~47 |
 | **v0.1.0** | 2026-09-01 | 首版发布：净化公开库（通用层 + 演示案例），GPL-3.0 |
 
@@ -121,4 +122,4 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 
 ---
 
-最新发布：v0.2.1（2026-09-03） · 许可证 GPL-3.0 · 反馈：[GitHub Issues](https://github.com/tony-apan/laifaxin-b2b-sales/issues) · 变更见 [CHANGELOG.md](CHANGELOG.md)
+最新发布：v0.2.2（2026-09-03） · 许可证 GPL-3.0 · 反馈：[GitHub Issues](https://github.com/tony-apan/laifaxin-b2b-sales/issues) · 变更见 [CHANGELOG.md](CHANGELOG.md)
