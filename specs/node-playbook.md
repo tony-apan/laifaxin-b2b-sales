@@ -63,7 +63,7 @@ audience: 人+AI
   1) **预览**：客群 query_en 作关键词 → `refine/company-list {keyword:<query_en>}` 默认第一页 10 条（每条 25 字段：id/公司名/国家/角色/NAICS/B2B-B2C/置信度/邮箱数/电话/社媒×7/中文摘要/匹配分/黑名单；⚠️列表项无 domain）——长句 query_en 直接可用（实测）；若首页质量差 → 改提炼短词或换客群
   2) **取域名**：挑代表买家 → 其 `id` 调 `domain/base-info {"domain":<id>}` → 真实域名+详情（★该接口传域名也可查公司；tools/seed_resolve.py --id）
   3) **找相似=域名作 keyword 再搜主搜**（★非 domain/similar-list 接口）：`refine/company-list {keyword:<域名>}` → total≈万级相似池 → S4 审计（50页跳→三页平均→逐页→70%临界，判定表留痕）
-  4) **保存**：`save_first_n --keyword <第3步审计所用 keyword> --n <前N>`（keyword=域名保存已双产品实证；⚠️keyword=长文本 query_en 的保存效果**待实测**——首跑建议小 N+保存后按 S6 对账核验）
+  4) **保存**：`save_first_n --keyword <第3步审计所用 keyword> --n <前N>`——keyword=域名与长文本 query_en 均**已实测**（2026-09-03 C1 验证：长文本保存 10 家/24 联系人，域名逐家核对与列表第一页同批）
   ⚠️勿拿公司名当搜索锚（同名多司锚不精确 L-45）；禁翻页收集 id（铁律3）。
 - **API**：`POST /api/search/company-search`（精确找单家拿域名，keyword/keyword_fields/current/pageSize）——API L55；`POST /api/refine/company-list`（展示候选列表）——API L54。
 - **脚本**：`python3 tools/seed_resolve.py --company "<候选公司名>"`（反查真实域名，同名多司列出选；只读）——S3 候选确认前必跑；`flow_orchestrator.py` S3 打印候选 + stdin 确认。
