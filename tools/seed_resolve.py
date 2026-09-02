@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""★S3 种子域名解析（只读）：候选公司名 → 反查真实域名 → 供 refine/company-list 搜相似。
-★为什么需要：refine/company-list 返回的公司【无 domain 字段】——拿公司名直接搜相似会命中同名异司（L-45 卡点1）。
+"""S3 种子域名反查（只读·★兜底工具）：候选公司名 → 反查真实域名。
+优先路径：浏览相似客户用 domain/similar-list（结果每条自带 domain，无需本工具）；仅当手头只有公司名时才用本工具反查。
+适用：refine/company-list 候选无 domain 字段，拿公司名搜相似会命中同名异司（L-45）；但 domain/similar-list 自带 domain——先看能否直接从那里取。
 流程: 候选公司名 → search/company-search(精确找单家,拿 domain) → 同名多司列出让你选 → 输出 <域名> 作种子。
 用法:
   python3 seed_resolve.py --token <T> --org <orgId> --company "<候选公司名>"

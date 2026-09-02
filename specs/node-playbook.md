@@ -59,7 +59,7 @@ audience: 人+AI
 ### S3 SEED_PENDING（种子确认）
 - **判据（来源）**：`../RULES.md` L26「展示候选种子及采购可能；用户确认后才搜相似」；`../RULES.md` L100 决策节点②选种子：候选种子+代表客户，按**精准度/邮箱率/是否会采购**展示并给建议。
 - **通过条件**：用户确认种子**网址/域名**（或输入新种子）。
-- **★种子必须解析成域名**（L-45 卡点1）：`refine/company-list` 返回的公司**无 domain 字段**，不能拿公司名直接搜相似（会命中同名异司）。流程：候选公司名 → `POST /api/search/company-search {keyword:公司名}` 反查真实 domain → **用域名做种子**（company-search 支持直接传域名反查单家）。展示种子时须带**域名**而非仅公司名。
+- **★双路径（L-45/L-46 修正版）**：① **小批量直存**——客群推演的 query_en 即搜索词，`refine/company-list {keyword:<query_en>}` 首页即高纯度买家，`save_first_n --keyword "<query_en>" --n 30` 直接保存（keyword 可为文本；★禁翻页收集 id 即铁律3，与此不冲突）；② **扩量需域名锚**——`refine/company-list` 返回项**无 domain 字段**且拿公司名搜相似会命中同名异司；但 **`domain/similar-list`（域名找相似，10条/页可翻页）每条结果自带 domain** → 浏览相似列表挑中哪家直接用其 domain 做锚，**无需名字反查**；`seed_resolve.py --company` 仅在手头只有公司名时兜底。
 - **API**：`POST /api/search/company-search`（精确找单家拿域名，keyword/keyword_fields/current/pageSize）——API L55；`POST /api/refine/company-list`（展示候选列表）——API L54。
 - **脚本**：`python3 tools/seed_resolve.py --company "<候选公司名>"`（反查真实域名，同名多司列出选；只读）——S3 候选确认前必跑；`flow_orchestrator.py` S3 打印候选 + stdin 确认。
 - **产出记录**：`.local/approvals.tsv`（S3_种子行）；种子记 `runs/<运营方>/<产品>/operation-record.md`（须含域名）。
