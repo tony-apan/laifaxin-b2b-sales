@@ -56,7 +56,7 @@ audience: AI优先
 | S0 INPUT_GATE | 昵称+产品信息齐了才准动，缺一停 |
 | S1 PATH_PENDING | 有精准网址→快速路径 A；无→标准路径 B；两条都要用户确认 |
 | S2 SEGMENT_PENDING | 推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add，非 product-add，否则 generate 500；generate 后轮询 list 至非空）|
-| S3 SEED_PENDING | 客群 query_en 作关键词 → **AI 数据库搜索**（refine/company-list）第一页 10 条（公司名/国家/角色/NAICS/邮箱数/中文摘要/匹配分/★id）→ 每条 `id` 调 `domain/base-info` 即得**域名**（tools/seed_resolve.py --id）→ 确认后按关键词保存（`save_first_n --keyword "<query_en>"`）。⚠️勿拿公司名当搜索锚（同名异司 L-45）；不使用 domain/similar-list |
+| S3 SEED_PENDING | ①query_en 作关键词→AI 数据库搜索第一页（25字段/条，含★id，无domain）②代表买家 id→`domain/base-info`→域名（seed_resolve --id）③**域名作 keyword 再搜主搜="找相似"**（非 similar-list 接口）→S4 审计④保存 `save_first_n --keyword <审计所用keyword>`（域名已实证；长文本保存⚠️待实测首跑小N对账） |
 | S4 AUDIT_RUNNING | 只读+AI 语义反思找 70% 临界（50页跳→三页平均→逐页→跌破往前）；**★按 v2 三条客户线(直采/OEM/拓品)逐条判定+判定表留痕+边界敏感性检查**；未完成不能保存 |
 | S5 SAVE_PENDING | 展示临界 N/标签/排除4区/max/点数，用户确认后才保存（→输出 approval_id）|
 | S6 SAVE_RUNNING | front 保存；等任务 status:finished；用标签结果对账 |

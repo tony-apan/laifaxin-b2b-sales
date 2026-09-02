@@ -59,7 +59,12 @@ audience: 人+AI
 ### S3 SEED_PENDING（种子确认）
 - **判据（来源）**：`../RULES.md` L26「展示候选种子及采购可能；用户确认后才搜相似」；`../RULES.md` L100 决策节点②选种子：候选种子+代表客户，按**精准度/邮箱率/是否会采购**展示并给建议。
 - **通过条件**：用户确认种子**网址/域名**（或输入新种子）。
-- **★统一路径（2026-09-03 用户拍板：全部走 AI 数据库搜索，禁用 domain/similar-list）**：客群推演 query_en 作关键词 → `refine/company-list {keyword:<query_en>}`（第一页 10 条含公司名/国家/角色/NAICS/B2B-B2C/置信度/邮箱数/电话/社媒/中文摘要/匹配分/**权威 id**）→ 需要域名时每条 `id` 调 `POST /api/domain/base-info {"domain":<id>}` 直接返回 domain+完整信息（tools/seed_resolve.py --id）→ 用户确认关键词后 `save_first_n --keyword "<query_en>" --n <前N>` 保存（keyword 可为文本；禁翻页收集 id=铁律3）。⚠️勿拿公司名当搜索锚（同名异司 L-45）。
+- **★统一路径定稿（2026-09-03 用户拍板：全程 AI 数据库搜索，禁用 domain/similar-list 接口）**：
+  1) **预览**：客群 query_en 作关键词 → `refine/company-list {keyword:<query_en>}` 默认第一页 10 条（每条 25 字段：id/公司名/国家/角色/NAICS/B2B-B2C/置信度/邮箱数/电话/社媒×7/中文摘要/匹配分/黑名单；⚠️列表项无 domain）——长句 query_en 直接可用（实测）；若首页质量差 → 改提炼短词或换客群
+  2) **取域名**：挑代表买家 → 其 `id` 调 `domain/base-info {"domain":<id>}` → 真实域名+详情（★该接口传域名也可查公司；tools/seed_resolve.py --id）
+  3) **找相似=域名作 keyword 再搜主搜**（★非 domain/similar-list 接口）：`refine/company-list {keyword:<域名>}` → total≈万级相似池 → S4 审计（50页跳→三页平均→逐页→70%临界，判定表留痕）
+  4) **保存**：`save_first_n --keyword <第3步审计所用 keyword> --n <前N>`（keyword=域名保存已双产品实证；⚠️keyword=长文本 query_en 的保存效果**待实测**——首跑建议小 N+保存后按 S6 对账核验）
+  ⚠️勿拿公司名当搜索锚（同名多司锚不精确 L-45）；禁翻页收集 id（铁律3）。
 - **API**：`POST /api/search/company-search`（精确找单家拿域名，keyword/keyword_fields/current/pageSize）——API L55；`POST /api/refine/company-list`（展示候选列表）——API L54。
 - **脚本**：`python3 tools/seed_resolve.py --company "<候选公司名>"`（反查真实域名，同名多司列出选；只读）——S3 候选确认前必跑；`flow_orchestrator.py` S3 打印候选 + stdin 确认。
 - **产出记录**：`.local/approvals.tsv`（S3_种子行）；种子记 `runs/<运营方>/<产品>/operation-record.md`（须含域名）。
