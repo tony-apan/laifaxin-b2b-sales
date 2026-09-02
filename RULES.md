@@ -30,6 +30,7 @@ S6 SAVE_RUNNING: front保存；等任务finished；用标签结果对账（⚠�
 S7 TEMPLATE_PENDING: 只生成本地草稿；展示3-8个跨轮模板（★渲染后的收件人视图效果，非HTML源码——用 tools/render_preview.py；v2 新档按 sequence-config 生成后清单取 5-8 封）+理由；用户确认后才批量创建
 S8 TEMPLATE_BUILD: 创建后断言变量样式、标题、正文差异、轮次绑定；失败回S7
 S9 SEQUENCE_PENDING: 展示12步(30分/5/15/30天)、时区(★默认纽约)、单日30000/单家5、notSentTags=[询盘,不发]；用户确认后建序列
+S9a 固定标签: ★「询盘」「不发」=账号级一次性固定标签（2026-09-03 用户拍板）——先 tags-list 查同名存在即复用其 id，不存在才建；禁每次产品重建；id(名称) 记 runs.tsv 该产品行
 S10 CONTACT_PENDING: 保存finished、标签联系人>0、序列inactive、人数对账且用户确认后才contact-add
 S11 READY_INACTIVE: 输出完整流程和参数；测试保持inactive，等待用户确认
 S12 ACTIVE: 仅明确“确认激活/激活序列<名称>”才激活（★SPF/DKIM/退订等"发送前检查"=禁止项，2026-08-31 用户拍板，见铁律5）
