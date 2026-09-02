@@ -65,7 +65,7 @@ audience: AI优先
 | S8 TEMPLATE_BUILD | 生成 120 模板，断言变量样式/标题/差异（Jaccard≤0.70），失败回 S7 |
 | S9 SEQUENCE_PENDING | 12 步(30分/5/15/30天)+纽约时区+单日30000/单家5+notSentTags，确认后建 |
 | S10 CONTACT_PENDING | finished+标签联系人>0+序列 inactive+对账+确认后 contact-add(views:[]) |
-| S11 READY_INACTIVE | 输出完整流程与参数，测试不激活，发"流程待确认" |
+| S11 READY_INACTIVE | 输出完整流程与参数，测试不激活，发"流程待确认"。★**用户核实面板**六条：①标签 id(名称)成对表 ②客群+客群代表完整名单(每客群第一页10条) ③保存范围+抽样页判定数据 ④跨轮模板渲染样例≥5封(收件人视图) ⑤其他事实(配额消耗/事故披露/未验证项标注) ⑥逐环节审查确认矩阵——入 runs/<产品>/verification-panel.md |
 | S12 ACTIVE | 仅用户明确"确认激活/激活序列<名称>"才激活（SPF/DKIM/退订检查=禁止项）|
 | ERROR_BLOCKED | 异常/参数变/对账不一致 → 只读检查，禁写 |
 
