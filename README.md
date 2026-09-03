@@ -46,7 +46,7 @@ flowchart TD
 
 1. 下载代码库（若我已发你本地文件夹/ZIP 路径，跳过这步，直接用那个文件夹）：
    git clone https://github.com/tony-apan/laifaxin-b2b-sales.git
-   （如果 git 不可用，从 https://github.com/tony-apan/laifaxin-b2b-sales 页面 Code → Download ZIP 下载解压）
+   （如果 git 不可用，直接下载 https://github.com/tony-apan/laifaxin-b2b-sales/archive/refs/heads/master.zip 并解压）
 
 2. 通读仓库，重点按顺序学习：
    ① README.md（产品定位与流程）
@@ -157,11 +157,11 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 - [查看所有历史版本](https://github.com/tony-apan/laifaxin-b2b-sales/releases)
 - [查看开发者变更记录](CHANGELOG.md)
 
-版本细节统一放在 GitHub Releases；README 只保留最新版入口，避免两处重复维护。
+版本细节统一放在 GitHub Releases，README 不重复版本细节、只放入口链接。
 
 ## 🔄 更新到新版本（老用户）
 
-> 更新**不会动你的本地数据**：`.local/`（审批凭证）和 `runs/`（客户档案）都不在仓库里，升级只替换规则和工具。
+> 更新**不会动你的本地数据**：`.local/`（审批凭证）和 `runs/` 里你的运营档案（`runs/<你的名字>/`）都不在仓库里——仓库自带的 `runs/_template/` 只是空白模板，升级只替换规则和工具。
 
 **你只需要对 AI 说一句：**
 
@@ -170,7 +170,7 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 剩下的全是 AI 的事，它会自己做：
 
 1. 判断你当初是怎么装的（git 还是 ZIP），走对应的更新方式；
-2. 拉取最新版规则和工具，**跳过 `.local/` 和 `runs/`**（你的审批凭证和客户档案原样保留）；
+2. 拉取最新版规则和工具，**跳过 `.local/` 和 `runs/<你的名字>/`**（仓库自带的空白模板除外）（你的审批凭证和客户档案原样保留）；
 3. 更新完自动跑一遍体检，告诉你更新到了哪个版本、有没有要注意的变化。
 
 你全程只需要回复「可以」或「继续」。

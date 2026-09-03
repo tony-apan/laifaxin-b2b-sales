@@ -51,7 +51,7 @@ audience: AI优先（人可参考）
 
 | 接口 | 用途 | 关键参数 |
 |------|------|---------|
-| **`POST /api/refine/company-list`** | ⭐ **AI 数据库主搜索（海量·域名搜上万）** | keyword(域名或描述句), current, pageSize, filters[], logic → 返回 total + 权威 id |
+| **`POST /api/refine/company-list`** | ⭐ **AI 数据库主搜索（海量·域名搜上万）** | keyword(域名或描述句), current, pageSize, filters[], logic → 返回 total + 权威 id（列表项无 domain；★域名取法=每条 id → domain/base-info） |
 | `POST /api/search/company-search` | 精确匹配（total:1）· 拿域名 | keyword, keyword_fields, current, pageSize |
 | `POST /api/domain/similar-list` | 域名找相似（10条/页） | domain → 每条含 id 等（⚠️流程不依赖此接口——获客统一走 AI 数据库搜索 keyword 路径） |
 | `POST /api/domain/base-info` | 公司信息（含★域名） | 入参 **id 或域名均可**（字段名叫 domain：传搜索结果项的 32hex id → 返回其域名；直接传域名 → 返回该公司信息）→ domain/公司名/NAICS/角色/中英摘要/电话。★取域名正道：第一页 id → 本接口 |

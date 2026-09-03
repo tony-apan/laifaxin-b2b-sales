@@ -56,7 +56,7 @@ flowchart TD
 | "激活 / 发信" | S12：仅用户明确"确认激活" → **`python3 tools/activate_sequence.py --seq <id> --confirm "<用户原话>" --approval <S12凭证> --project <产品>`**（激活+回读 status:active 防假成功）；★**空序列测完激活后须回滚 inactive**（防后续加联系人即真发）；发信前区分责任：平台负责发送基础设施与退订技术呈现，运营方仍须核验目标市场、名单来源、发送主体、实际退订入口与拒收要求 |
 | "验证这批对不对" | `tools/verify_exclude.py`（排除4区）/ `tools/verify_sequence.py`（12步）/ `tools/check_template_diff.py`（差异≥30%）|
 | "模板重建 / 换模板" | `tools/rebuild_templates.py`（⚠️半自动，顺序铁律见 L-43，需人工分步）|
-| "清空重来" | 危险操作，先用户确认 → 按 `specs/api-reference.md` 清空工具节执行（清空脚本未随库分发）|
+| "清空重来" | 危险操作，先用户确认。产品档案清空：`python3 tools/delete_all_products.py`（默认 dry-run，--execute --confirm "DELETE-ALL" 才真删）；联系人/模板清空按 `specs/api-reference.md` 清空工具节封装 |
 | "出问题了 / 记教训" | 本地问题登记（`db/issues.tsv`，本地数据不入 Git）+ `lessons/lessons-learned.md` |
 | **"对抗审查 / 这个准不准 / 审一下"** | **RULES.md「🛡 操作对抗审查」（★用户强制：决策/产出必经空白子代理对抗）→ 按四类固定清单/执行前反思矩阵审 → 产出 `dialogue/reviews/rev-<日期>-<时分>-<操作>.md`（只放行/整改P0P1P2）→ 写操作三凭证：用户确认(approvals)+对抗审查(reviews)+操作流水(ops-log)** |
 | "账号什么等级 / 配额多少 / 点数够不够 / SVIP" | 连接检查即显示：`tools/check_login.py`（vip=2 显示 SVIP；今日/本月配额+剩余；充值次数/自动充值）→ 话术 [S0-连接成功](output-templates/S0-连接成功.md)；接口无余额/到期字段，禁止编造 |
@@ -129,6 +129,7 @@ flowchart TD
 7. **标签=客户群体身份 `语言-行业-角色`**（不是你的产品）；记录一律 `id(名称)` 成对
 7a. **署名=纯个人昵称**（禁公司名/产品名/职位入昵称与落款）；公司/官网/邮箱用户主动给才写正文
 7b. **保存邮箱口径=valid+unkown 都存**（未知邮箱默认保存）；数量落差四机制主动向用户解释（S6-数量账）
+7c. **语言三方配对**：标签/模板/序列语言一致才 contact-add（西语客群禁收英语信）——contact_add.py 内置守卫
 8. 内部命名（标签/视图/序列/模板分组）一律中文；邮件正文=目标市场语言（默认全球英语）
 
 ## 5️⃣ 新会话三步走
@@ -144,10 +145,10 @@ flowchart TD
 | 规则（唯一真源） | `RULES.md` → `specs/api-reference.md`（接口模板）/ `specs/threshold-method.md`（70%临界）/ `specs/domain-scale-sop.md`（域名搜+保存）/ `specs/sequence-config.md`（模板+序列）/ `specs/operations-sop.md` |
 | 流程逻辑 | `methodology/decision-trees.md`（A/B 路径图）/ `INDEX.md`（导航）|
 | 当前状态 | `.local/`（本地状态+运营方档案+审批凭证；首次运行自动生成，每账号/每 clone 一份，不入 Git）|
-| 工具（工具=规则） | `tools/gate_check.sh`、`onboard_check.py`、`check_login.py`（登录+账号状态卡）、`flow_orchestrator.py`、`approval.py`、`seed_resolve.py`（S3 id→域名）、`tag_add.py`（S5 前置建标签，同名复用）、`save_first_n.py`（内置数量账输出）、`wait_save_done.py`、`gen_templates.py`（自动归组）、`check_template_diff.py`、`build_sequence.py`（S9，公司触发器=什么都不做）、`contact_add.py`（S10）、`activate_sequence.py`（S12 激活+回读防假+--deactivate）、`resolve_schedule.py`、`verify_exclude.py`、`verify_sequence.py`、`rebuild_templates.py`、`audit_company.py`、`render_preview.py`、`check_rules.sh`（★一条龙=check_login→gate→orchestrator→save→wait→gen→diff→build→add→verify）|
+| 工具（工具=规则） | `tools/gate_check.sh`、`onboard_check.py`、`check_login.py`（登录+账号状态卡）、`flow_orchestrator.py`、`approval.py`、`seed_resolve.py`（S3 id→域名）、`tag_add.py`（S5 前置建标签，同名复用）、`save_first_n.py`（内置数量账输出）、`wait_save_done.py`、`gen_templates.py`（自动归组）、`check_template_diff.py`、`build_sequence.py`（S9，公司触发器=什么都不做）、`contact_add.py`（S10）、`activate_sequence.py`（S12 激活+回读防假+--deactivate）、`resolve_schedule.py`、`verify_exclude.py`、`verify_sequence.py`、`rebuild_templates.py`、`audit_company.py`、`render_preview.py`、`check_rules.sh`（AI 自查 token/规则/问题）|
 | 用户话术模板 | `output-templates/`（README=总索引；T-token/S0连接+画像/S2/S3/S4审计中/S5/S6数量账/S7/S8构建中/S9/S10/S11/S12/Q1-Q5 15 个话术模板+1 个总索引——每模板=用户话术+AI执行要点与边界）|
 | 档案（多公司多产品） | `runs/<运营方>/<产品>/`（operation-record/reflection/evidence/verify-*）+ `runs/_template/` + 本地运行记录（不入 Git）|
-| 问题与教训 | 本地问题登记（`db/issues.tsv`，本地数据不入 Git，open 即待办）/ `lessons/lessons-learned.md`（L-01~L-53）/ `review-cycle.md`（旁观者审查）|
+| 问题与教训 | 本地问题登记（`db/issues.tsv`，本地数据不入 Git，open 即待办）/ `lessons/lessons-learned.md`（L-01~L-43；L-44 起为内部私有库条目）/ `review-cycle.md`（旁观者审查）|
 
 > ⚠️ **执行纪律**：写操作工具必须带 `--approval <id> --project <产品>`（审批硬闸门·工具级，凭证在 `.local/approvals.tsv`）；每次操作前先读 RULES+对应 spec；本 SKILL.md 只是入口，与 RULES/specs 冲突时以后者为准。
 > 🆘 新手黑话/常见疑惑：`glossary/glossary.md`（系统词人话表）· `wiki/faq.md`（配额/接口空/数量落差/None 等FAQ）· 渐进索取/昵称/署名/账号状态卡规则见上方 §2 与 output-templates/

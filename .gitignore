@@ -32,3 +32,5 @@ RELEASE-REVIEW.md
 # ★运营方真实运行档案/本地数据(不入公开仓, 仅保留 _template) — 2026-09-02 对抗审查 P0-4 后立
 runs/*/
 !runs/_template/
+.video_agent/
+.video_agent

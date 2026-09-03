@@ -121,6 +121,10 @@ ok, why = check_confirm(args.confirm, "激活")
 if not ok:
     print(f"❌ 确认原话校验未过: {why}: {args.confirm!r}\n   仅用户明确正向'确认激活'才激活"); sys.exit(2)
 
+# 凭证出口=本工具：原话校验通过即落 S12 审批行（以用户原话为 quote），消除"必须 --approval 但无处铸造"死锁
+from approval import record as _record
+_aid = _record(args.project or "未命名", "S12_激活", "confirm", args.confirm, args.confirm[:32], "confirmed")
+print(f"  🔑 S12 审批凭证已落账: {_aid}（原话为证）")
 print(f"🔓 执行激活: sequence-active {{id:{args.seq}, active:true}}")
 r = api("sequences/sequence-active", {"id": args.seq, "active": True})
 print(f"  接口返回: success={r.get('success')} {r.get('message') or ''}")

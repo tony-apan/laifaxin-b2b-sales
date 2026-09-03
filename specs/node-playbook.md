@@ -36,7 +36,7 @@ audience: 人+AI
 ## 1. 节点矩阵（S0-S12，每个节点照抄执行）
 
 ### S0 INPUT_GATE（闸门 + 必填输入）
-- **判据（来源）**：`../RULES.md` L23「昵称 + 基础产品信息必填；缺一只询问，不写入」；`../methodology/decision-trees.md`「Gate 0」：①**昵称** ②**基础产品信息**（产品名/用途/行业/目标市场，可加卖点），缺任一 → 停、先补齐，不猜、不代填。闸门 = `check_login.py` 登录检查通过 + `gate_check.sh` 全绿。
+- **判据（来源）**：`../RULES.md` S0「★最小必要输入=昵称+一句话产品（中英皆可）；渐进索取——每步只问当前必需的一件事，禁止开局列清单，禁止主动索要公司名/官网/邮箱/认证/MOQ；昵称只含个人称呼」。闸门 = `check_login.py` 登录检查通过 + `gate_check.sh` 全绿。
 - **通过条件**：昵称非空 + 产品信息非空 + gate_check 通过（token 有效 + `RULES.md/INDEX.md/specs/threshold-method.md/specs/domain-scale-sop.md/specs/sequence-config.md` 存在 + 4区排除/front/时序/code变量 规则 grep 命中）。昵称写入本地运营方档案 `.local/operator-profile.md`（★签名唯一源）。
 - **API**：`POST /api/benefits/refine-data {}`（token 校验，返回 dailyLimit/dailyUsed 等）——API L382、L398。
 - **脚本**：★第一步 `python3 tools/check_login.py --token '<T>'`（登录检查，只读；org 自动从 token 提取 web.laifaxin.com&<orgId>&<hash>；无/失效→打印官方教程引导 https://www.laifa.xin/share/ai/laifaxin-ai-account-connection ）；然后 `bash tools/gate_check.sh --token <TOKEN> [--org <orgId>]`（--org 可省略=自动提取）；可选 `python3 tools/onboard_check.py`（新会话引导）。
@@ -158,7 +158,7 @@ audience: 人+AI
 
 | # | 易漏点 | 判据原文要点 | 来源 |
 |---|--------|-------------|------|
-| 1 | **S0 闸门硬条件** | 昵称+基础产品信息必填，缺一只询问不写入；且必须 `gate_check.sh` 通过（token 有效+必读文档存在+规则命中）才能开始流程 | `../RULES.md` L18/L23；`../methodology/decision-trees.md` Gate0 |
+| 1 | **S0 闸门硬条件** | 昵称+一句话产品必填（中英皆可），缺一只问这一项；渐进索取，禁开局列清单；且必须 `gate_check.sh` 通过（token 有效+必读文档存在+规则命中）才能开始流程 | `../RULES.md` S0；`../methodology/decision-trees.md` Gate0 |
 | 2 | **S2 客群推荐维度** | 每个客群写「精准潜在客户：是/否/条件成立时是」并给成交周期/询盘速度/量级/邮箱可得/竞争度/推荐；只打印不代选 | `../RULES.md` L25/L51/L94 |
 | 3 | **S4 临界判定** | 判定=AI 反思「会不会买」语义推理，**不是关键词匹配**；工具词匹配只做趋势初筛；50页跳→三页平均→逐页→跌破往前；临界页人工逐条读完整10条 | `specs/threshold-method.md` L19-27/L50-58；L-26 |
 | 4 | **S5 保存前重复检查** | 保存前查 (keyword+seed+阈值+selectTotal+排除4区) 是否曾完成保存，已存则不重存（省额度）——★规则有、脚本缺（防重复保存缺口） | `../RULES.md` L73 |
