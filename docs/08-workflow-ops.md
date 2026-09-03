@@ -115,7 +115,7 @@ python3 audit_company.py --query "英文描述句" --pages 1,500,990,995,1000 --
 | 产品档案 | POST /api/profile/inference-product-add | product_name/zh/en/desc_zh/exclusions |
 | 生成客群 | POST /api/profile/inference-segment-generate | product_id |
 | 客群列表 | POST /api/profile/inference-segment-list | product_id |
-| 保存任务 | 界面流程（Playwright） | 标签ID+contactMaxCount:3+valid+unkown |
+| 保存任务 | ~~界面流程（Playwright）~~（已废）| 现行=纯 API：`tools/save_first_n.py`（front+selectTotal+contactMaxCount:3+valid+unkown）|
 | 标签列表 | POST /api/contacts/tags-list | type: company/contacts |
 | 公司列表 | POST /api/contacts/companies/show | filter.tags |
 | 联系人列表 | POST /api/contacts/contacts/show | filter.tags |

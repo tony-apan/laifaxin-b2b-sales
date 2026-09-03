@@ -2,7 +2,7 @@
 title: "来发信知识库·总索引（AI快速查询）"
 description: "统一的索引层：md主索引 + tsv数据库索引。标注每个文档/脚本的路径/用途/状态，供AI快速定位（换机/断会话可用）"
 created: 2026-08-29
-updated: 2026-08-29
+updated: 2026-09-03
 author: "AI + 用户对抗"
 source: "对抗完善"
 related: [RULES.md, specs/data-structure, README]
@@ -25,14 +25,15 @@ audience: 人+AI
 | **Skill入口** | SKILL.md | `SKILL.md` | ★触发场景路由表+S0-S12一句话判据+铁律摘要（新AI第一读） | ✅ |
 | **节点手册** | node-playbook | `specs/node-playbook.md` | ★节点判据×API×脚本对照表（执行照抄） | ✅ |
 | **方法-临界** | threshold-method | `specs/threshold-method.md` | AI反思/50页跳/三页平均/找70%临界 | ✅ |
+| **判定-适配度** | product-fit | `specs/product-fit.md` | ★S0 前置：强/条件/弱适配三档（买家盘×决策链×周期×渠道层）+各档打法 | ✅ |
 | **SOP-规模化** | domain-scale-sop | `specs/domain-scale-sop.md` | 域名搜/front保存(前N不翻页) | ✅ |
 | **规范-模板/序列** | sequence-config | `specs/sequence-config.md` | code变量/差异30%/冷启动/美国时间 | ✅ |
 | **规则-营销** | marketing-rules-2.0 | `specs/marketing-rules-2.0.md` | 70%默认/3邮箱/暖机/contactExcludes | ✅ |
 | **SOP-代运营** | operations-sop | `specs/operations-sop.md` | 时区/点数预算/标签/找相似 | ✅ |
 | **API参考** | api-reference | `specs/api-reference.md` | 全接口参数（含front保存/验证） | ✅ |
-| **教训** | lessons-learned | `lessons/lessons-learned.md` | 问题教训(L-01~L-52) | ✅ |
+| **教训** | lessons-learned | `lessons/lessons-learned.md` | 问题教训(L-01~L-53) | ✅ |
 | **询盘转化** | mass-to-precision | `docs/09-mass-outreach-to-precision-follow-up.md` | 广撒网成本账→询盘背调→A/B/C/D分级→多渠道长期跟进 | ✅ |
-| **用户话术** | output-templates | `output-templates/`（含 S0-连接成功/T-token/S2/S5/S6-数量账/S7/S9/S10/S11/S12/Q1-Q5） | S0-S12+询盘阶段给小白看的固定输出模板 | ✅ |
+| **用户话术** | output-templates | `output-templates/`（总索引+15 话术模板：T-token/S0连接+画像/S2/S3/S4审计中/S5/S6数量账/S7/S8构建中/S9/S10/S11/S12/Q1-Q5） | S0-S12+询盘阶段给小白看的固定输出模板 | ✅ |
 | **数据结构** | data-structure | `specs/data-structure.md` | md/tsv/jsonl分工/目录规范 | ✅ |
 | **运营方档案** | operator-profile | 本地 `.local/operator-profile.md`（不入 Git） | 昵称/公司/官网/联系方式/市场默认（★待用户补公司信息） | ✅ |
 | **术语表** | glossary | `glossary/glossary.md` | 系统/业务词人话解释（新手必读） | ✅ |
