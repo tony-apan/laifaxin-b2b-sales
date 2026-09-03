@@ -16,4 +16,11 @@
 - 粘贴代码时浏览器可能提示 "Don't paste code"——按提示输入 allow pasting 再粘
 - token 等同账号密码，只发给你信任的 AI，别发群里
 - 拿到 null = 还没登录，先登录再试
+- 图文教程：https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
 ```
+
+## AI 执行要点与边界
+- token 等同账号密码：只发信任 AI、不发群聊、不写入文件
+- 检查用 check_login.py（只读）；三类失败分流：网络不通≠token 失效、复制不全、接口间歇空
+- 连接成功后按 S0-连接成功.md 展示账号状态（SVIP 映射/配额/充值）
+- 新账号引导照模板话术，含 Don't paste code 防骗提示
