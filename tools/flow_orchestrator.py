@@ -25,7 +25,7 @@ ap.add_argument("--token", required=True, help="accesstoken 整串(格式 web.la
 ap.add_argument("--org", required=True, help="orgId(=token 第2段;必填,禁止默认租户)")
 ap.add_argument("--nickname", required=True, help="昵称=客户邮件落款(建议英文,如 Tina from ABC Corp)")
 ap.add_argument("--product", required=True, help="产品名(必填)")
-ap.add_argument("--product-info", required=True, help="产品信息一段话(用途/行业/目标市场/卖点),例:保温杯/咖啡保温器具/欧美户外零售/真空双层12h+可定制Logo,MOQ 1000")
+ap.add_argument("--product-info", default="", help="产品一句话(可选;未提供则用 --product)。★禁止填编造的 MOQ/认证/产能数字——用户没给的数字一律不写")
 ap.add_argument("--seed", default="", help="精准客户网址(可选,有→快速路径A)")
 ap.add_argument("--exclude", default="CN,TW,HK,MO")
 ap.add_argument("--skip-preview", action="store_true", help="跳过模板草稿展示(用户说不要看)")
@@ -104,8 +104,9 @@ def confirm(state, prompt, params):
         return False
 
 # ---------- S0 INPUT GATE ----------
-print(f"●S0 INPUT_GATE: 昵称={args.nickname} | 产品={args.product}")
-if not (args.nickname and args.product and args.product_info): print("  ❌ 缺昵称/产品/产品信息，终止"); sys.exit(1)
+print(f"●S0 INPUT_GATE: 昵称={args.nickname} | 产品={args.product} | 产品信息={'用户提供' if args.product_info != args.product else '仅一句话(未提供详述) '}")
+if not (args.nickname and args.product): print("  ❌ 缺昵称/产品，终止"); sys.exit(1)
+if not args.product_info: args.product_info = args.product  # 一句话产品兜底;禁止为凑字段编造 MOQ/认证
 check_login_first()
 record("S0","gate_ok",f"nickname={args.nickname},product={args.product}",STATE["params"])
 
@@ -132,7 +133,7 @@ if not args.dry_run and not pathA:
 if not pathA:
     print("●S2 SEGMENT_PENDING: 推演客群(默认4个, 可扩展)")
     # ★B-3: 写操作(建产品档案+推演客群)必须在用户确认后才执行——先确认, 后写
-    if confirm("S2_客群", "将执行产品档案+推演（写操作，租户本地）——客群合适吗？", STATE["params"]):
+    if confirm("S2_客群", "将创建产品档案并推演客群（写操作，租户本地），推演结果出来后我再给您选。继续？", STATE["params"]):
         if not args.dry_run:
             # ★ISS-48: 建【推理档案】须用 inference-product-add(字段 zh/en/desc_zh/exclusions)——旧用基础档案 product-add 会导致 inference-segment-generate 返回 500
             pa=api("profile/inference-product-add",{"product_name":args.product,"product_zh":args.product,"product_en":args.product,"product_desc_zh":args.product_info,"product_exclusions":""})
@@ -171,7 +172,7 @@ if not args.dry_run:
         print("  （标准路径：向用户要 query_en 客群画像描述做文本搜种子发现；从结果页挑真实渠道商做种子——文本搜结果本身不直接保存）")
         print("  ★种子须用【域名】：候选公司名无 domain 字段，先用 tools/seed_resolve.py --company \"<公司名>\" 反查真实域名（L-45）")
 while True:
-    r3 = confirm("S3_种子", "用上述种子搜相似?", STATE["params"])
+    r3 = confirm("S3_种子", "确认用这个锚点继续？(回复编号/新网址/确认)", STATE["params"])
     if r3 is False:
         m3 = _re.search(r'[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', input("  请把新种子网址完整发一次: ").strip())
         if m3:
