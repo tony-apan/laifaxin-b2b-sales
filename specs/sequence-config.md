@@ -131,6 +131,11 @@ audience: 人+AI
 - 防止同质化被拒/风控
 - ⚠️ **诚实口径（对抗审查 模板差异实测（工具级））**：12 轮方向互异是硬保证；但 gen_templates 正文有固定 boilerplate（"You'll get … in your inbox today / Just reply … and I'll send it now / 落款"约15词）+ 同轮共享 angle，**同轮10变体仅差 hook/key/extra 3-4 词，Jaccard 相似度可能 >0.70**。故"差异≥30%"**不得声称已达标**——生成后必须跑 `tools/check_template_diff.py --prefix` 实测，超 0.70 列为违例对再改。
 
+## ★ 模板分组规范（2026-09-03 用户拍板：禁止散落"未指定目录"）
+- **每组模板必须归入同名分组**：分组名=模板前缀（如"英-保温杯-"→分组"英-保温杯-"）
+- gen_templates.py **默认自动建/复用分组**（ensure_folder：查 templates-folder-list→无则 template-folder-add）；--foid 可显式指定
+- 用户在平台"模板库"按分组一眼看清每个产品的 120 封；散落=维护灾难
+
 ## templates-add 必填
 - name + subject + html（foid:"0"）
 - 模板每轮区分（命名含轮次，如 英-皮筏艇-R03-降本-V02）

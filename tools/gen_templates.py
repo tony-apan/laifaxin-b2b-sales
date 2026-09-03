@@ -21,7 +21,7 @@ ap.add_argument("--org", required=True)
 ap.add_argument("--product", default="", help="产品名——★内置文案仅支持:皮筏艇/玻璃瓶;其他产品须先用 --plan 提供任意模板计划(或由AI现写文案入PRODUCTS)")
 ap.add_argument("--prefix", required=True, help="模板名前缀,如 英-玻璃瓶-")
 ap.add_argument("--suffix", default="-GL", help="命名后缀")
-ap.add_argument("--foid", default="0", help="模板分组id")
+ap.add_argument("--foid", default="", help="模板分组id(默认自动按 --prefix 建同名分组并归入;传 0 = 未指定目录,不推荐——120 个模板会散落)")
 ap.add_argument("--name", required=True, help="签名昵称=客户邮件里看到的落款(★GATE0昵称,建议英文如 Tina from ABC Corp;必填防误用他人默认名)")
 ap.add_argument("--preview", action="store_true", help="仅草稿展示(渲染视图,不创建)")
 ap.add_argument("--out", default="", help="可选: 落盘 name→id 映射 JSON(供重建序列 step-save 用)")
@@ -206,6 +206,42 @@ def preview():
             print("  " + l)
     print(f"\n(预览仅代表; 生成={len(DIRECTIONS)}轮x{len(VARIANTS)}={len(DIRECTIONS)*len(VARIANTS)}, 每轮正文句不同+每变体正文句不同)")
 
+def ensure_folder():
+    """S8 固化(2026-09-03 用户拍板): 模板必须归入分组,禁止散落在未指定目录。
+    --foid 显式给 id 则直接用; 否则按 prefix 查 templates-folder-list, 无则建同名分组。"""
+    if args.foid:
+        return args.foid
+    fl = subprocess.run(["curl", "-sSL", "-X", "POST",
+                         f"https://web.laifaxin.com/api/mailbox/templates-folder-list?uid={args.org}",
+                         "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}", "-d", "{}"],
+                        capture_output=True, text=True, timeout=60)
+    try:
+        lst = json.loads(fl.stdout).get("data") or []
+        lst = lst if isinstance(lst, list) else lst.get("list", [])
+    except Exception:
+        lst = []
+    for f in lst:
+        if isinstance(f, dict) and f.get("name") == args.prefix:
+            print(f"   分组复用: {args.prefix} (foid={f.get('id')})")
+            return str(f.get("id"))
+    fa = subprocess.run(["curl", "-sSL", "-X", "POST",
+                         f"https://web.laifaxin.com/api/mailbox/template-folder-add?uid={args.org}",
+                         "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
+                         "-d", json.dumps({"name": args.prefix})],
+                        capture_output=True, text=True, timeout=60)
+    try:
+        d = json.loads(fa.stdout)
+        dd = d.get("data") or {}
+        fid = dd.get("id") or dd.get("_id") or (dd if isinstance(dd, str) else "")
+        if fid and re.fullmatch(r"[0-9a-f]{24}", str(fid)):
+            print(f"   分组已建: {args.prefix} (foid={fid})")
+            return str(fid)
+    except Exception:
+        pass
+    print("   ⚠️ 分组创建失败——模板将落入未指定目录(不推荐)。可 --foid <id> 重试")
+    return "0"
+
+
 def add(name, subject, html):
     p = {"name": name, "foid": args.foid, "subject": subject, "html": html}
     cmd = ["curl", "-sSL", "-X", "POST", f"https://web.laifaxin.com/api/mailbox/template-add?uid={args.org}",
@@ -225,6 +261,8 @@ def add(name, subject, html):
 if args.preview:
     preview()
     sys.exit(0)
+
+args.foid = ensure_folder()  # S8: 模板必须归入分组(禁散落未指定目录)
 
 require_approval(args.approval, args.project, ("S7", "S8"), what="批量创建模板")
 

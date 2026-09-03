@@ -91,7 +91,7 @@ flowchart TD
 | S5 SAVE_PENDING | 展示临界 N/标签/排除4区/max/点数，用户确认后才保存（→输出 approval_id）|
 | S6 SAVE_RUNNING | front 保存；等任务 status:finished；用标签结果对账 |
 | S7 TEMPLATE_PENDING | 只生草稿，展示 3-8 个**渲染后视图**+理由，确认后才批量创建。★正文署名只用昵称；公司名/官网/邮箱**仅在用户已主动提供时**写入，禁止主动索要 |
-| S8 TEMPLATE_BUILD | 生成 120 模板，断言变量样式/标题/差异（Jaccard≤0.70），失败回 S7 |
+| S8 TEMPLATE_BUILD | 生成 120 模板并**自动归入同名分组**（禁散落未指定目录），断言变量样式/标题/差异（Jaccard≤0.70），失败回 S7 |
 | S9 SEQUENCE_PENDING | 12 步(30分/5/15/30天)+纽约时区+单日30000/单家5+notSentTags，确认后建 |
 | S9a FIXED_TAGS | 账号固定标签“询盘/不发”：先查同名，存在复用 id，不存在才建；不随产品重复创建，记录 id(名称) |
 | S10 CONTACT_PENDING | finished+标签联系人>0+序列 inactive+对账+确认后 contact-add(views:[]) |
