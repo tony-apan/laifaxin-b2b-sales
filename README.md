@@ -95,12 +95,13 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 
 | 文件 | 里面是什么 |
 | --- | --- |
-| `RULES.md` | 规则总纲——**唯一真源**：完整状态机 S0–S12、铁律、审批闸门（动手前必须你点头的手续） |
-| `SKILL.md` | 给 AI 的入口路由 |
-| `specs/` | 接口规范、70% 临界方法论、序列配置、域名规模化 SOP |
-| `methodology/` | 决策树 / 最佳实践 / 检查清单 |
-| `docs/` | 面向人的教程（第 03、08 篇带"过时横幅"，以 RULES/specs 为准；**第 09 篇讲广撒网成本账、询盘背调与多渠道精准跟进**） |
-| `runs/_template/` | 新案例起始模板 |
+| [RULES.md](RULES.md) | 规则总纲——**唯一真源**：完整状态机 S0–S12、铁律、审批闸门（动手前必须你点头的手续） |
+| [SKILL.md](SKILL.md) | 给 AI 的入口路由 |
+| [specs/](specs/) | 接口规范、70% 临界方法论、序列配置、域名规模化 SOP |
+| [methodology/](methodology/) | 决策树 / 最佳实践 / 检查清单 |
+| [docs/](docs/) | 面向人的教程（第 03、08 篇带"过时横幅"，以 RULES/specs 为准；**第 09 篇讲广撒网成本账、询盘背调与多渠道精准跟进**） |
+| [output-templates/](output-templates/) | 14 个输出话术模板（AI 照模板向你展示与确认） |
+| [runs/_template/](runs/_template/) | 新案例起始模板 |
 
 简单说：README 是门口指引，RULES.md 是详细逻辑，specs/ 是每条逻辑的技术细节——新手都不用先读，AI 会用。
 
@@ -118,7 +119,7 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 
 **运行依赖**：主流程零第三方依赖——Python 3 标准库 + curl + bash（macOS / Linux 开箱即用；Windows 用 Git Bash 或 WSL，这两个是在 Windows 里模拟命令行环境的免费工具）。只有复现研究类脚本时才需要 `pip install -r requirements.txt`（Playwright；相关研究脚本不随库分发）。
 
-**目录导览**：`RULES.md`＝规则唯一真源；`SKILL.md`＝AI 入口路由；`specs/`＝接口规范；`tools/`＝22 个随库工具；`runs/_template/`＝新案例起始模板；另有 `docs/`（面向人的教程）、`glossary/`（术语表）、`wiki/`（FAQ）、`lessons/`（教训库，编号已脱敏抽象）。
+**目录导览**：[RULES.md](RULES.md)＝规则唯一真源；[SKILL.md](SKILL.md)＝AI 入口路由；[specs/](specs/)＝接口规范；[tools/](tools/)＝随库工具；[runs/_template/](runs/_template/)＝新案例起始模板；另有 [docs/](docs/)（面向人的教程）、[glossary/](glossary/)（术语表）、[wiki/](wiki/)（FAQ）、[lessons/](lessons/)（教训库，编号已脱敏抽象）。
 
 **许可证**：**GPL-3.0**，全文见 [LICENSE](LICENSE)。第三方教程原文与未授权截图不随库分发。
 
