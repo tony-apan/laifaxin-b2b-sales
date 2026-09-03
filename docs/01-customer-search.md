@@ -2,7 +2,7 @@
 title: "客户搜索（AI 数据库）"
 description: "4 种搜索方式（搜域名/AI推演/提纯搜/找相似）+ 服务词vs产品词心法 + 实测 API 参数"
 created: 2026-08-21
-updated: 2026-08-21
+updated: 2026-09-03
 author: "AI Agent + 运营方"
 source: "https://www.laifa.xin/zhinan/refine-search-all"
 related: [02-filter-customers, 08-workflow-ops, specs/api-reference]
@@ -39,10 +39,9 @@ audience: 人+AI
 
 > ⚠️ 数据同步中：输入域名后如果结果空/少，表示数据正在同步，换其他网站搜，过几天再试。
 
-**API（实测验证）**：
-- 域名搜索任务创建：`POST /api/search/tasks/create` `{"type":"domain","keyword":"域名","name":"...","language":"en","country":"US"}`
-- 查看任务：`POST /api/search/tasks/show` `{"taskId":"...","pageSize":10,"current":1,"filter":{},"sort":{}}`
-- 找相似（固定10条，带相似度评分）：`POST /api/domain/similar-list` `{"domain":"域名"}` → 返回 `_score`、`emailsCount`、`client_focus`(B2B/B2C)、`confidence`
+**历史 API 能力（当前 S3 主流程不使用）**：
+- `POST /api/domain/similar-list` 可返回固定 10 条相似结果，但现行流程统一使用 `refine/company-list`：query_en 搜第一页 → id 取真实域名 → 域名作为 keyword 海量扩量。
+- 域名任务类接口属于历史/补充能力，执行前须按当前 `specs/api-reference.md` 与平台状态复核。
 
 ### ② AI 推演：让系统帮你想客群
 
@@ -85,9 +84,9 @@ audience: 人+AI
 
 **适用**：结果里发现 1 个极准客户
 
-**操作**：点该客户行的「找相似」按钮 → 继续扩展更多同类型客户 → 可从新结果里再找最准的当种子 → 滚雪球
+**现行操作**：从 AI 数据库搜索结果中挑代表买家 → 用该条 id 查询真实域名 → 把域名作为 keyword 继续走 `refine/company-list` 海量扩量。不要调用 `domain/similar-list` 作为现行 S3 主路径。
 
-**API（实测验证）**：`POST /api/domain/similar-list` `{"domain":"种子域名"}` → 返回 10 个相似客户，带 `_score` 相似度。**多个种子可换行拼接**（`keyword:"域名1\n域名2"`）创建域名搜索任务。
+**历史能力说明**：平台界面的“找相似”与旧 `domain/similar-list` 仍可能存在，但本仓库的现行规则以 `RULES.md`、`SKILL.md` 和 `specs/node-playbook.md` 为准。
 
 ## ⚙️ 搜索词构造技巧（金玉良言）
 

@@ -61,14 +61,13 @@ audience: 人+AI
 ### S3 SEED_PENDING（种子确认）
 - **判据（来源）**：`../RULES.md` L26「展示候选种子及采购可能；用户确认后才搜相似」；`../RULES.md` L100 决策节点②选种子：候选种子+代表客户，按**精准度/邮箱率/是否会采购**展示并给建议。
 - **通过条件**：用户确认种子**网址/域名**（或输入新种子）。
-- **★统一路径定稿（2026-09-03 用户拍板：全程 AI 数据库搜索，禁用 domain/similar-list 接口）**：
-  1) **预览**：客群 query_en 作关键词 → `refine/company-list {keyword:<query_en>}` 默认第一页 10 条（每条 25 字段：id/公司名/国家/角色/NAICS/B2B-B2C/置信度/邮箱数/电话/社媒×7/中文摘要/匹配分/黑名单；⚠️列表项无 domain）——长句 query_en 直接可用（实测）；若首页质量差 → 改提炼短词或换客群
-  2) **取域名**：挑代表买家 → 其 `id` 调 `domain/base-info {"domain":<id>}` → 真实域名+详情（★该接口传域名也可查公司；tools/seed_resolve.py --id）
-  3) **找相似=域名作 keyword 再搜主搜**（★非 domain/similar-list 接口）：`refine/company-list {keyword:<域名>}` → total≈万级相似池 → S4 审计（50页跳→三页平均→逐页→70%临界，判定表留痕）
-  4) **保存**：`save_first_n --keyword <第3步审计所用 keyword> --n <前N>`——keyword=域名与长文本 query_en 均**已实测**（2026-09-03 C1 验证：长文本保存 10 家/24 联系人，域名逐家核对与列表第一页同批）
-  ⚠️勿拿公司名当搜索锚（同名多司锚不精确 L-45）；禁翻页收集 id（铁律3）。
-- **API**：`POST /api/search/company-search`（精确找单家拿域名，keyword/keyword_fields/current/pageSize）——API L55；`POST /api/refine/company-list`（展示候选列表）——API L54。
-- **脚本**：`python3 tools/seed_resolve.py --company "<候选公司名>"`（反查真实域名，同名多司列出选；只读）——S3 候选确认前必跑；`flow_orchestrator.py` S3 打印候选 + stdin 确认。
+- **★AI 数据库搜索链（3步，2026-09-03 用户拍板；禁用 domain/similar-list 作为主流程）**：
+  1) **预览**：客群 query_en 作关键词 → `refine/company-list {keyword:<query_en>}` 默认第一页 10 条（含 id/公司名/国家/角色/NAICS/客户类型/置信度/邮箱数/电话/社媒/摘要/匹配分；列表项无 domain）。若首页质量差 → 改关键词或换客群。
+  2) **取域名**：挑代表买家 → 结果 `id` 调 `domain/base-info {"domain":<id>}` → 真实域名+详情（`tools/seed_resolve.py --id`；`--company` 仅兜底）。
+  3) **扩量**：域名作 keyword 继续走 `refine/company-list` 主搜索 → 用户确认锚点后进入 S4 审计。
+  随后由 S4 找名单筛选边界；S5/S6 按审计所用 keyword 保存前 N（域名/长文本 keyword 均已实测：保存与列表同批）。勿拿公司名当锚；禁翻页收集 id（铁律3）。
+- **API**：`POST /api/refine/company-list`（预览/扩量）+ `POST /api/domain/base-info`（id→真实域名/详情）；`search/company-search` 仅兜底精确查单家。
+- **脚本**：`tools/seed_resolve.py --id <结果id>`（主）/ `--keyword "<query_en>"`（全览）/ `--company`（仅兜底）；`flow_orchestrator.py` S3 打印候选 + stdin 确认。
 - **产出记录**：`.local/approvals.tsv`（S3_种子行）；种子记 `runs/<运营方>/<产品>/operation-record.md`（须含域名）。
 
 ### S4 AUDIT_RUNNING（临界审计——★判据核心 = AI 反思）
@@ -100,7 +99,7 @@ audience: 人+AI
 - **产出记录**：`operation-record.md`（task id、contactSaveCount、标签人数）；本地运行记录（不入 Git）一行。
 
 ### S7 TEMPLATE_PENDING（模板草稿预览）
-- **判据（来源）**：`../RULES.md` L30「只生成本地草稿；展示3-8个跨轮模板（★渲染后的收件人视图效果，非HTML源码——用 tools/render_preview.py）+理由；用户确认后才批量创建」；`../RULES.md` L52 模板展示标准：标题不插变量；正文变量保留编辑器完整 code 样式；有客户实际参数必须照用，无信息才用行业合理值；`specs/sequence-config.md`：变量必须 `<code class="lfxFieldVeriable" contenteditable="false">{联系人:名称}</code>` 包裹（L58-64）、标题纯文案（L66-67）、结合客户实际信息+买者视角（L70-74）。
+- **判据（来源）**：`../RULES.md` L30「只生成本地草稿；展示3-8个跨轮模板（★渲染后的收件人视图效果，非HTML源码——用 tools/render_preview.py）+理由；用户确认后才批量创建」；`../RULES.md` L53 模板展示标准：标题不插变量；正文变量保留编辑器完整 code 样式；有客户实际参数必须照用，无信息才用行业合理值；`specs/sequence-config.md`：变量必须 `<code class="lfxFieldVeriable" contenteditable="false">{联系人:名称}</code>` 包裹（L58-64）、标题纯文案（L66-67）、结合客户实际信息+买者视角（L70-74）。
 - **通过条件**：3-8 个**跨轮代表**模板以【渲染后收件人视图】展示 + 每模板理由 → 用户确认。（用户说"不用看"可豁免展示，**不豁免确认**，`../RULES.md` L43。）
 - **API**（本节点不创建，只取详情）：`POST /api/mailbox/template-info {"id":<id>}`——API L190。
 - **脚本**：`python3 tools/gen_templates.py --token <T> --org <orgId> --product <产品> --prefix "英-<产品>-" --suffix -RT --name <昵称> --preview`（打印 5 个跨轮渲染草稿，不创建）；单封渲染 `python3 tools/render_preview.py --html "<p>Hi <code class=\"lfxFieldVeriable\" contenteditable=\"false\">{联系人:名称}</code>,...</p>" [--name John]`。
@@ -125,14 +124,14 @@ audience: 人+AI
 - **产出记录**：`.local/approvals.tsv`（S9_序列配置行）；`runs/<运营方>/<产品>/seq-config.json`；序列 id 记 `operation-record.md`。
 
 ### S10 CONTACT_PENDING（时序守卫 + contact-add）
-- **判据（来源）**：`../RULES.md` L33「保存finished、标签联系人>0、序列inactive、人数对账且用户确认后才contact-add」；铁律⑥ `../RULES.md` L65（等 finished+标签联系人>0，否则 add 0）；L-01：`views` 必须传**空数组 `[]`**（传 `["all"]` 会把全部 139 万联系人加入）。
+- **判据（来源）**：`../RULES.md` L34「保存finished、标签联系人>0、序列inactive、人数对账且用户确认后才contact-add」；铁律⑥ `../RULES.md` L66（等 finished+标签联系人>0，否则 add 0）；L-01：`views` 必须传**空数组 `[]`**（传 `["all"]` 会把全部 139 万联系人加入）。
 - **通过条件**：`wait_save_done.py` 双校验通过（finished + 标签联系人>0）+ 序列 inactive + 人数对账一致 + 用户确认。
 - **API**：`POST /api/sequences/contact-add {"seqId":<id>,"tags":[<联系人标签id>],"views":[]}`——API L309（★views 必须 `[]`）；`POST /api/sequences/contact-list`——API L308；`POST /api/contacts/contacts/show`（标签人数）——API L163、L356。
 - **脚本**：★一条龙= `python3 tools/contact_add.py --token <T> --org <orgId> --seq <seqId> --tags <联系人标签id> --task <保存任务id> --approval <S10凭证> --project <产品>`（内置时序守卫 finished+标签>0 + `views:[]` 铁律 + add 数核对；--dry-run 可预演）；单独守卫也可用 `wait_save_done.py`。
 - **产出记录**：`.local/approvals.tsv`（S10_加联系人行）；`operation-record.md` 记 add 人数；`evidence.json`（contacts_total）。
 
 ### S11 READY_INACTIVE（终检 + 待确认）
-- **判据（来源）**：`../RULES.md` L34「输出完整流程和参数；测试保持inactive，等待用户确认」；`../RULES.md` L74 **测试不激活（★用户强制）**：流程跑完→发完整流程待确认，**不激活序列**；`../RULES.md` L53 完成输出标准（完整流程/task id/实际数量/模板序列映射和问题）。
+- **判据（来源）**：`../RULES.md` L35「输出完整流程和参数；测试保持inactive，等待用户确认」；`../RULES.md` L129 **测试不激活（★用户强制）**：流程跑完→发完整流程待确认，**不激活序列**；`../RULES.md` L54 完成输出标准（完整流程/task id/实际数量/模板序列映射和问题）。
 - **通过条件**：`verify_sequence.py` 终检全过（12步+24hex+步长 30分/5/15/30天）+ `verify_exclude.py` 抽验4区 + 向用户输出完整流程与参数；序列保持 **inactive**。
 - **API**：`POST /api/sequences/sequence-details {"id":<seqId>}`——API L259；`POST /api/sequences/sequence-count`——API L258；`POST /api/sequences/sequence-list`——API L257。
 - **脚本**：
@@ -141,15 +140,15 @@ audience: 人+AI
   - ⚠️ **测试不激活约束 open**：测试不激活无技术封锁（可直接调 sequence-active），目前仅规则约束。
 - **产出记录**：`.local/approvals.tsv`（S11 ready_inactive 行）；`runs/<运营方>/<产品>/evidence.json + verify-seq.txt + verify-exclude.txt`；本地运行记录 status=inactive/SEQ-READY（不入 Git）。
 
-### S12 ACTIVE（仅用户明确确认 + 发送前检查）
-- **判据（来源）**：`../RULES.md` L35「仅明确"确认激活/激活序列<名称>"才激活（★SPF/DKIM/退订等"发送前检查"=禁止项）」；★2026-08-31 用户拍板：SPF/DKIM/DMARC 认证与退订/合规检查**禁止执行**（发信走平台系统通道，域名/IP/认证/退订均属来发信平台职责，运营方不做、不要求、不阻塞激活）；内部整改清单（未随库分发）P0-1/P0-2 作废。激活时仅做：目标序列 id 逐字核对（防误激 legacy）+ notSentTags/上限等序列规则已由 verify 断言。
-- **通过条件**：用户明确正向命令（「确认激活」/「激活序列<名称>」）+ （★SPF/DKIM/退订=禁止项，平台职责）+ verify_sequence 已过。禁止自行激活。
+### S12 ACTIVE（仅用户明确确认 + 技术可用性与运营合规核验）
+- **判据（来源）**：`../RULES.md` L36「仅明确确认激活才激活；平台负责发送技术与退订呈现，运营方仍核验目标市场规则、名单来源、发送主体、实际退订入口、拒收名单与数据处理要求」+ 铁律5 L65。激活前逐字核对目标序列 id，并验证 notSentTags/上限/步骤。
+- **通过条件**：用户明确正向命令（「确认激活」/「激活序列<名称>」）+ verify_sequence 已过 + 平台技术配置可用 + 运营方完成目标市场/名单/主体/实际退订入口/拒收要求核验。禁止自行激活。
 - **API**：`POST /api/sequences/sequence-active {"id":<seqId>,"active":true}`——API L262。✅ **已实测恢复**（曾 500，2026-09-02 实证 success+回读 active，见 L-47）；仍须**回读验证**防假成功。
 - **脚本**：`tools/activate_sequence.py`（激活+回读 status:active 防假；--status 只读查；须 S12 审批+用户原话含"激活"）。★空序列测完激活后**须回滚 inactive**（防后续加联系人即真发）；激活必须仅用户明确"确认激活"后执行。
 - **产出记录**：`.local/approvals.tsv`（激活确认行）；本地运行记录 status→active（不入 Git）。
 
 ### ERROR_BLOCKED（异常兜底）
-- **判据（来源）**：`../RULES.md` L36「异常、参数变化、对账不一致或规则冲突时，只读检查，禁止自动写操作」；参数变化回退 `../RULES.md` L42。
+- **判据（来源）**：`../RULES.md` L37「异常、参数变化、对账不一致或规则冲突时，只读检查，禁止自动写操作」；参数变化回退 `../RULES.md` L42。
 - **脚本**：`bash tools/check_rules.sh --token <TOKEN>`（AI 自查 token/规则/问题）。
 - **产出记录**：本地问题登记（不入 Git）；修复后重跑 `gate_check.sh`。
 
@@ -164,8 +163,8 @@ audience: 人+AI
 | 3 | **S4 临界判定** | 判定=AI 反思「会不会买」语义推理，**不是关键词匹配**；工具词匹配只做趋势初筛；50页跳→三页平均→逐页→跌破往前；临界页人工逐条读完整10条 | `specs/threshold-method.md` L19-27/L50-58；L-26 |
 | 4 | **S5 保存前重复检查** | 保存前查 (keyword+seed+阈值+selectTotal+排除4区) 是否曾完成保存，已存则不重存（省额度）——★规则有、脚本缺（防重复保存缺口） | `../RULES.md` L73 |
 | 5 | **S7 模板草稿预览+差异实测** | 只生成草稿；展示的是**渲染后收件人视图**（render_preview.py），非 HTML 源码；"差异≥30%"**不得声称达标**，生成后必须 check_template_diff.py 实测（>0.70=违例） | `../RULES.md` L30；`specs/sequence-config.md` L76-79；L-43/模板差异实测（工具级） |
-| 6 | **S10 时序守卫** | 必须等保存任务 `status:finished` + 标签联系人>0 才 contact-add；且 `views:[]`（永不 `["all"]`）；人数对账+用户确认 | `../RULES.md` L33/L65；L-01/L-32 |
-| 7 | **S11/S12 激活判据** | 测试跑完**不激活**（inactive 待确认）；仅用户明确「确认激活/激活序列<名称>」+（★SPF/DKIM/退订=禁止项，平台职责）才激活；禁止自行激活 | `../RULES.md` L34-35/L74；内部整改清单（未随库分发） |
+| 6 | **S10 时序守卫** | 必须等保存任务 `status:finished` + 标签联系人>0 才 contact-add；且 `views:[]`（永不 `["all"]`）；人数对账+用户确认 | `../RULES.md` L34/L65；L-01/L-32 |
+| 7 | **S11/S12 激活判据** | 测试跑完保持 inactive；仅用户明确确认 + 序列验证 + 运营方完成市场/名单/主体/退订入口/拒收核验后才激活 | `../RULES.md` L35-36/L65 |
 
 ---
 

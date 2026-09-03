@@ -36,7 +36,7 @@ grep -q "排除中国" "$KB/RULES.md" && ok "4区排除规则已读" || bad "RUL
 grep -q "selectOption:\"front\"" "$KB/specs/domain-scale-sop.md" && ok "front保存规则已读" || bad "domain-scale-sop 缺front"
 grep -q "等联系人保存任务" "$KB/RULES.md" && ok "时序规则已读" || bad "RULES 缺时序规则"
 grep -q "lfxFieldVeriable" "$KB/specs/sequence-config.md" && ok "模板code变量规则已读" || bad "sequence-config 缺code变量"
-grep -q "搜索锚" "$KB/RULES.md" && ok "S3搜索锚规则已读(AI数据库搜索四步)" || bad "RULES 缺S3搜索锚规则"
+grep -q "搜索锚" "$KB/RULES.md" && ok "S3搜索锚规则已读(AI数据库搜索三步链)" || bad "RULES 缺S3搜索锚规则"
 echo "[4] 未解决问题警示(仅提醒,不计入闸门失败,不拦你现在找客户)"
 echo "  ℹ️ 下面几条是「发信激活前」的待办提醒——不影响搜索/保存/建序列; AI 会在激活(S12)前再提醒你"
 # 本地数据表（不入库，缺失自动跳过）

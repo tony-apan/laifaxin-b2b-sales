@@ -14,7 +14,7 @@ audience: AI优先
 
 > **一句话定位**：把"产品 → 推演客群/找种子 → 域名搜相似 → AI 反思 70% 临界 → 纯 API 保存前 N → 差异化模板 120 → 12 步序列 → contact-add → 不激活待确认"整条外贸获客流水线，做成**判据明确 + 工具硬闸门 + 全程留痕**的可执行流程。
 > **本文件只做路由与判据摘要**；执行任何步骤前先读 `RULES.md`（唯一真源）及指向的 specs，禁止凭记忆跳步。
-> **★定位话术**：本系统=**批量获客/广撒网拿询盘**，不是精准开发——"广撒网铺量拿询盘，有询盘自动打标停发，之后您人工精准跟进"。
+> **★定位话术**：本系统=**批量获客/广撒网拿询盘**，不是精准开发——"广撒网铺量拿询盘；人或 AI 助手发现回复后须立即打‘询盘’标签，邮件序列才会停发；之后由您人工背调和精准跟进"。
 > **★用户展示话术=照模板**（把用户当小白）：每环节给用户看什么/怎么说，照 `output-templates/S<节点>-*.md` 填充输出（人话+链接+具体核对点）；平台页面直达链接见下方路由表。
 > **断言分级纪律**：关键断言须标成色——实测✅/引用📚/推断⚠️/假设❓；写操作断言必须实测或小样实测+对账。
 
@@ -29,13 +29,14 @@ audience: AI优先
 | "写开发信 / 模板 / 预览" | 状态机 S7 → `tools/gen_templates.py --preview`；S8 生成后必跑 `tools/check_template_diff.py` |
 | "建序列 / 跟进计划" | 状态机 S9 → `python3 tools/build_sequence.py --tmap runs/<运营方>/<产品>/tmap.json --approval <S9凭证>`（tz/notSentTags 运行时解析+12 步；规范 `specs/sequence-config.md`）|
 | "加联系人 / 进序列" | 状态机 S10 → `python3 tools/contact_add.py --seq <id> --tags <标签id> --task <任务id> --approval <S10凭证>`（内置时序守卫+views:[] 铁律）|
-| "激活 / 发信" | S12：仅用户明确"确认激活" → **`python3 tools/activate_sequence.py --seq <id> --confirm "<用户原话>" --approval <S12凭证> --project <产品>`**（激活+回读 status:active 防假成功）；★**空序列测完激活后须回滚 inactive**（防后续加联系人即真发）；发信前核铁律 5（SPF/DKIM/退订=禁止项，平台职责）|
+| "激活 / 发信" | S12：仅用户明确"确认激活" → **`python3 tools/activate_sequence.py --seq <id> --confirm "<用户原话>" --approval <S12凭证> --project <产品>`**（激活+回读 status:active 防假成功）；★**空序列测完激活后须回滚 inactive**（防后续加联系人即真发）；发信前区分责任：平台负责发送基础设施与退订技术呈现，运营方仍须核验目标市场、名单来源、发送主体、实际退订入口与拒收要求 |
 | "验证这批对不对" | `tools/verify_exclude.py`（排除4区）/ `tools/verify_sequence.py`（12步）/ `tools/check_template_diff.py`（差异≥30%）|
 | "模板重建 / 换模板" | `tools/rebuild_templates.py`（⚠️半自动，顺序铁律见 L-43，需人工分步）|
 | "清空重来" | 危险操作，先用户确认 → 按 `specs/api-reference.md` 清空工具节执行（清空脚本未随库分发）|
 | "出问题了 / 记教训" | 本地问题登记（`db/issues.tsv`，本地数据不入 Git）+ `lessons/lessons-learned.md` |
 | **"对抗审查 / 这个准不准 / 审一下"** | **RULES.md「🛡 操作对抗审查」（★用户强制：决策/产出必经空白子代理对抗）→ 按四类固定清单/执行前反思矩阵审 → 产出 `dialogue/reviews/rev-<日期>-<时分>-<操作>.md`（只放行/整改P0P1P2）→ 写操作三凭证：用户确认(approvals)+对抗审查(reviews)+操作流水(ops-log)** |
 | "查当前数据 / 最近跑批" | 本地运行记录（`db/runs.tsv`，本地数据不入 Git）+ 本地状态（`.local/`）|
+| **"询盘来了 / 回复后不回 / 怎么背调 / WhatsApp / LinkedIn / 电话跟进"** | `docs/09-mass-outreach-to-precision-follow-up.md`：先打账号固定标签「询盘」停自动群发 → 公司/联系人背调 → A/B/C/D 分级 → 邮件为主；仅在已有明确许可并满足目标市场规则后使用 WhatsApp/商务社媒/电话；明确拒绝→「不发」停邮件，并人工登记全渠道停止。群发找信号，精准跟进做转化 |
 
 ## 2️⃣ 必备前置（硬条件，缺一停）
 
@@ -59,16 +60,17 @@ audience: AI优先
 | S0 INPUT_GATE | 昵称+产品信息齐了才准动，缺一停。★**产品画像="AI出方案→用户选"**：用户说不清画像时，AI 按"卖什么/给谁用/卖到哪/凭什么买"先给 **A/B/C/D 组合方案**（含推荐与淘汰理由），用户点选/组合/修改，最后才是自由填写——不逼新手从零描述 |
 | S1 PATH_PENDING | 有精准网址→快速路径 A；无→标准路径 B；两条都要用户确认 |
 | S2 SEGMENT_PENDING | 推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add，非 product-add，否则 generate 500；generate 后轮询 list 至非空）|
-| S3 SEED_PENDING | ①query_en 作关键词→AI 数据库搜索第一页（25字段/条，含★id，无domain）②代表买家 id→`domain/base-info`→域名（seed_resolve --id）③**域名作 keyword 再搜主搜="找相似"**（非 similar-list 接口）→S4 审计④保存 `save_first_n --keyword <审计所用keyword>`（域名/长文本均实测✅：保存=列表同批） |
+| S3 SEED_PENDING | AI 数据库搜索链三步：①query_en 搜第一页（25字段/条，含 id、无 domain）②代表买家 id→`domain/base-info` 取域名 ③域名作 keyword 走主搜扩量（禁 similar-list）→用户确认锚点；随后 S4 审计、S5/S6 按审计关键词保存（域名/长文本均实测✅） |
 | S4 AUDIT_RUNNING | 只读+AI 语义反思找 70% 临界（50页跳→三页平均→逐页→跌破往前）；**★按 v2 三条客户线(直采/OEM/拓品)逐条判定+判定表留痕+边界敏感性检查**；未完成不能保存 |
 | S5 SAVE_PENDING | 展示临界 N/标签/排除4区/max/点数，用户确认后才保存（→输出 approval_id）|
 | S6 SAVE_RUNNING | front 保存；等任务 status:finished；用标签结果对账 |
 | S7 TEMPLATE_PENDING | 只生草稿，展示 3-8 个**渲染后视图**（render_preview.py）+理由，确认后才批量创建 |
 | S8 TEMPLATE_BUILD | 生成 120 模板，断言变量样式/标题/差异（Jaccard≤0.70），失败回 S7 |
 | S9 SEQUENCE_PENDING | 12 步(30分/5/15/30天)+纽约时区+单日30000/单家5+notSentTags，确认后建 |
+| S9a FIXED_TAGS | 账号固定标签“询盘/不发”：先查同名，存在复用 id，不存在才建；不随产品重复创建，记录 id(名称) |
 | S10 CONTACT_PENDING | finished+标签联系人>0+序列 inactive+对账+确认后 contact-add(views:[]) |
 | S11 READY_INACTIVE | 输出完整流程与参数，测试不激活，发"流程待确认"。★**用户核实面板**六条：①标签 id(名称)成对表 ②客群+客群代表完整名单(每客群第一页10条) ③保存范围+抽样页判定数据 ④跨轮模板渲染样例≥5封(收件人视图) ⑤其他事实(配额消耗/事故披露/未验证项标注) ⑥逐环节审查确认矩阵——入 runs/<产品>/verification-panel.md |
-| S12 ACTIVE | 仅用户明确"确认激活/激活序列<名称>"才激活（SPF/DKIM/退订检查=禁止项）|
+| S12 ACTIVE | 仅用户明确"确认激活/激活序列<名称>"才激活；平台负责 SPF/DKIM 等发送技术与退订呈现，运营方仍须核验实际退订入口、目标市场、名单、主体与拒收要求 |
 | ERROR_BLOCKED | 异常/参数变/对账不一致 → 只读检查，禁写 |
 
 
@@ -91,7 +93,7 @@ audience: AI优先
 2. 模板变量 `<code class="lfxFieldVeriable" contenteditable="false">{联系人:名称}</code>`；标题纯文案；差异≥30%（实测 Jaccard≤0.70）
 3. 不翻页收集 id（封号）——保存前 N 用 `selectTotal=前N条数`
 4. 验证用 `backend-task-status`（contactSaveCount）；删除进度用 `backend-progress`
-5. 发信前 去重（★SPF/DKIM/DMARC 认证与退订链接/合规检查=禁止执行：平台系统通道职责）；单日 30000/单家 5；notSentTags=[询盘,不发]
+5. 发信前去重；单日 30000/单家 5；notSentTags=[询盘,不发]。平台负责发送技术基础设施，运营方仍须在激活前核验目标市场规则、名单来源、发送主体、实际退订入口、拒收记录与数据处理要求。
 6. **时序**：等保存 `status:finished` + 标签联系人>0 后才 contact-add
 7. **标签=客户群体身份 `语言-行业-角色`**（不是你的产品）；记录一律 `id(名称)` 成对
 8. 内部命名（标签/视图/序列/模板分组）一律中文；邮件正文=目标市场语言（默认全球英语）
