@@ -32,7 +32,7 @@ audience: 人+AI
 | **API参考** | api-reference | `specs/api-reference.md` | 全接口参数（含front保存/验证） | ✅ |
 | **教训** | lessons-learned | `lessons/lessons-learned.md` | 问题教训(L-01~L-52) | ✅ |
 | **询盘转化** | mass-to-precision | `docs/09-mass-outreach-to-precision-follow-up.md` | 广撒网成本账→询盘背调→A/B/C/D分级→多渠道长期跟进 | ✅ |
-| **用户话术** | output-templates | `output-templates/` | S0-S12+询盘阶段给小白看的固定输出模板 | ✅ |
+| **用户话术** | output-templates | `output-templates/`（含 S0-连接成功/T-token/S2/S5/S7/S9/S10/S11/S12/Q1-Q5） | S0-S12+询盘阶段给小白看的固定输出模板 | ✅ |
 | **数据结构** | data-structure | `specs/data-structure.md` | md/tsv/jsonl分工/目录规范 | ✅ |
 | **运营方档案** | operator-profile | 本地 `.local/operator-profile.md`（不入 Git） | 昵称/公司/官网/联系方式/市场默认（★待用户补公司信息） | ✅ |
 | **术语表** | glossary | `glossary/glossary.md` | 系统/业务词人话解释（新手必读） | ✅ |

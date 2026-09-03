@@ -78,12 +78,23 @@ if not d and r is None:
 
 if d.get("success") is True:
     data = d.get("data", {}) or {}
-    print("✅ 登录有效（账号已连接）")
-    print(f"   vip={data.get('vip')} | 日查看配额={data.get('dailyLimit')} 已用={data.get('dailyUsed')} | 月配额={data.get('monthlyLimit')} 已用={data.get('monthlyUsed')}")
-    dl, du = data.get('dailyLimit') or 0, data.get('dailyUsed') or 0  # 缺字段按0,不裸None
-    if dl and du >= dl:
-        print(f"   ⚠️ 今日查看配额已用满（{du}/{dl}）——搜索/翻页会被限，一般次日自动重置；保存不受影响（见 wiki/faq）")
-    print("   下一步(AI): 请用户提供 昵称+产品信息(+可选精准网址) → gate_check → 按 RULES 状态机 S0-S12 执行")
+    vip = data.get("vip")
+    vip_label = "SVIP" if vip == 2 else f"VIP {vip}"  # vip2=SVIP（平台等级映射,2026-09-03 用户确认）
+    dl, du = data.get('dailyLimit') or 0, data.get('dailyUsed') or 0
+    ml, mu = data.get('monthlyLimit') or 0, data.get('monthlyUsed') or 0
+    duptext = "已用尽" if data.get('dailyUsedUp') else f"剩 {max(dl-du,0)}"
+    muptext = "已用尽" if data.get('monthlyUsedUp') else f"剩 {max(ml-mu,0)}"
+    print("✅ 连接成功！您的来发信账号状态：")
+    print(f"   账号等级：{vip_label}")
+    print(f"   今日查看配额：{dl} 条，已用 {du} 条（{duptext}）")
+    print(f"   本月查看配额：{ml} 条，已用 {mu} 条（{muptext}）")
+    if data.get('monthlyChargeCount') is not None or data.get('monthlyAutoCharge') is not None:
+        auto = "已开启" if data.get('monthlyAutoCharge') else "未开启"
+        print(f"   本月充值：{data.get('monthlyChargeCount') or 0} 次（自动充值：{auto}）")
+    print("   本次只做了连接检查——没搜索、没保存、不扣点。")
+    if data.get('dailyUsedUp'):
+        print("   ⚠️ 今日搜索配额已用尽：次日恢复；保存邮箱和发信不受影响（见 wiki/faq）")
+    print("   下一步(AI): 按 output-templates/S0-连接成功.md 展示 → 请用户提供 昵称(+一句话产品) → gate_check → RULES 状态机")
     sys.exit(0)
 else:
     msg = d.get("message") or (r.stdout[:80] if isinstance(r.stdout, str) else "")
