@@ -145,7 +145,7 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 
 ## 📮 联系与关注
 
-![作者二维码](https://cos.files.maozhishi.com/data/web/web-files/wx/tony-apan.png)
+<img src="https://cos.files.maozhishi.com/data/web/web-files/wx/tony-apan.png" width="160" alt="作者二维码">
 
 扫码关注/联系作者（微信），使用中遇到问题可以来问。
 
