@@ -43,6 +43,7 @@ flowchart TD
 | 新会话 / 换机 / 接手 / "接着上次" | `python3 tools/onboard_check.py`（自检+读本地状态）→ 本文件 → `RULES.md` |
 | "帮我找 X 产品的客户" / 开新项目 | §2 前置检查 → ① `python3 tools/check_login.py --token <T>`（登录检查）→ ② `bash tools/gate_check.sh --token <T>`（闸门）→ ③ `python3 tools/flow_orchestrator.py`（S0→S12 向导）|
 | "这客户/这批准不准" / "临界在哪" | 状态机 S4 → `specs/threshold-method.md`（AI 反思 70% 判据）+ `tools/audit_company.py`（⚠️仅趋势初筛）|
+| "怎么才存了这么点 / 邮箱太少 / 数量对不上" | S6 数量账：`output-templates/S6-数量账.md`——四机制（max3/验真/去重/异步提取）逐项解释；**未知邮箱默认已保存**；<1.0 邮箱/家建议查锚点 |
 | "保存这批 / 前 N 条" | 状态机 S5/S6 → `tools/save_first_n.py`（★必须带 S5 的 `--approval`）|
 | "写开发信 / 模板 / 预览" | 状态机 S7 → `tools/gen_templates.py --preview`；S8 生成后必跑 `tools/check_template_diff.py` |
 | "建序列 / 跟进计划" | 状态机 S9 → `python3 tools/build_sequence.py --tmap runs/<运营方>/<产品>/tmap.json --approval <S9凭证>`（tz/notSentTags 运行时解析+12 步；规范 `specs/sequence-config.md`）|

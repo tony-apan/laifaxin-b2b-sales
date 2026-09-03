@@ -53,6 +53,9 @@ def main():
     print("保存前{}条 task:".format(args.n), r.get("data",{}).get("id","") if r.get("success") else r.get("message",""))
     print("★ 验证: 用 backend-task-status(type=cluesSave, id=<上面task id>) 查 contactSaveCount>0=提邮箱、companySaveCount=公司数")
     print("   ⚠️ 勿用 company-save-list(看不到 contactSaveCount,会误判邮箱0)——见 api-reference")
+    print("📊 数量账(用户问'怎么才存这么点'时照此解释,模板 output-templates/S6-数量账.md):")
+    print(f"   · 每公司上限 {args.max} 个邮箱(防止过度触达) · 平台验真过滤(有效+未知都存) · 跨批去重 · 邮箱异步分批提取")
+    print(f"   · 正常水平约 1.4~2.1 邮箱/家;低于 1.0 建议检查锚点纯度(L-46)")
 
 if __name__ == "__main__":
     main()
