@@ -26,16 +26,20 @@ flowchart TD
     N --> S0["S0: AI出ABCD获客方向<br/>用户选字母"]
     S0 --> S2["S2: 推演具体客群<br/>用户选编号"]
     S2 --> S3["S3: 用户有认得的买家网址?<br/>有→填入;没有→标准路径,不追问"]
-    S3 --> S4["S4-S6: 审计+保存<br/>展示数据,用户确认"]
-    S4 --> S7["S7: 落款只用昵称生成模板<br/>公司/官网/邮箱=用户主动给才写"]
-    S7 --> S9["S9-S10: 序列+加人"]
+    S3 --> S4["S4: 逐页审计<br/>找70%筛选边界"]
+    S4 --> S5["S5-S6: 保存+数量账<br/>展示数据,用户确认"]
+    S5 --> S7["S7: 落款只用昵称生成模板<br/>公司/官网/邮箱=用户主动给才写"]
+    S7 --> S8["S8: 120模板自动归组<br/>差异断言"]
+    S8 --> S9["S9-S10: 序列+加人"]
     S9 --> S11["S11: 完成·不激活<br/>汇报+核实面板"]
     S11 --> S12{"用户明确说激活?"}
     S12 -- "确认激活" --> ACT["激活发信"]
     S12 -- "否(默认)" --> WAIT["保持 inactive"]
 ```
 
-> 每步只问当前必需的一件事；用户永远可以用"确认/否/要改"推进。
+
+> 每步只问当前必需的一件事；用户永远可以用"确认/否/要改"推进。（图为节奏简化：S1 折入 S3 分支、S9a 为内部固定标签步骤、ERROR_BLOCKED 为全局异常兜底——完整状态以 §3 状态机表为准。）
+> **两个必出示的固化产出**：①登录检查通过 → 按 [S0-连接成功](output-templates/S0-连接成功.md) 展示账号状态卡（SVIP/配额/充值）②保存完成 → 按 [S6-数量账](output-templates/S6-数量账.md) 主动解释数量构成（未知邮箱默认已存；1.4~2.1 邮箱/家属正常）。
 
 ## 1️⃣ 触发场景路由表（用户说什么 → 去哪）
 
@@ -46,7 +50,7 @@ flowchart TD
 | "这客户/这批准不准" / "临界在哪" | 状态机 S4 → `specs/threshold-method.md`（AI 反思 70% 判据）+ `tools/audit_company.py`（⚠️仅趋势初筛）|
 | "怎么才存了这么点 / 邮箱太少 / 数量对不上" | S6 数量账：`output-templates/S6-数量账.md`——四机制（max3/验真/去重/异步提取）逐项解释；**未知邮箱默认已保存**；<1.0 邮箱/家建议查锚点 |
 | "保存这批 / 前 N 条" | 状态机 S5/S6 → `tools/save_first_n.py`（★必须带 S5 的 `--approval`）|
-| "写开发信 / 模板 / 预览" | 状态机 S7 → `tools/gen_templates.py --preview`；S8 生成后必跑 `tools/check_template_diff.py` |
+| "写开发信 / 模板 / 预览" | 状态机 S7 → `tools/gen_templates.py --preview`；S8 生成后必跑 `tools/check_template_diff.py`（模板**自动归入同名分组**，禁散落"未指定目录"）|
 | "建序列 / 跟进计划" | 状态机 S9 → `python3 tools/build_sequence.py --tmap runs/<运营方>/<产品>/tmap.json --approval <S9凭证>`（tz/notSentTags 运行时解析+12 步；规范 `specs/sequence-config.md`）|
 | "加联系人 / 进序列" | 状态机 S10 → `python3 tools/contact_add.py --seq <id> --tags <标签id> --task <任务id> --approval <S10凭证>`（内置时序守卫+views:[] 铁律）|
 | "激活 / 发信" | S12：仅用户明确"确认激活" → **`python3 tools/activate_sequence.py --seq <id> --confirm "<用户原话>" --approval <S12凭证> --project <产品>`**（激活+回读 status:active 防假成功）；★**空序列测完激活后须回滚 inactive**（防后续加联系人即真发）；发信前区分责任：平台负责发送基础设施与退订技术呈现，运营方仍须核验目标市场、名单来源、发送主体、实际退订入口与拒收要求 |
@@ -55,6 +59,7 @@ flowchart TD
 | "清空重来" | 危险操作，先用户确认 → 按 `specs/api-reference.md` 清空工具节执行（清空脚本未随库分发）|
 | "出问题了 / 记教训" | 本地问题登记（`db/issues.tsv`，本地数据不入 Git）+ `lessons/lessons-learned.md` |
 | **"对抗审查 / 这个准不准 / 审一下"** | **RULES.md「🛡 操作对抗审查」（★用户强制：决策/产出必经空白子代理对抗）→ 按四类固定清单/执行前反思矩阵审 → 产出 `dialogue/reviews/rev-<日期>-<时分>-<操作>.md`（只放行/整改P0P1P2）→ 写操作三凭证：用户确认(approvals)+对抗审查(reviews)+操作流水(ops-log)** |
+| "账号什么等级 / 配额多少 / 点数够不够 / SVIP" | 连接检查即显示：`tools/check_login.py`（vip=2 显示 SVIP；今日/本月配额+剩余；充值次数/自动充值）→ 话术 [S0-连接成功](output-templates/S0-连接成功.md)；接口无余额/到期字段，禁止编造 |
 | "查当前数据 / 最近跑批" | 本地运行记录（`db/runs.tsv`，本地数据不入 Git）+ 本地状态（`.local/`）|
 | **"询盘来了 / 回复后不回 / 怎么背调 / WhatsApp / LinkedIn / 电话跟进"** | `docs/09-mass-outreach-to-precision-follow-up.md`：先打账号固定标签「询盘」停自动群发 → 公司/联系人背调 → A/B/C/D 分级 → 邮件为主；仅在已有明确许可并满足目标市场规则后使用 WhatsApp/商务社媒/电话；明确拒绝→「不发」停邮件，并人工登记全渠道停止。群发找信号，精准跟进做转化 |
 
@@ -69,7 +74,7 @@ flowchart TD
   - 首次连接只做只读检查（不搜客/不保存/不扣点/不发信）；换账号需重新获取
 - **★最小必要输入（2026-09-03 用户拍板：渐进索取，禁止开局列清单）**：
   - **开跑只问 2 项**：① **token** ② **昵称 + 一句话产品**（如"我卖不锈钢保温杯，主要卖欧美"）。中文或英文任一均可理解，不要因为语言形式重复追问。
-  - **★昵称规范（2026-09-03 用户拍板）**：昵称**只含个人称呼**（Tony / Iris 等纯人名；含公司名/产品的形式如 "Iris | XX Textiles" 需要改）；发现含公司名/产品名/职位（如 "Iris | XX Textiles"、"保温杯厂-老王"）→ **一次性说明并请用户改**："昵称建议只放个人名字，公司信息可以放邮件正文——您想改成什么？"
+  - **★昵称规范（2026-09-03 用户拍板）**：昵称**只含个人称呼**（Tony / Iris 等纯人名；）；发现含公司名/产品名/职位（如 "Iris | XX Textiles"、"保温杯厂-老王"）→ **一次性说明并请用户改**："昵称建议只放个人名字，公司信息可以放邮件正文——您想改成什么？"
   - **后续节点用到现在才要**：S0 出 A/B/C/D 方案选字母；S2 出具体客群表选编号（两步分工，不重复问）；S3 用户可给一个认得的买家网址（没有就走标准路径，不追问）；S7 落款只用昵称，公司/官网/邮箱用户主动给才写。
   - **★用户主动给的网址/卖点=高价值信号，立即消化（2026-09-03 拍板）**：用户给出自己的官网/产品页/卖点文字时，AI 主动**读取并分析**——提炼产品线/核心优势/目标客群/差异化卖点，产出一份"公司与产品速览"给用户确认（内容仅用于：客群方向更准、开发信卖点更真实），然后反哺 S0 方案与 S7 文案。★速览与用户一句话产品/目标市场冲突时，**以用户口径为准**并标注差异。**是 AI 去查去分析，不是让用户解释**。
   - **永远不主动要**：公司名、官网、联系邮箱、认证、产能、MOQ 等——用户主动给了才选用；没有时按行业合理值表述，不编造具体数字。
@@ -89,7 +94,7 @@ flowchart TD
 | S3 SEED_PENDING | AI 数据库搜索链三步：①query_en 搜第一页（25字段/条，含 id、无 domain）②代表买家 id→`domain/base-info` 取域名 ③域名作 keyword 走主搜扩量（禁 similar-list）→用户确认锚点；随后 S4 审计、S5/S6 按审计关键词保存（域名/长文本均实测✅） |
 | S4 AUDIT_RUNNING | 只读+AI 语义反思找 70% 临界（50页跳→三页平均→逐页→跌破往前）；**★按 v2 三条客户线(直采/OEM/拓品)逐条判定+判定表留痕+边界敏感性检查**；未完成不能保存 |
 | S5 SAVE_PENDING | 展示临界 N/标签/排除4区/max/点数，用户确认后才保存（→输出 approval_id）|
-| S6 SAVE_RUNNING | front 保存；等任务 status:finished；用标签结果对账 |
+| S6 SAVE_RUNNING | front 保存；等任务 status:finished；用标签结果对账。★完成后主动出示**数量账**（S6-数量账.md：max3/验真/去重/异步四机制；1.4~2.1 邮箱/家属正常，<1.0 查锚点） |
 | S7 TEMPLATE_PENDING | 只生草稿，展示 3-8 个**渲染后视图**+理由，确认后才批量创建。★正文署名只用昵称；公司名/官网/邮箱**仅在用户已主动提供时**写入，禁止主动索要 |
 | S8 TEMPLATE_BUILD | 生成 120 模板并**自动归入同名分组**（禁散落未指定目录），断言变量样式/标题/差异（Jaccard≤0.70），失败回 S7 |
 | S9 SEQUENCE_PENDING | 12 步(30分/5/15/30天)+纽约时区+单日30000/单家5+notSentTags，确认后建 |
@@ -122,13 +127,15 @@ flowchart TD
 5. 发信前去重；单日 30000/单家 5；notSentTags=[询盘,不发]。平台负责发送技术基础设施；激活前 AI 逐项自查市场/名单/主体/退订/拒收并展示结果，用户只做最终确认。
 6. **时序**：等保存 `status:finished` + 标签联系人>0 后才 contact-add
 7. **标签=客户群体身份 `语言-行业-角色`**（不是你的产品）；记录一律 `id(名称)` 成对
+7a. **署名=纯个人昵称**（禁公司名/产品名/职位入昵称与落款）；公司/官网/邮箱用户主动给才写正文
+7b. **保存邮箱口径=valid+unkown 都存**（未知邮箱默认保存）；数量落差四机制主动向用户解释（S6-数量账）
 8. 内部命名（标签/视图/序列/模板分组）一律中文；邮件正文=目标市场语言（默认全球英语）
 
 ## 5️⃣ 新会话三步走
 
 1. `python3 tools/onboard_check.py`（自动打印读什么/当前状态/下一步）
 2. 读 `.local/` 本地状态（当前状态+下一步，勿重头；首次运行自动生成）
-3. 读 `RULES.md`（唯一真源）→ 向用户要 token+昵称+产品信息 → ①`tools/check_login.py`(登录检查) → ②`tools/gate_check.sh`(闸门) → ③按状态机逐节点跑
+3. 读 `RULES.md`（唯一真源）→ 向用户要 token+昵称+一句话产品 → ①`tools/check_login.py`(登录检查) → ②`tools/gate_check.sh`(闸门) → ③按状态机逐节点跑
 
 ## 6️⃣ 关键文件地图
 
@@ -137,11 +144,12 @@ flowchart TD
 | 规则（唯一真源） | `RULES.md` → `specs/api-reference.md`（接口模板）/ `specs/threshold-method.md`（70%临界）/ `specs/domain-scale-sop.md`（域名搜+保存）/ `specs/sequence-config.md`（模板+序列）/ `specs/operations-sop.md` |
 | 流程逻辑 | `methodology/decision-trees.md`（A/B 路径图）/ `INDEX.md`（导航）|
 | 当前状态 | `.local/`（本地状态+运营方档案+审批凭证；首次运行自动生成，每账号/每 clone 一份，不入 Git）|
-| 工具（工具=规则） | `tools/gate_check.sh`、`onboard_check.py`、`check_login.py`、`flow_orchestrator.py`、`approval.py`、`tag_add.py`（S5 前置建标签）、`save_first_n.py`、`wait_save_done.py`、`gen_templates.py`、`check_template_diff.py`、`build_sequence.py`（S9）、`contact_add.py`（S10）、`resolve_schedule.py`、`verify_exclude.py`、`verify_sequence.py`、`rebuild_templates.py`、`audit_company.py`、`render_preview.py`、`check_rules.sh`（★一条龙=check_login→gate→orchestrator→save→wait→gen→diff→build→add→verify）|
+| 工具（工具=规则） | `tools/gate_check.sh`、`onboard_check.py`、`check_login.py`（登录+账号状态卡）、`flow_orchestrator.py`、`approval.py`、`seed_resolve.py`（S3 id→域名）、`tag_add.py`（S5 前置建标签，同名复用）、`save_first_n.py`（内置数量账输出）、`wait_save_done.py`、`gen_templates.py`（自动归组）、`check_template_diff.py`、`build_sequence.py`（S9，公司触发器=什么都不做）、`contact_add.py`（S10）、`activate_sequence.py`（S12 激活+回读防假+--deactivate）、`resolve_schedule.py`、`verify_exclude.py`、`verify_sequence.py`、`rebuild_templates.py`、`audit_company.py`、`render_preview.py`、`check_rules.sh`（★一条龙=check_login→gate→orchestrator→save→wait→gen→diff→build→add→verify）|
+| 用户话术模板 | `output-templates/`（README=总索引；T-token/S0连接+画像/S2/S3/S4审计中/S5/S6数量账/S7/S8构建中/S9/S10/S11/S12/Q1-Q5 共16个——每模板=用户话术+AI执行要点与边界）|
 | 档案（多公司多产品） | `runs/<运营方>/<产品>/`（operation-record/reflection/evidence/verify-*）+ `runs/_template/` + 本地运行记录（不入 Git）|
-| 问题与教训 | 本地问题登记（`db/issues.tsv`，本地数据不入 Git，open 即待办）/ `lessons/lessons-learned.md`（L-01~L-43）/ `review-cycle.md`（旁观者审查）|
+| 问题与教训 | 本地问题登记（`db/issues.tsv`，本地数据不入 Git，open 即待办）/ `lessons/lessons-learned.md`（L-01~L-53）/ `review-cycle.md`（旁观者审查）|
 
 > ⚠️ **执行纪律**：写操作工具必须带 `--approval <id> --project <产品>`（审批硬闸门·工具级，凭证在 `.local/approvals.tsv`）；每次操作前先读 RULES+对应 spec；本 SKILL.md 只是入口，与 RULES/specs 冲突时以后者为准。
-> 🆘 新手黑话/常见疑惑：`glossary/glossary.md`（系统词人话表）· `wiki/faq.md`（配额/接口空/None 等FAQ）
+> 🆘 新手黑话/常见疑惑：`glossary/glossary.md`（系统词人话表）· `wiki/faq.md`（配额/接口空/数量落差/None 等FAQ）· 渐进索取/昵称/署名/账号状态卡规则见上方 §2 与 output-templates/
 > ⚠️ **审批闸门边界（防呆不防恶）**：`--approval` 校验的是本地 `.local/approvals.tsv`（每账号/每 clone 一份，不入 Git），该文件对本机 AI 可写——**自证行 ≠ 用户授权**。高风险操作（保存/建序列/加联系人/激活）仍必须在对话中出示用户原话；AI 自行 append 的凭证视为无效（审批补记·内部教训）。
 > 🔑 **凭证出口**：`flow_orchestrator.py` 确认节点是 approval 凭证的**唯一合法出口**；审批补记（内部）的 backfilled 行不构成写授权。新 AI 给新产品写开发信文案前，先按「新产品文案军规」执行（数字可举证/标准写到底/禁假前提假稀缺/环保具体化/CTA 轮换——见 docs/07 与 specs/sequence-config.md）。
