@@ -1,5 +1,7 @@
 # 来发信 B2B 批量获客系统
 
+![status](https://img.shields.io/badge/status-active-success) ![version](https://img.shields.io/github/v/release/tony-apan/laifaxin-b2b-sales) ![license](https://img.shields.io/badge/license-GPL--3.0-green) ![python](https://img.shields.io/badge/python-3.9+-blue) ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20WSL-lightgrey)
+
 > **批量触达相关买家，低成本筛出询盘；收到询盘后，再由业务员背调和精准跟进。**
 
 这是一个给 AI 使用的操作说明书和工具箱。它不是自动成交工具，也不是逐家公司手工定制的精准开发服务。
@@ -11,20 +13,24 @@
 - 有能力承接询盘后的背调、报价、样品、谈判和长期跟进。
 
 ```mermaid
-flowchart LR
-    A["选择客群"] --> B["批量找买家"]
+flowchart TD
+    U["你提供<br/>token + 昵称 + 一句话产品<br/>(可选: 官网/卖点/买家网址)"] --> A["选择客群"]
+    A --> B["批量找买家"]
     B --> C["12轮邮件触达"]
     C --> D{"收到询盘?"}
     D -- "没有" --> B
-    D -- "有" --> E["人/AI助手打标签停邮件"]
+    D -- "有" --> E["打标签停邮件"]
     E --> F["背调·分级·精准跟进"]
+    F -. "询盘方网址=新种子<br/>继续扩量" .-> B
 ```
 
-> **询盘只是信号，不等于订单。** 系统不会自动识别回复或自动打标签；人或 AI 助手发现回复后，必须实际打上“询盘”标签，邮件序列才会停止后续轮次。
+> **询盘只是信号，不等于订单。** 系统不会自动识别回复或自动打标签；人或 AI 助手发现回复后，必须实际打上“询盘”标签，邮件序列才会停止后续轮次。**优质询盘方的网址还是最好的新种子**——回流继续扩量，越滚越准。
 
-- [现在开始：下载或克隆仓库](#-第一步现在就把代码拿到手)
-- [看完整方法：广撒网 + 精准跟进](docs/09-mass-outreach-to-precision-follow-up.md)
-- [下载最新版 / 查看版本说明](https://github.com/tony-apan/laifaxin-b2b-sales/releases/latest)
+| 快速入口 | |
+|---|---|
+| 🚀 [快速开始](#-第一步现在就把代码拿到手) | 下载仓库 → 准备 3 样 → 交给 AI |
+| 📖 [完整方法：广撒网 + 精准跟进](docs/09-mass-outreach-to-precision-follow-up.md) | 成本账 / 询盘背调 / 分级 / 多渠道 |
+| 📦 [最新版下载与版本说明](https://github.com/tony-apan/laifaxin-b2b-sales/releases/latest) | Releases |
 
 ---
 
