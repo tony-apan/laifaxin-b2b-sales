@@ -108,7 +108,8 @@ print(f"✅ notSentTags 解析: 询盘={t_inq} 不发={t_stop}")
 rules = {"finishReply": False, "notSentInvalid": True, "notSentBlack": True, "aiGuard": True,
          "max_emails_selected": True, "max_emails_per_day": args.max_per_day,
          "domain_emails_selected": True, "domain_emails_per_day": args.per_domain,
-         "otherReplayValue": "delayDays", "otherReplayDelayDays": 3,
+         # ★公司触发器=什么都不做（2026-09-03 用户拍板）：同公司其他联系人继续正常触达，回复处理由询盘标签+人工接管
+         "otherReplaySelected": True, "otherReplayValue": "nothing",
          "notSentTags": [t_inq, t_stop]}
 others = {"trackSelected": True, "fromNameSelected": True, "fromNameValue": args.from_name}
 
@@ -133,6 +134,16 @@ print(f"✅ 序列已建: {seq_id}")
 r = api("sequences/sequence-save", {"id": seq_id, "name": args.name, "schedule_id": sched_id, "others": others, "rules": rules}, exit_on_fail=False)
 if not r.get("success"):
     print("❌ 规则保存失败: " + str(r.get("_error") or r.get("message") or str(r)[:90]))
+
+# ★回读校验公司触发器生效（2026-09-03 拍板=什么都不做；防静默失效）
+chk = api("sequences/sequence-details", {"id": seq_id})
+rl = (chk.get("data") or {}).get("rules") or {}
+if rl:
+    orv = rl.get("otherReplayValue")
+    if orv is not None and str(orv).lower() not in ("nothing", "none", "0"):
+        print(f"⚠️ 回读发现公司触发器未生效(otherReplayValue={orv})——请在平台界面手动改为「什么都不做」")
+    else:
+        print("✅ 回读确认: 公司触发器=什么都不做 已生效")
     print(f"  ⚠️ 半成品序列 {seq_id}（已建但无规则/无步骤）——勿激活；到界面删除它（sequence-delete）后重跑")
     sys.exit(1)
 print(f"✅ 规则已存: 纽约时区/30000/{args.per_domain}/询盘不发不送/发信人={args.from_name}")
