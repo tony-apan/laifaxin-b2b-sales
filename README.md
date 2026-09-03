@@ -31,6 +31,7 @@ flowchart TD
 | 🚀 [快速开始](#-第一步现在就把代码拿到手) | 下载仓库 → 准备 3 样 → 交给 AI |
 | 📖 [完整方法：广撒网 + 精准跟进](docs/09-mass-outreach-to-precision-follow-up.md) | 成本账 / 询盘背调 / 分级 / 多渠道 |
 | 📦 [最新版下载与版本说明](https://github.com/tony-apan/laifaxin-b2b-sales/releases/latest) | Releases |
+| 🔄 [更新到新版本](#-更新到新版本老用户) | 老用户升级（保留本地数据）|
 
 ---
 
@@ -140,6 +141,24 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 - [查看开发者变更记录](CHANGELOG.md)
 
 版本细节统一放在 GitHub Releases；README 只保留最新版入口，避免两处重复维护。
+
+## 🔄 更新到新版本（老用户）
+
+> 更新**不会动你的本地数据**：`.local/`（审批凭证）和 `runs/`（客户档案）都不在仓库里，升级只替换规则和工具。
+
+**方式 A：当初用 git clone 的（推荐）**
+
+把仓库文件夹交给 AI，说一句「更新到最新版」，它会执行：
+
+```bash
+git pull          # 拉取最新规则和工具
+```
+
+**方式 B：当初下载 ZIP 的**
+
+重新按老办法下载最新 ZIP（[Releases 页](https://github.com/tony-apan/laifaxin-b2b-sales/releases/latest) → Code → Download ZIP），解压后**只把新版的文件覆盖旧文件夹，但不要覆盖/删除旧文件夹里的 `.local/` 和 `runs/` 两个文件夹**（那是你的审批凭证和客户档案）。
+
+更新完成后，把文件夹重新交给 AI 并说「更新完成，跑一下体检」，AI 会执行 `python3 tools/onboard_check.py` 自检并汇报。
 
 ---
 
