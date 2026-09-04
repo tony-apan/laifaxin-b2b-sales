@@ -2,7 +2,7 @@
 name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
-version: 0.3.9
+version: 0.3.10
 created: 2026-08-30
 updated: 2026-09-03
 author: "独立审查 agent（对抗判定后落地）"
@@ -80,7 +80,7 @@ flowchart TD
   - **开跑只问 2 项**：① **token** ② **昵称 + 一句话产品**（如"我卖不锈钢保温杯，主要卖欧美"）。中文或英文任一均可理解，不要因为语言形式重复追问。
   - **★昵称规范（2026-09-03 用户拍板）**：昵称**只含个人称呼**（Tony / Iris 等纯人名）；发现含公司名/产品名/职位（如 "Iris | XX Textiles"、"保温杯厂-老王"）→ **一次性说明并请用户改**："昵称建议只放个人名字，公司信息可以放邮件正文——您想改成什么？"
   - **后续节点用到现在才要**：S0 出 A/B/C/D 方案选字母；S2 出具体客群表选编号（两步分工，不重复问）；S3 用户可给一个认得的买家网址（没有就走标准路径，不追问）；S7 落款只用昵称，公司/官网/邮箱用户主动给才写。
-  - **★用户主动给的网址/卖点=高价值信号，立即消化（2026-09-03 拍板）**：用户给出自己的官网/产品页/卖点文字时，AI 主动**读取并分析**——提炼产品线/核心优势/目标客群/差异化卖点，产出一份"公司与产品速览"给用户确认（内容仅用于：客群方向更准、开发信卖点更真实），然后反哺 S0 方案与 S7 文案。★速览与用户一句话产品/目标市场冲突时，**以用户口径为准**并标注差异。**是 AI 去查去分析，不是让用户解释**。
+  - **★用户主动给的网址/卖点=高价值信号，立即消化并落地为可复用档案（2026-09-03 拍板，⭐2026-09-04 强化回落构建）**：用户给出自己的官网/产品目录/产品页/卖点文字时，AI 主动**读取并分析**——提炼产品线/核心优势/目标客群/差异化卖点/规格认证/合规禁忌，按 RULES「产品知识档案」字段规范落成 `runs/<运营方>/<产品>/product-profile.md`（8 字段+source+可引用数字），**在 S0 请用户确认**，之后 **S2 客群/S4 客户线/S7 卖点/S9 钩子全部从这份档案取知识**，零上下文 AI 断点续接也先读它。★速览/档案与用户一句话产品/目标市场冲突时，**以用户口径为准**并标注差异。**是 AI 去查去分析，不是让用户解释**。
   - **永远不主动要**：公司名、官网、联系邮箱、认证、产能、MOQ 等——用户主动给了才选用；没有时按行业合理值表述，不编造具体数字。
   - 每次**只问当前节点必需的一件事**，给默认建议，用户回复"确认/否/要改"即可推进。
 - **闸门硬条件**：`bash tools/gate_check.sh --token <TOKEN>` 全部通过 = 开始流程的**唯一通行证**；未通过**禁止任何保存/模板/序列/contact-add**。
@@ -92,14 +92,14 @@ flowchart TD
 
 | 节点 | 一句话判据 |
 |------|-----------|
-| S0 INPUT_GATE | **只需昵称+一句话产品**（中英皆可）。★S0 出 A/B/C/D **获客方向方案**（含推荐与淘汰理由），用户选字母——禁止开局索要清单。★用户主动给官网/卖点 → AI 读取分析产出"公司与产品速览"，反哺客群与文案。★**产品适配度判定（只读前置）**：出方案前先按 `specs/product-fit.md` 四问判 **强/条件/弱适配**，结论+理由随 ABCD 方案一起展示；弱适配必须如实说明预期（冷邮件回询盘以月/年计，建议小样验证），由用户决定，不静默走流程 |
+| S0 INPUT_GATE | **只需昵称+一句话产品**（中英皆可）。★S0 出 A/B/C/D **获客方向方案**（含推荐与淘汰理由），用户选字母——禁止开局索要清单。★用户主动给官网/产品目录/卖点 → AI 读取分析并落成 `runs/<运营方>/<产品>/product-profile.md` 知识档案（8 字段+source），请用户确认，反哺 S2/S4/S7/S9。★**产品适配度判定（只读前置）**：出方案前先按 `specs/product-fit.md` 四问判 **强/条件/弱适配**，结论+理由随 ABCD 方案一起展示；弱适配必须如实说明预期（冷邮件回询盘以月/年计，建议小样验证），由用户决定，不静默走流程 |
 | S1 PATH_PENDING | 有精准网址→快速路径 A；无→标准路径 B **自动选择，不追问**（用户随时可补网址切换） |
-| S2 SEGMENT_PENDING | 推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add，非 product-add，否则 generate 500；generate 后轮询 list 至非空）|
+| S2 SEGMENT_PENDING | 推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add，非 product-add，否则 generate 500；generate 后轮询 list 至非空；★客群推演**优先读 product-profile.md** 的产品线/客群/卖点，推得更准）|
 | S3 SEED_PENDING | AI 数据库搜索链三步：①query_en 搜第一页（25字段/条，含 id、无 domain）②代表买家 id→`domain/base-info` 取域名 ③域名作 keyword 走主搜扩量（禁 similar-list）→用户确认锚点；随后 S4 审计、S5/S6 按审计关键词保存（域名/长文本均实测✅） |
 | S4 AUDIT_RUNNING | 只读+AI 语义反思找 70% 临界（50页跳→三页平均→逐页→跌破往前）；**★按 v2 三条客户线(直采/OEM/拓品)逐条判定+判定表留痕+边界敏感性检查**；未完成不能保存 |
 | S5 SAVE_PENDING | 展示临界 N/标签/排除4区/max/点数，用户确认后才保存（→输出 approval_id）|
 | S6 SAVE_RUNNING | front 保存；等任务 status:finished；用标签结果对账。★完成后主动出示**数量账**（S6-数量账.md：max3/验真/去重/异步四机制；1.4~2.1 邮箱/家属正常，<1.0 查锚点） |
-| S7 TEMPLATE_PENDING | 只生草稿，展示 3-8 个**渲染后视图**+理由，确认后才批量创建。★正文署名只用昵称；公司名/官网/邮箱**仅在用户已主动提供时**写入，禁止主动索要 |
+| S7 TEMPLATE_PENDING | 只生草稿，展示 3-8 个**渲染后视图**+理由，确认后才批量创建。★正文署名只用昵称；公司名/官网/邮箱**仅在用户已主动提供时**写入，禁止主动索要；★卖点/差异化**取自 product-profile.md**（可引用数字先给用户看，不凭空造）|
 | S8 TEMPLATE_BUILD | 生成 120 模板并**自动归入同名分组**（禁散落未指定目录），断言变量样式/标题/差异（Jaccard≤0.70），失败回 S7 |
 | S9 SEQUENCE_PENDING | 12 步(30分/5/15/30天)+纽约时区+单日30000/单家5+notSentTags，确认后建。★客群成交/询盘周期以季~年计时（条件/弱适配），如实告知节奏为快周期设计，建议调低轮次或改人工培育 |
 | S9a FIXED_TAGS | 账号固定标签“询盘/不发”：先查同名，存在复用 id，不存在才建；不随产品重复创建，记录 id(名称) |
@@ -150,8 +150,8 @@ flowchart TD
 | 流程逻辑 | `methodology/decision-trees.md`（A/B 路径图）/ `INDEX.md`（导航）|
 | 当前状态 | `.local/`（本地状态+运营方档案+审批凭证；首次运行自动生成，每账号/每 clone 一份，不入 Git）|
 | 工具（工具=规则） | `tools/gate_check.sh`、`onboard_check.py`、`check_login.py`（登录+账号状态卡）、`flow_orchestrator.py`、`approval.py`、`seed_resolve.py`（S3 id→域名）、`tag_add.py`（S5 前置建标签，同名复用）、`save_first_n.py`（内置数量账输出）、`wait_save_done.py`、`gen_templates.py`（自动归组）、`check_template_diff.py`、`build_sequence.py`（S9，公司触发器=什么都不做）、`contact_add.py`（S10）、`activate_sequence.py`（S12 激活+回读防假+--deactivate）、`resolve_schedule.py`、`verify_exclude.py`、`verify_sequence.py`、`rebuild_templates.py`、`audit_company.py`、`render_preview.py`、`check_rules.sh`（AI 自查 token/规则/问题）|
-| 用户话术模板 | `output-templates/`（README=总索引；T-token/S0连接+画像/S2/S3/S4审计中/S5/S6数量账/S7/S8构建中/S9/S10/S11/S12/Q1-Q5 15 个话术模板+1 个总索引——每模板=用户话术+AI执行要点与边界）|
-| 档案（多公司多产品） | `runs/<运营方>/<产品>/`（operation-record/reflection/evidence/verify-*）+ `runs/_template/` + 本地运行记录（不入 Git）|
+| 用户话术模板 | `output-templates/`（README=总索引；T-token/S0连接+画像+产品知识档案/S2/S3/S4审计中/S5/S6数量账/S7/S8构建中/S9/S10/S11/S12/Q1-Q5 16 个话术模板+1 个总索引——每模板=用户话术+AI执行要点与边界）|
+| 档案（多公司多产品） | `runs/<运营方>/<产品>/`（operation-record/reflection/evidence/**product-profile**/verify-*）+ `runs/_template/` + 本地运行记录（不入 Git）|
 | 问题与教训 | 本地问题登记（`db/issues.tsv`，本地数据不入 Git，open 即待办）/ `lessons/lessons-learned.md`（L-01~L-53；L-44 起为脱敏抽象条目，随库分发）/ `review-cycle.md`（旁观者审查）|
 
 > ⚠️ **执行纪律**：写操作工具必须带 `--approval <id> --project <产品>`（审批硬闸门·工具级，凭证在 `.local/approvals.tsv`）；每次操作前先读 RULES+对应 spec；本 SKILL.md 只是入口，与 RULES/specs 冲突时以后者为准。

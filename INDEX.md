@@ -47,9 +47,9 @@ audience: 人+AI
 > **通用层**（RULES/specs/lessons/tools）不分公司共享；**档案层**（runs/）按 `运营方/产品/` 隔离——新公司/新AI拿到直接用。
 ```
 runs/
-  _template/            ← 新公司/新产品先复制这里(operation-record/reflection/evidence/模板)
+  _template/            ← 新公司/新产品先复制这里(operation-record/reflection/evidence/product-profile/模板)
   <运营方>/             ← 运营方命名空间（昵称；公司名确定后改目录名）——本地数据，不入 Git
-    <产品>/   operation-record.md + reflection.md + evidence.json + verify-*.txt + tmap.json + seq-config.json
+    <产品>/   operation-record.md + reflection.md + evidence.json + product-profile.md + verify-*.txt + tmap.json + seq-config.json
     _review/  audit-checklist.md        ← 会话级审查工件（本地）
     _archive/ operation-log.md          ← 历史日志归档（本地）
 ```
