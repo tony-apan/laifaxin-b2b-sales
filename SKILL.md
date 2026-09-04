@@ -46,7 +46,7 @@ flowchart TD
 | 用户说（触发词） | 路由到 |
 |------------------|--------|
 | 新会话 / 换机 / 接手 / "接着上次" | `python3 tools/onboard_check.py`（自检+读本地状态）→ 本文件 → `RULES.md` |
-| "更新到最新版 / 升级 / 老用户更新" | 判断安装方式：git 装 → 仓库目录内 `git pull`；ZIP 装 → 下载最新版 ZIP **覆盖解压到原目录**（⚠️别解压到新文件夹，否则找不到旧数据）；两种都**保留 `.local/` 与 `runs/<你的名字>/`**（升级只替换规则与工具）→ 跑 `python3 tools/onboard_check.py` 体检 → 汇报新版本号 + CHANGELOG 变化（README「🔄 更新到新版本」=用户版话术） |
+| "更新到最新版 / 升级 / 老用户更新" | README「🔄 更新到新版本」办法 A 指令块=完整步骤：①判断安装方式（有 .git→git pull；无→ZIP 覆盖到**原目录**，禁解压新文件夹）②备份 `.local/` 与 `runs/` 到系统文件夹外（成功后可删）③git pull 遇冲突先停不强推；ZIP 覆盖后查"新版已删除的旧文件"残留，列出问用户再清，不自删 ④跑 `python3 tools/onboard_check.py` 体检 → 汇报新版本号 + CHANGELOG 变化 + 数据完好核对 |
 | "帮我找 X 产品的客户" / 开新项目 | §2 前置检查 → ① `python3 tools/check_login.py --token <T>`（登录检查）→ ② `bash tools/gate_check.sh --token <T>`（闸门）→ ③ `python3 tools/flow_orchestrator.py`（S0→S12 向导）|
 | "我这产品适合跑吗 / 大宗 / 长周期 / 好几年才采购" | §2 → 登录检查/闸门 → `specs/product-fit.md`（强/条件/弱三档判定表）：S0 判定 + 如实告知弱适配预期，由用户决定（不拒绝、不静默）|
 | "这客户/这批准不准" / "临界在哪" | 状态机 S4 → `specs/threshold-method.md`（AI 反思 70% 判据）+ `tools/audit_company.py`（⚠️仅趋势初筛）|
