@@ -1,6 +1,8 @@
 ---
+name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
+version: 0.3.8
 created: 2026-08-30
 updated: 2026-09-03
 author: "独立审查 agent（对抗判定后落地）"
