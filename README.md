@@ -144,8 +144,11 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 | 项 | 说明 |
 |---|---|
 | 主流程依赖 | **零第三方** —— Python 3 标准库 + curl + bash（macOS / Linux 开箱即用）|
+| 运行命令 | macOS/Linux 用 `python3`；Windows（Git Bash 或 WSL 里）若 `python3` 没找到，多半有 `py`——用 `py` 代替 `python3`，装 Python 时勾选『Add python to PATH』最省事 |
 | Windows | 用 **Git Bash 或 WSL**（在 Windows 里模拟命令行环境的免费工具）|
 | 复现研究脚本 | 才需要 `pip install -r requirements.txt`（Playwright；相关研究脚本不随库分发）|
+
+> 🔧 自行体检：跑 `python3 tools/onboard_check.py`（Windows 若无 python3 就用 `py tools/onboard_check.py`），它会自动探测 python/py/curl/bash 等，缺哪个就提示安装哪个（含 Windows 何时用 `py`）。
 
 ### 📁 目录导览
 
