@@ -2,6 +2,9 @@
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
 
+## [v0.3.9] - 2026-09-03
+README「给技术朋友（附录）」重构为四组结构化（🔧运行 / 📁目录导览 / ⚖️发布与合规 / 🔒安全边界）——原先 8 段粗体+长段落挤在一起、无分组无层级，改为表格+短列表，读者可按主题定位。
+
 ## [v0.3.8] - 2026-09-03
 SKILL.md frontmatter 兼容 codex 加载器：补 `name: laifaxin-b2b-sales`（ASCII 稳定标识）+ `version: 0.3.7`。此前 SKILL.md 缺 `name` 字段，codex 的 skill-installer 检查时报"缺少 name 字段"，会尝试补兼容字段。保留 `title`（人类/其他工具用）不变，frontmatter YAML 解析已校验。
 

@@ -139,19 +139,38 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 
 ## 给技术朋友（附录）
 
-**运行依赖**：主流程零第三方依赖——Python 3 标准库 + curl + bash（macOS / Linux 开箱即用；Windows 用 Git Bash 或 WSL，这两个是在 Windows 里模拟命令行环境的免费工具）。只有复现研究类脚本时才需要 `pip install -r requirements.txt`（Playwright；相关研究脚本不随库分发）。
+### 🔧 运行
 
-**目录导览**：[RULES.md](RULES.md)＝规则唯一真源；[SKILL.md](SKILL.md)＝AI 入口路由；[specs/](specs/)＝接口规范；[tools/](tools/)＝随库工具；[runs/_template/](runs/_template/)＝新案例起始模板；另有 [docs/](docs/)（面向人的教程）、[glossary/](glossary/)（术语表）、[wiki/](wiki/)（FAQ）、[lessons/](lessons/)（教训库，编号已脱敏抽象）。
+| 项 | 说明 |
+|---|---|
+| 主流程依赖 | **零第三方** —— Python 3 标准库 + curl + bash（macOS / Linux 开箱即用）|
+| Windows | 用 **Git Bash 或 WSL**（在 Windows 里模拟命令行环境的免费工具）|
+| 复现研究脚本 | 才需要 `pip install -r requirements.txt`（Playwright；相关研究脚本不随库分发）|
 
-**许可证**：**GPL-3.0**，全文见 [LICENSE](LICENSE)。第三方教程原文与未授权截图不随库分发。
+### 📁 目录导览
 
-**真实案例说明**：本库保留少量真实运行示例——种子域名（rivergear.com、nookie.co.uk、thermospromo.com、theboatpeople.org 等）与结果数量（6500 家、10211 邮箱、Jaccard 0.61 等，Jaccard 是衡量两篇文字相似程度的指标）为作者当时实际运行结果，**仅作方法演示，与读者业务无关**；其余租户/账号相关信息均以占位符出现。
+| 目录/文件 | 是什么 |
+|---|---|
+| [RULES.md](RULES.md) | 规则唯一真源 |
+| [SKILL.md](SKILL.md) | AI 入口路由 |
+| [specs/](specs/) | 接口规范 |
+| [tools/](tools/) | 随库工具（工具＝规则）|
+| [docs/](docs/) | 面向人的教程 |
+| [runs/_template/](runs/_template/) | 新案例起始模板 |
+| [glossary/](glossary/) · [wiki/](wiki/) · [lessons/](lessons/) | 术语表 · FAQ · 教训库（编号已脱敏抽象）|
 
-**隐私与脱敏**：不含真实租户 ID、客户/联系人邮箱、标签/序列/模板 ID、运营方姓名、审批编号——一律占位符；内部分析记录（dialogue/、runs/tony/、db/issues.tsv 等）不随库分发。**公开发布只允许使用 Git 已跟踪文件或 GitHub Release/Download ZIP，不要打包整个本地工作目录**；本地 `.local/` 与 `runs/<你的名字>/` 可能含真实运营数据。
+### ⚖️ 发布与合规
 
-**安全边界**：审批闸门防呆不防恶——AI 自己写的"确认"不等于你的授权；高风险操作（保存 / 建序列 / 加联系人 / 激活）必须在对话中出示用户原话，AI 自行记录的凭证视为无效。运行产生的本地数据（`.local/` 审批流水、`runs/` 你的运营档案）**只在你自己的电脑上**，不要把这个文件夹整体发给他人或公开——它含你的账号活动痕迹；分享/交付只走本公开仓库（无运营数据）。
+- **许可证**：**GPL-3.0**，全文见 [LICENSE](LICENSE)。第三方教程原文与未授权截图不随库分发。
+- **真实案例说明**：本库保留少量真实运行示例——种子域名（rivergear.com、nookie.co.uk、thermospromo.com、theboatpeople.org 等）与结果数量（6500 家、10211 邮箱、Jaccard 0.61 等，Jaccard 是衡量两篇文字相似程度的指标）为作者当时实际运行结果，**仅作方法演示，与读者业务无关**；其余租户/账号相关信息均以占位符出现。
+- **隐私与脱敏**：不含真实租户 ID、客户/联系人邮箱、标签/序列/模板 ID、运营方姓名、审批编号——一律占位符；内部分析记录（dialogue/、runs/tony/、db/issues.tsv 等）不随库分发。**公开发布只允许使用 Git 已跟踪文件或 GitHub Release/Download ZIP，不要打包整个本地工作目录**；本地 `.local/` 与 `runs/<你的名字>/` 可能含真实运营数据。
 
-**平台与运营方责任要分开**：来发信系统通道负责 SPF / DKIM / DMARC、发送基础设施和退订技术呈现；运营方仍须在激活前核验目标市场规则、名单来源、发送主体信息、实际退订入口、拒收名单和数据处理要求。平台提供技术能力，**不等于运营方免除合规责任**。激活接口 `sequence-active` 早期曾返回 500（2026-09-02 单次实测恢复）；激活一律走 `tools/activate_sequence.py` 并回读状态确认。
+### 🔒 安全边界
+
+- **审批闸门防呆不防恶**：AI 自己写的"确认"不等于你的授权；高风险操作（保存 / 建序列 / 加联系人 / 激活）必须在对话中出示用户原话，AI 自行记录的凭证视为无效。
+- **本地数据只在你电脑上**：`.local/`（审批流水）、`runs/`（你的运营档案）含你的账号活动痕迹，不要把这个文件夹整体发给他人或公开；分享/交付只走本公开仓库（无运营数据）。
+- **平台与运营方责任分开**：来发信系统通道负责 SPF / DKIM / DMARC、发送基础设施和退订技术呈现；运营方仍须在激活前核验目标市场规则、名单来源、发送主体信息、实际退订入口、拒收名单和数据处理要求。平台提供技术能力，**不等于运营方免除合规责任**。
+- **激活接口**：`sequence-active` 早期曾返回 500（2026-09-02 单次实测恢复）；激活一律走 `tools/activate_sequence.py` 并回读状态确认。
 
 ---
 
