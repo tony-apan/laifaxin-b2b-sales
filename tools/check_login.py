@@ -7,7 +7,7 @@
   python3 check_login.py --token '<...>' --org <orgId>   # 也可显式传
 官方教程: https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
 """
-import json, subprocess, argparse, sys
+import json, subprocess, argparse, sys, re
 
 GUIDE_URL = "https://www.laifa.xin/share/ai/laifaxin-ai-account-connection"
 
@@ -16,17 +16,14 @@ def guide(reason):
     print(f"""
 📖 获取 token 官方教程: {GUIDE_URL}
   方法一（小白，不敲代码）: 登录 web.laifaxin.com → 页面右键"检查" → 顶部"应用程序"(Application) →
-      左侧 存储→本地存储→https://web.laifaxin.com → 找到 accesstoken → 复制右侧"值"的完整长串
-  方法二（更快）: 页面右键"检查" → 顶部"控制台"(Console) → 依次粘贴执行两条:
-      copy(localStorage.getItem("accesstoken"));   ← 账号钥匙（发给 AI 的 --token）
-      copy(localStorage.getItem("orgId"));         ← 工作空间ID（发给 AI 的 --org）
-  ⚠️ token 只复制"值"整串（别只复制单词 accesstoken、别带引号/空格/换行）
-  🔴 **企业账号/多组织必看**：网页右上角头像可"切换账号"（个人↔企业）——
-      token 中段是你的【用户ID】（切换不变）；localStorage 的 orgId 才是【当前工作空间】（切换会变）。
-      切换 org 后必须重新复制两样一起发给 AI，否则 AI 会操作错空间！
-  ❓ 得到 null = 未登录/页面不对 → 确认在 web.laifaxin.com 且已登录，刷新重试，仍不行退出重登
-  🔄 换账号/退出重登后需重新获取
-拿到后把它们直接发给 AI（--token '<粘贴整串>' --org '<orgId>'）——首次连接只做本只读检查，不搜客/不保存/不发信。""")
+      左侧 存储→本地存储→https://web.laifaxin.com → 分别复制 accesstoken 和 orgId 两项的"值"
+  方法二（⭐推荐，一条命令两样全拿）: 页面右键"检查" → 顶部"控制台"(Console) → 粘贴这一行并回车:
+      copy("TOKEN="+localStorage.getItem("accesstoken")+"\\nORG="+localStorage.getItem("orgId"));
+      显示 undefined = 已复制成功（剪贴板里是两行：TOKEN=... 和 ORG=...，整段直接发给 AI 即可）
+  ⚠️ 粘贴代码时浏览器可能提示 "Don't paste code"——输入 allow pasting 再粘
+  🔴 企业账号/多组织：右上角头像"切换账号"后 orgId 会变、token 不变——切换后必须重新执行上面的命令
+  ❓ ORG=null = 未登录/页面不对 → 确认已登录，刷新重试
+拿到后把剪贴板整段发给 AI——首次连接只做本只读检查，不搜客/不保存/不发信。""")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--token", default="", help="accesstoken 完整串（用户按教程复制）")
@@ -42,6 +39,25 @@ tok = args.token.strip()
 if tok != args.token:
     print("⚠️ token 首尾带空格/换行——已自动去除（下次复制时注意别带上）")
 args.token = tok
+
+# ★一键双取格式自动拆分（2026-09-06：用户用一条 copy 命令同时复制 token+orgId，
+#   AI 可把剪贴板整段原样传给 --token，本工具自动拆出 TOKEN=/ORG= 两行——防 AI 转述出错）
+if "TOKEN=" in tok and "ORG=" in tok:
+    m_tok = re.search(r"TOKEN=([^\s]+)", tok)
+    m_org = re.search(r"ORG=([^\s]+)", tok)
+    if m_tok and m_org:
+        parsed_tok, parsed_org = m_tok.group(1), m_org.group(1)
+        if parsed_org.lower() == "null":
+            print("❌ ORG=null——未登录或页面不对。请在 web.laifaxin.com 登录后重新执行复制命令。")
+            sys.exit(2)
+        if not args.org:
+            args.org = parsed_org
+        args.token = parsed_tok
+        tok = parsed_tok
+        print("# 检测到一键双取格式——已自动拆分 TOKEN/ORG")
+    else:
+        print("⚠️ 看起来是一键双取格式但解析失败——请确认复制命令完整执行（undefined=成功）")
+
 segs = tok.split("&")
 uid_from_token = segs[1] if len(segs) >= 3 else ""
 if args.org:

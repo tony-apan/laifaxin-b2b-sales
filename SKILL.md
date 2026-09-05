@@ -74,7 +74,9 @@ flowchart TD
 
 - **★第一步=登录检查**：`python3 tools/check_login.py --token '<T>' --org '<orgId>'`（只读；🔴企业账号 orgId 必填）。无 token/失效 → **引导用户**按官方教程获取后发来：https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
   - 方法一(小白)：登录 web.laifaxin.com → 右键"检查"→"应用程序"→本地存储→web.laifaxin.com→分别复制 `accesstoken` 和 `orgId` 的"值"
-  - 方法二(更快)：检查→控制台→依次执行 `copy(localStorage.getItem("accesstoken"));` 和 `copy(localStorage.getItem("orgId"));`→undefined=已复制；null=未登录→刷新/重登
+  - 方法二(⭐推荐，一条命令两样全拿)：检查→控制台→粘贴这一行并回车：
+    `copy("TOKEN="+localStorage.getItem("accesstoken")+"\nORG="+localStorage.getItem("orgId"));`
+    →undefined=已复制（剪贴板两行 TOKEN=.../ORG=...）；**用户整段发给 AI 后原样传给 --token，工具自动拆分**
   - 🔴 **orgId=工作空间ID，与 token 中段（用户ID）是两回事**：个人账号二者恰好相同；**企业账号 orgId 是独立数字ID（如 1804106008），必须从 localStorage 单独复制**——网页右上角头像可"切换账号"（个人↔企业），切换后 orgId 变、token 不变，两样都重新复制发给 AI
   - ★请用 Chrome 或 Edge 打开 web.laifaxin.com（其他浏览器界面可能不同）
   - 粘贴时浏览器可能提示 "Don't paste code"（防骗保护，正常现象）——核对命令一致后按提示输入 allow pasting 再粘贴

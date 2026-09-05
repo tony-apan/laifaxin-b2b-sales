@@ -294,8 +294,9 @@ _GENERIC_CTA_RE = re.compile(
     r"feel free to (?:reach out|contact)|look forward to hearing|don'?t hesitate",
     re.IGNORECASE)
 _ADVANTAGE_RE = re.compile(
-    r"\d+\s*(?:-?\s*(?:year|day|week|month)s?|年|天|日|个月)|warranty|guarantee|repair[- ]friendly|"
-    r"drop[- ]?stitch|hypalon|pvc|seam|load|psi|denier|质保|保修|交期|修复",
+    r"\d+\s*(?:-?\s*(?:year|day|week|month)s?|年|天|日|个月|pcs|pieces?|units?|kg|tons?)|"
+    r"MOQ|warranty|guarantee|repair[- ]friendly|drop[- ]?stitch|hypalon|pvc|seam|load|psi|denier|"
+    r"food[- ]grade|lead time|质保|保修|交期|修复|食品级|起订",
     re.IGNORECASE)
 
 def check_four_elements():
