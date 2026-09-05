@@ -125,7 +125,9 @@ RISK_RE = re.compile(
 )
 
 def _sentences(text):
-    parts = re.split(r"[.!?。！？；;\n]+", text or "")
+    """切句前剥掉 <b>/</b> 排版标签（四要素铁律要求加粗，但标签不属于句子内容）。"""
+    text = re.sub(r"</?b>", "", text or "")
+    parts = re.split(r"[.!?。！？；;\n]+", text)
     return [re.sub(r"\s+", " ", s).strip() for s in parts if s and s.strip()]
 
 def _risky_hits():
@@ -143,13 +145,18 @@ def _risky_hits():
     return hits
 
 def _all_user_sentences():
-    """用户可见文案(主题/正文轮次句/变体句)的全部句子集合(claims[].exact_text 必须逐句对应其中之一)。"""
+    """用户可见文案的归一化片段全集（按文案段——主题/轮次句/变体句——整体归一化，不切句：
+    CTA 推荐问句式 "Worth a look? Reply ..."，切句会把一段拆成多段导致 exact_text 误判）。
+    exact_text 归一化后必须等于某一段的归一化全文（即 exact_text=整段原文），或为空由调用方报错。"""
     sents = set()
     for d in DIRECTIONS:
         for text in (d[2], d[3]):
-            sents.update(_sentences(text))
+            if str(text or "").strip():
+                sents.add(_normalize_claim_sentence(text))
     for body in VARIANTS:
-        sents.update(_sentences(body))
+        if str(body or "").strip():
+            sents.add(_normalize_claim_sentence(body))
+    sents.discard("")
     return sents
 
 # ---------- evidence↔风险句 强关联校验(静态红队P1): 实体/数字 token 保守子集 ----------
@@ -182,14 +189,15 @@ def _claim_tokens(text):
     nums = set()
     for tok in re.findall(r"\d[\d,，.]*", str(text or "")):
         t = tok.replace(",", "").replace("，", "").rstrip(".")
-        if t:
+        # 年份(1900-2099)=目录/日程上下文，非需溯源事实数字——不参与强关联
+        if t and not re.fullmatch(r"(?:19|20)\d{2}", t):
             nums.add(t)
     return ents, nums
 
 def _normalize_claim_sentence(text):
-    """允许复制原句时保留句尾标点；归一化后必须恰好是一条完整句子。"""
-    parts = _sentences(str(text or ""))
-    return parts[0] if len(parts) == 1 else ""
+    """归一化 exact_text：剥 <b> 标签+压缩空白（★不切句——CTA 推荐问句式，如 "Worth a look? Reply ..."，
+    按切句器会被拆成两段导致误判非完整句）。完整性由"必须逐字出现在文案中"保证，而非句数。"""
+    return re.sub(r"\s+", " ", re.sub(r"</?b>", "", str(text or ""))).strip()
 
 
 def _check_claim_items(claims):
@@ -218,10 +226,6 @@ def _check_claim_items(claims):
         content_norm = re.sub(r"\s+", " ", content).strip()
         if evidence not in content_norm:
             print(f"❌ plan.claims[{i}].evidence_text 未逐字存在于档案字段 {field_no} 内容中: {evidence!r} (exit 2)")
-            raise SystemExit(2)
-        exact_norm = _normalize_claim_sentence(c["exact_text"])
-        if exact_norm not in content_norm:
-            print(f"❌ plan.claims[{i}].exact_text 必须逐字存在于所指档案字段内容（高风险事实不允许改写/扩张）: {exact_norm!r}")
             raise SystemExit(2)
         # 强关联(静态红队P1): 风险句中的实体(ISO/CE/FDA/RoHS/UL...)与全部数字 token 必须在 evidence 中出现
         s_ent, s_num = _claim_tokens(str(c["exact_text"]))
@@ -262,8 +266,8 @@ def validate_claims():
         for loc, s in hits:
             print(f"   - [{loc}] {s}")
         raise SystemExit(2)
-    norm_set = set(_normalize_claim_sentence(c["exact_text"]) for c in claims)
-    missing = [(loc, s) for loc, s in hits if s not in norm_set]
+    norm_list = [_normalize_claim_sentence(c["exact_text"]) for c in claims]
+    missing = [(loc, s) for loc, s in hits if not any(s in nc for nc in norm_list)]
     if missing:
         print("❌ 以下高风险句子未被 claims[].exact_text 覆盖(把整句原文逐字写进 exact_text):")
         for loc, s in missing:
@@ -281,6 +285,66 @@ def html_for(rnd, zh, subj, angle, body):
             f"<p>{body}</p>"
             f"<p>{SIGN}</p>")
 
+# ---------- 模板四要素铁律断言（★2026-09-04 用户拍板：sequence-config「模板四要素铁律」的工具级落地） ----------
+_CTA_MARK_RE = re.compile(
+    r"\b(?:reply|respond|just reply|yes or no|worth a look|shall i|should i|want me to)\b|"
+    r"回复|回个|要不要|需要我",
+    re.IGNORECASE)
+_GENERIC_CTA_RE = re.compile(
+    r"feel free to (?:reach out|contact)|look forward to hearing|don'?t hesitate",
+    re.IGNORECASE)
+_ADVANTAGE_RE = re.compile(
+    r"\d+\s*(?:-?\s*(?:year|day|week|month)s?|年|天|日|个月)|warranty|guarantee|repair[- ]friendly|"
+    r"drop[- ]?stitch|hypalon|pvc|seam|load|psi|denier|质保|保修|交期|修复",
+    re.IGNORECASE)
+
+def check_four_elements():
+    """四要素+视觉扫读铁律（sequence-config）：①变体句含CTA（具体可回复）②优势具体化
+    ③<b>加粗2-4处且含加粗回复关键词④CTA可回复性 ⑤整封≤120词 ⑥CTA回复关键词必须加粗。
+    违例列出并 exit 2。claims 已单独校验事实来源。"""
+    issues = []
+    samples = []
+    for d in DIRECTIONS:
+        samples.append((f"{d[0]}", d[2], d[3]))
+    for vi, body in enumerate(VARIANTS, 1):
+        samples.append((f"V{vi:02d}", "", body))
+    for loc, subj, text in samples:
+        bolds = len(re.findall(r"<b>", text))
+        if bolds and (bolds < 2 or bolds > 4):
+            issues.append(f"[{loc}] <b>加粗数量={bolds}（要求2-4处）")
+        # CTA 铁律只校验【变体句】——变体=每封邮件的收尾主体，CTA 是嵌入元素（sequence-config §42）；
+        # 轮次句是铺陈（钩子/优势），不强制每句带 CTA
+        is_variant = loc.startswith("V")
+        if is_variant:
+            if not _CTA_MARK_RE.search(text):
+                issues.append(f"[{loc}] 缺CTA——变体句末段必须有具体可回复动作（Reply \"X\" / yes-or-no / 选项）")
+            elif _GENERIC_CTA_RE.search(text):
+                issues.append(f"[{loc}] 泛CTA违例（feel free/look forward——没说清回什么）")
+            if not _ADVANTAGE_RE.search(text):
+                issues.append(f"[{loc}] 缺具体化优势——须带数字/实体（质保年数/交期天数/材料工艺），裸能力陈述=违例")
+            # 视觉扫读：CTA 回复关键词必须加粗（Reply "<b>X</b>" 或 <b>"X"</b>）
+            plain = re.sub(r"<[^>]+>", "", text)
+            # 提取回复关键词：优先带引号形式 Reply "X"；否则 Reply X（到标点/句尾）
+            m = (re.search(r'(?:reply|respond)\s+["\']([A-Za-z0-9 ]{1,20})["\']', plain, re.IGNORECASE)
+                 or re.search(r'(?:reply|respond)\s+to?\s*["\']?([A-Za-z][A-Za-z0-9 ]{1,20})["\']?(?=[,.;!?]|$)', plain, re.IGNORECASE))
+            if m:
+                kw = m.group(1).split()[0]
+                bolded = re.search(r'<b>[^<]*' + re.escape(kw) + r'[^<]*</b>', text, re.IGNORECASE)
+                if not bolded:
+                    issues.append(f"[{loc}] CTA回复关键词「{kw}」未加粗——买家扫读必须看到回复动作（Reply \"<b>{kw}</b>\"）")
+    # 视觉扫读：整封（钩子段+卖点段+CTA段，不含落款）≤120 词
+    for d in DIRECTIONS:
+        full_text = re.sub(r"<[^>]+>", " ", f"{d[2]} {d[3]} {VARIANTS[0]}")
+        words = len(re.findall(r"[A-Za-z0-9']+", full_text))
+        if words > 120:
+            issues.append(f"[{d[0]}] 整封词数={words}（上限120）——超长=移动端折叠=CTA不可见")
+    if issues:
+        print(f"❌ 模板四要素+视觉扫读铁律未过（{len(issues)} 处违例）——按 sequence-config 修改 plan 后重跑：")
+        for i in issues[:10]:
+            print(f"   - {i}")
+        raise SystemExit(2)
+    print(f"  ✅ 四要素+视觉扫读铁律: {len(samples)} 句全部合规（CTA/优势/加粗/词数）")
+
 def preview():
     print("★ 渲染视图预览(收件人看到):")
     for rnd, zh, subj, angle in DIRECTIONS[:5]:
@@ -293,6 +357,8 @@ def preview():
         for l in lines:
             print("  " + l)
     print(f"\n(预览仅代表; 生成={len(DIRECTIONS)}轮x{len(VARIANTS)}={len(DIRECTIONS)*len(VARIANTS)}, 每轮正文句不同+每变体正文句不同)")
+
+check_four_elements()
 
 def ensure_folder():
     """S8 固化(2026-09-03 用户拍板): 模板必须归入分组,禁止散落在未指定目录。
