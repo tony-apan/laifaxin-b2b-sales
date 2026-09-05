@@ -9,8 +9,8 @@
 3. 在页面按右键 → 点"检查"（Mac 是 ⌥Option+⌘I）
 4. 顶部点「Console / 控制台」标签
 5. 粘贴这一行并回车：
-   var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),console.log("✅ 已复制到剪贴板！请回到对话框 Ctrl+V 粘贴发送给 AI")):console.log("❌ 未登录或页面不对——请先登录 web.laifaxin.com 再重试");
-   （成功显示 ✅ 已复制到剪贴板！；显示 ❌ = 未登录，先登录再试）
+   var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！请回到对话框 Ctrl+V 粘贴发送给 AI"):"❌ 未登录或页面不对——请先登录 web.laifaxin.com 再重试";
+   （成功回显 ✅ 已复制到剪贴板！；回显 ❌ = 未登录，先登录再试——不会再出现多余的 undefined）
 6. 回到这里整段粘贴给我（Ctrl+V / ⌘V）——不用拆分，我能自动识别
 
 复制出来的两行字段名（accesstoken= / orgId=）与页面存储键名一一对应，AI 拿到就知道哪个是哪个。

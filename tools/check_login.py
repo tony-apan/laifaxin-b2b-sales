@@ -18,9 +18,8 @@ def guide(reason):
   方法一（小白，不敲代码）: 登录 web.laifaxin.com → 页面右键"检查" → 顶部"应用程序"(Application) →
       左侧 存储→本地存储→https://web.laifaxin.com → 分别复制 accesstoken 和 orgId 两项的"值"
   方法二（⭐推荐，一条命令两样全拿）: 页面右键"检查" → 顶部"控制台"(Console) → 粘贴这一行并回车:
-      var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\\norgId="+localStorage.getItem("orgId")),console.log("✅ 已复制到剪贴板！请回到对话框 Ctrl+V 粘贴发送给 AI")):console.log("❌ 未登录或页面不对——请先登录 web.laifaxin.com 再重试");
-      成功会显示 ✅ 提示（不再是无意义的 undefined）；显示 ❌ = 未登录，先登录再试
-      复制出来的是两行：accesstoken=... 和 orgId=...（字段名与页面存储一致），整段发给 AI 即可
+      var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！请回到对话框 Ctrl+V 粘贴发送给 AI"):"❌ 未登录或页面不对——请先登录 web.laifaxin.com 再重试";
+      控制台会直接回显 ✅ 或 ❌ 提示文案（没有 undefined 尾巴）；复制出来是两行：accesstoken=... 和 orgId=...（字段名与页面存储一致），整段发给 AI 即可
   ⚠️ 粘贴代码时浏览器可能提示 "Don't paste code"——输入 allow pasting 再粘
   🔴 企业账号/多组织：右上角头像"切换账号"后 orgId 会变、token 不变——切换后必须重新执行上面的命令
   ❓ ORG=null = 未登录/页面不对 → 确认已登录，刷新重试
