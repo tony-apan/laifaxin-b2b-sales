@@ -131,6 +131,14 @@ print("   · 落款只用昵称;邮件正文=目标市场语言;标签=语言-�
 print("★ 会话入口总线: ①bootstrap(无Python环境准备) → ②本脚本(自检+可续接项目扫描) → ③S0a公司/产品档案 → ④check_login登录检查 → ⑤gate_check闸门 → ⑥flow_orchestrator向导")
 print("")
 print("🔧 环境自检(30秒):")
+# 启动时自动检查新版本（静默失败，绝不阻塞自检）
+try:
+    sys.path.insert(0, str(KB / "tools"))
+    from version_check import print_notice_if_newer
+    print_notice_if_newer()
+    print("")
+except Exception:
+    pass
 import shutil
 env_ok = True
 # ★静态红队P2: python_cmd 首选当前正在运行的 sys.executable(必然可用), 再探测 python3/python/py

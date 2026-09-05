@@ -95,6 +95,13 @@ if d.get("success") is True:
     if data.get('dailyUsedUp'):
         print("   ⚠️ 今日搜索配额已用尽：次日恢复；保存邮箱和发信不受影响（见 wiki/faq）")
     print("   下一步(AI): 按 output-templates/S0-连接成功.md 展示 → 请用户提供 昵称(+一句话产品) → gate_check → RULES 状态机")
+    # 启动时自动检查新版本（静默失败，绝不阻塞主流程）
+    try:
+        sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+        from version_check import print_notice_if_newer
+        print_notice_if_newer()
+    except Exception:
+        pass
     sys.exit(0)
 else:
     msg = d.get("message") or (r.stdout[:80] if isinstance(r.stdout, str) else "")
