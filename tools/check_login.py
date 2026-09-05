@@ -17,17 +17,20 @@ def guide(reason):
 📖 获取 token 官方教程: {GUIDE_URL}
   方法一（小白，不敲代码）: 登录 web.laifaxin.com → 页面右键"检查" → 顶部"应用程序"(Application) →
       左侧 存储→本地存储→https://web.laifaxin.com → 找到 accesstoken → 复制右侧"值"的完整长串
-  方法二（更快）: 页面右键"检查" → 顶部"控制台"(Console) → 粘贴执行:
-      copy(localStorage.getItem("accesstoken"));
-      显示 undefined = 已复制到剪贴板
-  ⚠️ 只复制"值"整串（别只复制单词 accesstoken、别带引号/空格/换行）
+  方法二（更快）: 页面右键"检查" → 顶部"控制台"(Console) → 依次粘贴执行两条:
+      copy(localStorage.getItem("accesstoken"));   ← 账号钥匙（发给 AI 的 --token）
+      copy(localStorage.getItem("orgId"));         ← 工作空间ID（发给 AI 的 --org）
+  ⚠️ token 只复制"值"整串（别只复制单词 accesstoken、别带引号/空格/换行）
+  🔴 **企业账号/多组织必看**：网页右上角头像可"切换账号"（个人↔企业）——
+      token 中段是你的【用户ID】（切换不变）；localStorage 的 orgId 才是【当前工作空间】（切换会变）。
+      切换 org 后必须重新复制两样一起发给 AI，否则 AI 会操作错空间！
   ❓ 得到 null = 未登录/页面不对 → 确认在 web.laifaxin.com 且已登录，刷新重试，仍不行退出重登
   🔄 换账号/退出重登后需重新获取
-拿到后把它直接发给 AI（本命令: --token '<粘贴整串>'）——首次连接只做本只读检查，不搜客/不保存/不发信。""")
+拿到后把它们直接发给 AI（--token '<粘贴整串>' --org '<orgId>'）——首次连接只做本只读检查，不搜客/不保存/不发信。""")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--token", default="", help="accesstoken 完整串（用户按教程复制）")
-ap.add_argument("--org", default="", help="orgId（可省略：token=web.laifaxin.com&<orgId>&<hash>，自动提取中段）")
+ap.add_argument("--org", default="", help="工作空间ID=localStorage orgId（🔴企业账号必填！个人账号可省略=token中段）")
 args = ap.parse_args()
 
 if not args.token:
@@ -40,11 +43,18 @@ if tok != args.token:
     print("⚠️ token 首尾带空格/换行——已自动去除（下次复制时注意别带上）")
 args.token = tok
 segs = tok.split("&")
+uid_from_token = segs[1] if len(segs) >= 3 else ""
 if args.org:
     org = args.org
+    if uid_from_token and org == uid_from_token:
+        print(f"# 当前工作空间: {org}（个人账号：orgId==用户ID）")
+    else:
+        print(f"# 当前工作空间: {org}（企业org，操作用户={uid_from_token or '?'}）")
 elif len(segs) >= 3:
     org = segs[1]
-    print(f"# org 自动从 token 提取: {org}（官方: accesstoken 已含账号信息，无需单独取 UID）")
+    print(f"# 当前工作空间: {org}（⚠️回退=token中段用户ID——个人账号成立；🔴企业账号必须显式传 --org <localStorage的orgId>）")
+    print("   🔴 多org提醒：网页右上角头像可'切换账号'（个人↔企业）——切换后 orgId 会变，token 中段不变；")
+    print("      请在控制台执行 copy(localStorage.getItem(\"orgId\")) 取当前工作空间ID，随 --org 传入，否则会操作错空间！")
 else:
     print("❌ token 格式不对（应有 3 段: web.laifaxin.com&<orgId>&<长串>，你给的只有 %d 段）——大概率是没复制完整。" % len(segs))
     print("   ★建议改用方法二一键复制（控制台 copy 命令），或对照教程重新复制整串；也可显式传 --org <orgId>。")
@@ -85,6 +95,7 @@ if d.get("success") is True:
     duptext = "已用尽" if data.get('dailyUsedUp') else f"剩 {max(dl-du,0)}"
     muptext = "已用尽" if data.get('monthlyUsedUp') else f"剩 {max(ml-mu,0)}"
     print("✅ 连接成功！您的来发信账号状态：")
+    print(f"   操作用户：{uid_from_token or '?'} ｜ 工作空间(orgId)：{org}" + ("  ← 企业org" if org != uid_from_token else ""))
     print(f"   账号等级：{vip_label}")
     print(f"   今日查看配额：{dl} 条，已用 {du} 条（{duptext}）")
     print(f"   本月查看配额：{ml} 条，已用 {mu} 条（{muptext}）")

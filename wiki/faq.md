@@ -92,6 +92,9 @@ A：让 AI 直接生成 **HTML 源码** → 来发信邮件模板 → 编辑源�
 **Q：标题要不要 Emoji？**
 A：标题开头或结尾加 1 个高度相关的 Emoji（如 🛶），增强视觉吸引力。别滥用。
 
+**Q：我有个人账号和企业账号，切换后 AI 操作的是哪个空间？**
+A：token 中段是你的**用户ID**（切换不变）；localStorage 的 `orgId` 才是**当前工作空间**（个人号=用户ID 本身，企业号是独立数字ID）。网页右上角头像"切换账号"后 orgId 会变——**必须重新复制 token+orgId 两样发给 AI**，AI 用 `--org <orgId>` 指定空间。只发 token 不发 orgId 时，AI 默认按个人号空间操作，企业号数据看不到。
+
 ## ❓ 删除进度怎么查？保存进度怎么查？
 - **保存**（refine/company-save 返回 data.id）→ `operation/backend-task-status {"type":"cluesSave","id":<id>}` → data.contactSaveCount
 - **删除**（`contacts/contacts/delete` 返回 backendId）→ `operation/backend-progress {"id":<backendId>}` → data.status/total/finished/progress

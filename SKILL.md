@@ -72,15 +72,16 @@ flowchart TD
 
 ## 2️⃣ 必备前置（硬条件，缺一停）
 
-- **★第一步=登录检查**：`python3 tools/check_login.py --token '<T>'`（只读；org 自动从 token 提取）。无 token/失效 → **引导用户**按官方教程获取后发来：https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
-  - 方法一(小白)：登录 web.laifaxin.com → 右键"检查"→"应用程序"→本地存储→web.laifaxin.com→accesstoken→复制"值"整串
-  - 方法二(更快)：检查→控制台→`copy(localStorage.getItem("accesstoken"));`→undefined=已复制；null=未登录→刷新/重登
+- **★第一步=登录检查**：`python3 tools/check_login.py --token '<T>' --org '<orgId>'`（只读；🔴企业账号 orgId 必填）。无 token/失效 → **引导用户**按官方教程获取后发来：https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
+  - 方法一(小白)：登录 web.laifaxin.com → 右键"检查"→"应用程序"→本地存储→web.laifaxin.com→分别复制 `accesstoken` 和 `orgId` 的"值"
+  - 方法二(更快)：检查→控制台→依次执行 `copy(localStorage.getItem("accesstoken"));` 和 `copy(localStorage.getItem("orgId"));`→undefined=已复制；null=未登录→刷新/重登
+  - 🔴 **orgId=工作空间ID，与 token 中段（用户ID）是两回事**：个人账号二者恰好相同；**企业账号 orgId 是独立数字ID（如 1804106008），必须从 localStorage 单独复制**——网页右上角头像可"切换账号"（个人↔企业），切换后 orgId 变、token 不变，两样都重新复制发给 AI
   - ★请用 Chrome 或 Edge 打开 web.laifaxin.com（其他浏览器界面可能不同）
   - 粘贴时浏览器可能提示 "Don't paste code"（防骗保护，正常现象）——核对命令一致后按提示输入 allow pasting 再粘贴
   - 安全边界：token 等同登录凭证，只发给你信任的 AI（本流程仅用于你会话、不写文件）；不要发群聊/工单/公开文档
-  - 首次连接只做只读检查（不搜客/不保存/不扣点/不发信）；换账号需重新获取
+  - 首次连接只做只读检查（不搜客/不保存/不扣点/不发信）；换账号/切 org 需重新获取两样
 - **★最小必要输入（2026-09-03 用户拍板：渐进索取，禁止开局列清单）**：
-  - **开跑只问 2 项**：① **token** ② **昵称 + 一句话产品**（如"我卖不锈钢保温杯，主要卖欧美"）。中文或英文任一均可理解，不要因为语言形式重复追问。
+  - **开跑只问 2 类**：① **token + orgId**（🔴企业账号 orgId 必填——个人账号 orgId==用户ID 可省略；获取见上）② **昵称 + 一句话产品**（如"我卖不锈钢保温杯，主要卖欧美"）。中文或英文任一均可理解，不要因为语言形式重复追问。
   - **★昵称规范（2026-09-03 用户拍板）**：昵称**只含个人称呼**（Tony / Iris 等纯人名）；发现含公司名/产品名/职位（如 "Iris | XX Textiles"、"保温杯厂-老王"）→ **一次性说明并请用户改**："昵称只放个人名字；公司信息我会存入本地产品档案用于分析，但不会进入邮件签名——您想用什么昵称？"
   - **后续节点用到现在才要**：S0 出 A/B/C/D 方案选字母；S2 出具体客群表选编号（两步分工，不重复问）；S3 用户可给一个认得的买家网址（没有就走标准路径，不追问）；S7 邮件签名只用昵称——公司/官网/邮箱（用户自己的商业资产）AI 主动要 **仅供 AI 建档/背调**，绝不写进邮件签名。
   - **★产品资料=获客必需素材，用户不给AI也主动要**：公司级资料按 `operator-profile-sop.md` 回落 `.local/operators/<operator_key>.md`；产品级资料按 `product-profile-sop.md` 回落 `runs/<operator_key>/<product_key>/product-profile.md`。每次单独问一组，给填空模板、可跳过、不逼问。★**邮件边界**：邮件末尾签名区永远只有纯个人昵称；公司名/官网/联系邮箱不进入签名；经用户确认且有字段级来源的认证/产能/MOQ/交期/价格带可用于正文卖点；推断或无来源的具体事实禁止写入。★潜在买家/客户/联系人第三方联系方式不索要、不写入上述档案。S2/S4/S7/S9 必须绑定当前 profile path/version/hash；零上下文续接先读两类档案。

@@ -17,7 +17,8 @@ audience: AI优先（人可参考）
 
 ## 0. 认证与账户
 
-> ★**token 获取（新手第一步）**：官方教程 https://www.laifa.xin/share/ai/laifaxin-ai-account-connection —— 登录 web.laifaxin.com → 检查→应用程序→本地存储→`accesstoken`（复制"值"**整串**），或控制台 `copy(localStorage.getItem("accesstoken"));`（undefined=已复制；null=未登录→刷新/重登）。**accesstoken 已含账号信息（格式 `web.laifaxin.com&<orgId>&<hash>`），orgId 从中段自动提取，无需单独获取**；登录检查用 `tools/check_login.py --token`（只读，不扣点不写数据）。换账号需重新获取。
+> ★**token 获取（新手第一步）**：官方教程 https://www.laifa.xin/share/ai/laifaxin-ai-account-connection —— 登录 web.laifaxin.com → 检查→应用程序→本地存储→分别复制 `accesstoken` 与 `orgId` 两项的"值"，或控制台依次 `copy(localStorage.getItem("accesstoken"));` 和 `copy(localStorage.getItem("orgId"));`。
+> 🔴 **org 机制勘误（2026-09-06 用户双截图实测，推翻旧口径"orgId 从 token 中段提取"）**：token 格式 `web.laifaxin.com&<用户UID>&<hash>`——**中段是用户ID不是 orgId**；真正的工作空间ID 在 localStorage 独立的 `orgId` 键：个人账号 orgId==用户UID（旧口径碰巧成立）；**企业账号 orgId 是独立数字ID（如 1804106008），切换"账号"（个人↔企业）后 orgId 变、token 不变**——API 的 `?uid=` 一律用 localStorage 的 orgId。企业账号必须 `--org <orgId>` 显式传入；切换账号/企业后 token+orgId 两样重新复制。
 
 | 接口 | 用途 | 备注 |
 |------|------|------|
