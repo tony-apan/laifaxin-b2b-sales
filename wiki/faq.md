@@ -94,8 +94,13 @@ A：标题开头或结尾加 1 个高度相关的 Emoji（如 🛶），增强�
 
 ## ❓ 删除进度怎么查？保存进度怎么查？
 - **保存**（refine/company-save 返回 data.id）→ `operation/backend-task-status {"type":"cluesSave","id":<id>}` → data.contactSaveCount
-- **删除**（contacts/delete 返回 backendId）→ `operation/backend-progress {"id":<backendId>}` → data.status/total/finished/progress
+- **删除**（`contacts/contacts/delete` 返回 backendId）→ `operation/backend-progress {"id":<backendId>}` → data.status/total/finished/progress
 - ⚠️ 别用错：task-status 查删除只返回id无进度（L-36）；progress 查保存无contactSaveCount
+- 🔴 **硬性接口说明（2026-09-04 实测）**：
+  1. 删除接口全名是 **`contacts/contacts/delete`**——拼成 `contacts/delete` 直接 **404**，且响应是 HTML 不是 JSON，脚本会静默拿到空对象，必须以 `"success":true` 判定提交成功；
+  2. **软删入回收站**：按标签过滤删除后，`finished fin 0/N` 也可能"标签视图已空"，但**全量查询仍见这些人**——要真正清空账号，必须再对**全量**（`filters:[]`、`selectOption:"all"`）发一次删除任务；
+  3. **删除终态必须以 `contacts/show` 的 `total=0` 为准**，`backend-progress finished` ≠ 逐条进度可信（出现 finished 0/6767 但实际全删的实测）；
+  4. `contacts/show` 的 **`pageSize` 必须 ≥10**，传 1 直接 422「校验参数错误」。
 ## 查数据偶尔显示空/查不到？
 已知现象（接口偶发抽风）：等 5-10 分钟重跑同一命令即可，不用改任何东西、不会丢数据。
 

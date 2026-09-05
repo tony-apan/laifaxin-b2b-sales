@@ -1,6 +1,6 @@
 # 来发信 B2B 批量获客系统
 
-![status](https://img.shields.io/badge/status-active-success) ![version](https://img.shields.io/github/v/release/tony-apan/laifaxin-b2b-sales) ![license](https://img.shields.io/badge/license-GPL--3.0-green) ![python](https://img.shields.io/badge/python-3.9+-blue) ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20WSL-lightgrey)
+![status](https://img.shields.io/badge/status-active-success) ![version](https://img.shields.io/github/v/release/tony-apan/laifaxin-b2b-sales) ![license](https://img.shields.io/badge/license-GPL--3.0-green) ![python](https://img.shields.io/badge/python-3.9+-blue) ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows%20PowerShell-lightgrey)
 
 > **批量触达相关买家，低成本筛出询盘；收到询盘后，再由业务员背调和精准跟进。**
 
@@ -35,7 +35,8 @@ flowchart TD
 | 🚀 [快速开始](#-第一步现在就把代码拿到手) | 下载仓库 → 准备 4 样 → 交给 AI |
 | 📖 [完整方法：广撒网 + 精准跟进](docs/09-mass-outreach-to-precision-follow-up.md) | 成本账 / 询盘背调 / 分级 / 多渠道 |
 | 📦 [最新版下载与版本说明](https://github.com/tony-apan/laifaxin-b2b-sales/releases/latest) | Releases |
-| 🔄 [更新到新版本](#-更新到新版本老用户) | 老用户升级（保留本地数据）|
+| 🔄 [更新到新版本](#-更新到新版本老用户) | 同一台电脑升级（保留本地数据）|
+| 💻 [换电脑继续干](#-换电脑继续干老用户) | 迁移本地状态，从当前节点接着跑 |
 
 ---
 
@@ -52,20 +53,31 @@ flowchart TD
    git clone https://github.com/tony-apan/laifaxin-b2b-sales.git
    （如果 git 不可用，直接下载 https://github.com/tony-apan/laifaxin-b2b-sales/archive/refs/heads/master.zip 并解压）
 
-2. 通读仓库，重点按顺序学习：
+2. 先把运行环境自动准备好（不要假设电脑已经有 Python）：
+   · Windows PowerShell：powershell -NoProfile -ExecutionPolicy Bypass -File tools/bootstrap.ps1 -Install
+   · macOS / Linux / Git Bash / WSL：bash tools/bootstrap.sh --install
+   安装脚本会先探测 Python、curl、Git、bash/grep/awk，缺什么装什么，装完再复查；
+   若系统没有可用包管理器，按输出给的官方下载地址处理，不要跳过环境复查。
+   完整标准见 specs/environment-setup.md。
+
+3. 通读仓库，重点按顺序学习：
    ① README.md（产品定位与流程）
    ② SKILL.md（你的执行入口：渐进引导图/路由表/状态机/铁律/话术模板索引）
    ③ RULES.md（唯一真源：完整状态机与铁律）
-   ④ output-templates/README.md（对用户展示的话术模板总索引——之后每一步对用户说什么都照模板）
-   ⑤ specs/ 与 methodology/（细节规范，执行到对应节点时精读）
+   ④ specs/environment-setup.md（环境准备）、specs/migration-handoff.md（换机续接）、
+      specs/operator-profile-sop.md（公司级资料回落）与 specs/product-profile-sop.md（产品资料回落）
+   ⑤ output-templates/README.md（之后每一步对用户说什么都照模板）
+   ⑥ 执行到对应节点时再精读其他 specs/ 与 methodology/
 
-3. 学完后向我汇报（用通俗中文；token 现在不用催，到时带我去拿）：
+4. 运行 python3 tools/onboard_check.py 自检；Windows 若 python3 不存在就用 py tools/onboard_check.py。
+
+5. 学完后向我汇报（用通俗中文；token 现在不用催，到时带我去拿）：
    · 这套系统是干什么的、我的角色是什么
    · 你需要我提供什么（听说只要 token 和昵称+一句话产品，确认一下）
    · 整个流程分几步、哪些步骤会找我确认
    · 有什么风险或注意事项
 
-4. 汇报完等我的产品介绍，然后按 SKILL.md 带我走完整个获客流程。
+6. 汇报完等我的产品介绍，然后按 SKILL.md 带我走完整个获客流程。
    注意：系统默认不发信；每一步都要我确认；最终激活发信必须我明确说"确认激活"。
 ```
 
@@ -97,6 +109,15 @@ flowchart TD
 
 AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不用先读，它会一句句带你——包括带你把来发信账号的"钥匙"（token）拿到手。记住：token＝你的账号钥匙，只发给你信任的 AI，不要发到群里、工单或公开网页，也不要写进文件。
 
+**它还会主动帮你建立两份本地档案（分两轮问，不在开局一次列清单）：**
+
+| 档案 | AI 会主动问什么 | 存哪里 | 后续用途 |
+|---|---|---|---|
+| 公司级档案 | 公司名、官网/目录、你自己的联系邮箱、默认市场/语言（可跳过） | `.local/operators/<operator_key>.md`（多公司各一份；旧版 `.local/operator-profile.md` 兼容读取） | 换产品不用重复问；换机随 `.local/` 迁移 |
+| 产品级档案 | 产品线、卖点、认证、产能、MOQ、交期、价格带（可跳过） | `runs/<operator_key>/<product_key>/product-profile.md` | S2客群、S4审计、S7正文卖点、S9钩子绑定版本/hash |
+
+> 邮件末尾**签名区永远只有你的纯个人昵称**。公司名/官网/邮箱不进签名；经你确认且有来源的认证、产能、MOQ、交期等产品事实，可以用于邮件正文卖点。潜在客户/联系人第三方资料不会被要求写进上述档案。
+
 ## 它帮你做什么（思路）
 
 一句话：你负责说卖什么，它负责把"谁可能买、怎么联系、怎么跟进"全部想到、做好、排好队。
@@ -119,10 +140,10 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 | --- | --- |
 | [RULES.md](RULES.md) | 规则总纲——**唯一真源**：完整状态机 S0–S12、铁律、审批闸门（动手前必须你点头的手续） |
 | [SKILL.md](SKILL.md) | 给 AI 的入口路由 |
-| [specs/](specs/) | 接口规范、70% 临界方法论、序列配置、域名规模化 SOP、产品适配度判定（强/条件/弱三档） |
+| [specs/](specs/) | 环境准备、换机续接、产品知识档案、接口规范、70% 临界、序列配置、域名规模化 SOP |
 | [methodology/](methodology/) | 决策树 / 最佳实践 / 检查清单 |
 | [docs/](docs/) | 面向人的教程（第 03、08 篇带"过时横幅"，以 RULES/specs 为准；**第 09 篇讲广撒网成本账、询盘背调与多渠道精准跟进**） |
-| [output-templates/](output-templates/) | 15 个输出话术模板（AI 照模板向你展示与确认） |
+| [output-templates/](output-templates/) | 17 个输出话术模板（AI 照模板向你展示与确认） |
 | [runs/_template/](runs/_template/) | 新案例起始模板 |
 
 简单说：README 是门口指引，RULES.md 是详细逻辑，specs/ 是每条逻辑的技术细节——新手都不用先读，AI 会用。
@@ -145,7 +166,7 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 |---|---|
 | 主流程依赖 | **零第三方** —— Python 3 标准库 + curl + bash（macOS / Linux 开箱即用）|
 | 运行命令 | macOS/Linux 用 `python3`；Windows（Git Bash 或 WSL 里）若 `python3` 没找到，多半有 `py`——用 `py` 代替 `python3`，装 Python 时勾选『Add python to PATH』最省事 |
-| Windows | 用 **Git Bash 或 WSL**（在 Windows 里模拟命令行环境的免费工具）|
+| Windows | 用 **PowerShell + winget** 自动准备 Python/Git，或 Git Bash/WSL；⚠️ `bootstrap.ps1` 当前仅通过静态检查，尚未在全新 Windows 实机跑完，失败时按 environment-setup.md 的官方安装兜底 |
 | 复现研究脚本 | 才需要 `pip install -r requirements.txt`（Playwright；相关研究脚本不随库分发）|
 
 > 🔧 自行体检：跑 `python3 tools/onboard_check.py`（Windows 若无 python3 就用 `py tools/onboard_check.py`），它会自动探测 python/py/curl/bash 等，缺哪个就提示安装哪个（含 Windows 何时用 `py`）。
@@ -218,8 +239,10 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 · 如果我的系统文件夹里有"新版里不存在"的旧文件（新版已删除的），先列出来问我，
   我确认后再清理；不要自己删任何我不认识的文件。
 
-第 6 步｜更新完做体检并汇报：
-· 运行 python3 tools/onboard_check.py 自检；
+第 6 步｜更新完复查环境、体检并汇报：
+· Windows PowerShell 跑 `powershell -NoProfile -ExecutionPolicy Bypass -File tools/bootstrap.ps1 -CheckOnly`；
+  macOS/Linux/Git Bash/WSL 跑 `bash tools/bootstrap.sh --check-only`；有缺失先按 environment-setup.md 修复；
+· 用 bootstrap 输出的 `python_cmd` 运行 `tools/onboard_check.py` 自检；
 · 告诉我：更新到了哪个版本（对照 CHANGELOG.md 顶部）？这次更新了什么
   （读 CHANGELOG 最新几条，用通俗中文讲，重点讲流程/话术有没有变化）？
 · 确认 .local/ 和 runs/ 都完好（对照第 3 步的备份数量）；
@@ -230,6 +253,43 @@ AI 会先读 RULES.md（详细规则）和 SKILL.md（操作入口），你不�
 > 「帮我把这个获客系统更新到最新版，保留我的数据。」
 
 剩下的 AI 会照办法 A 里的步骤自己做（判断 git/ZIP → 原目录覆盖 → 保数据 → 体检汇报）。你全程只需要回复「可以」或「继续」。
+
+## 💻 换电脑继续干（老用户）
+
+> **换电脑 ≠ 重新安装后从头跑。** GitHub 仓库只有规则和工具；你的当前节点、审批流水、产品档案与运行记录保存在旧电脑的 `.local/`、`runs/<operator_key>/` 和可选本地 `db/` 数据表，必须一并迁移。token 不迁移，在新电脑重新获取。备份与恢复都**只针对本地数据**（`.local/`、`runs/<运营方>/`、`db/` 中本地新增的表），不打整个 `runs/`、`db/`——仓库自带的模板与索引（`runs/_template/`、`db/docs.tsv` 等）以新机版本为准。
+
+**旧电脑：把下面整段复制给 AI**
+
+```text
+请帮我为“来发信 B2B 获客系统”做换机备份：
+1. 找到当前系统文件夹，先读 specs/migration-handoff.md；找不到路径就问我，不要猜。
+2. 只备份本地数据：.local/（整目录）、runs/ 下我自己的运营方目录（★排除 runs/_template 和 runs/INDEX.md）、db/ 里本地新增未入库的数据表（★仓库自带的 db/docs.tsv、db/tools.tsv 不带）。
+3. 不把 token、浏览器缓存、系统钥匙串或仓库规则文件混进备份；不要把备份上传到公开仓库。
+4. 把备份包放到系统文件夹外，命名 `laifaxin-backup-<日期>.tar.gz`（Windows 为 `.zip`），逐项核对源/包内文件数和大小；备份包里不应出现 _template/INDEX.md/docs.tsv/tools.tsv。
+5. 最后告诉我：备份路径、包含哪些目录、发现哪些可续接项目及其当前 status；不要改动原项目。
+```
+
+**新电脑：装好最新版后，把备份放到电脑上，再把下面整段复制给 AI**
+
+```text
+请按“换机续接”接手这套来发信 B2B 获客系统，不要从 S0 重跑已有项目：
+1. 先读 README.md、SKILL.md、RULES.md、specs/environment-setup.md、specs/migration-handoff.md。
+2. 自动准备环境：
+   · Windows PowerShell：powershell -NoProfile -ExecutionPolicy Bypass -File tools/bootstrap.ps1 -Install
+   · macOS/Linux/Git Bash/WSL：bash tools/bootstrap.sh --install
+   安装后必须再跑 check-only，全部通过才继续。
+3. 找到我从旧电脑带来的 `laifaxin-backup-<日期>.tar.gz/.zip` 备份包，先解到临时目录列出内容让我核对；确认后只按白名单恢复：
+   .local/、runs/<运营方>/（不碰 runs/_template 和 runs/INDEX.md）、db/ 里本地新增的数据表（不覆盖 db/docs.tsv、db/tools.tsv 等已跟踪文件）。
+   不要覆盖 README/RULES/SKILL/specs/tools；git安装用 git status 确认自带文件未变，ZIP安装则与新下载包清单/hash对比确认。
+4. 用 bootstrap 输出的 python_cmd 运行 tools/onboard_check.py，列出全部可续接项目、operation-record status、product-profile 版本/确认状态/更新时间。
+5. 让我选择项目；读取 `.local/operators/<operator_key>.md`（旧单文件兼容）和项目的 operation-record/product-profile/reflection/evidence/verify-*，报告“当前节点/已完成/未完成/下一步”。
+6. token 不从旧机迁移，带我在新机浏览器重新获取，再跑 check_login.py 和 gate_check.sh。
+7. 恢复后立即运行 `approval.py demote-migrated --confirm MIGRATION-DEMOTE`，把所有旧 confirmed 凭证降为 backfilled（只审计不可授权）；未执行的写操作与S12在新机当前对话重新确认。
+8. 只从记录的当前节点继续；禁止重新建已有产品档案、重复保存、重复建模板或序列。任何记录不一致先进入 ERROR_BLOCKED，只读核对后再处理。
+9. 最后汇报：环境结果、恢复目录、项目与状态、profile 版本/hash、token复验、下一步和仍需我确认的动作。
+```
+
+详细迁移标准见 [specs/migration-handoff.md](specs/migration-handoff.md)。
 
 ---
 

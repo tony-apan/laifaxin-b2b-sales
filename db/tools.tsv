@@ -1,10 +1,18 @@
-# 全量工具登记（含未随库分发的 deprecated/research 条目；随库分发=22 个核心工具，见文案/目录说明）
+# 全量工具登记（含未随库分发的 deprecated/research 条目；随库核心工具见 tools/README.md）
 path	name	usage	status
+tools/bootstrap.sh	环境准备(bash)	零Python探测/自动安装/复查(macOS/Linux/WSL/Git Bash)	verified
+tools/bootstrap.ps1	环境准备(PowerShell)	零Python探测/winget安装Python+Git/复查(Windows;待实机动态验)	partial
+tools/operator_profile.py	运营方档案	公司级资料init/update/validate/status;签名只读nickname	verified
+tools/product_profile.py	产品知识档案	init/confirm/validate/status;状态/版本/hash/operation-record推进	verified
+tools/profile_utils.py	档案/签名公共闸门	纯昵称/第三方信息/source值域/profile哈希/事实字段解析	foundation
+tools/update_run_state.py	运行状态更新器	安全更新operation-record并按合法转换图/恢复证据防跳步	foundation
+tools/finalize_audit.py	S4审计收口	70%临界证据+独立放行review后推进S4	verified
+tools/finalize_run.py	S11终检收口	聚合序列/排除/差异证据与核实面板;仅S10可推进S11	verified
 tools/flow_orchestrator.py	流程编排(向导)	⚠️原型:仅节点确认向导+approvals记账(输出approval_id);写操作须人工执行	prototype
 tools/approval.py	审批凭证模块(审批闸门(工具级))	写工具require_approval硬闸门;.local/approvals.tsv id列+gen_id/record	foundation
 tools/gate_check.sh	流程闸门	bash tools/gate_check.sh --token <TOKEN>;未通过禁止操作	verified
-tools/onboard_check.py	会话引导	新会话第一步:自动输出该读什么/状态/下一步	verified
-tools/gen_templates.py	统一模板生成器	12轮x10=120(买者视角,签名--name,preview渲染,id完整,★--approval闸门+--out落盘;差异须check_template_diff实测)	verified
+tools/onboard_check.py	会话引导	Python就绪后环境复查+可续接项目/status/profile扫描;敏感字段不输出	verified
+tools/gen_templates.py	模板生成器	必须plan+profile;纯昵称签名;profile hash;claims字段/source/evidence_text;--out含meta	verified
 tools/verify_sequence.py	序列终检	断言12步+template_ids 24hex+wait(30分/5/15/30天)	verified
 tools/verify_exclude.py	排除抽验	4区排除列表内容校验(L-33)	verified
 tools/check_template_diff.py	差异断言	Jaccard相似度≤0.70(差异≥30%);★逐模板template-info取真实html(templates-list不含html)	verified
@@ -12,9 +20,9 @@ tools/rebuild_templates.py	重建模板+序列步骤(原型)	⚠️半自动:实
 tools/render_preview.py	模板渲染预览	HTML→收件人视图(非源码)	verified
 tools/save_first_n.py	保存前N	front+exclude4区+max3(selectTotal=前N条数;★--approval闸门S5)	verified
 tools/wait_save_done.py	时序守卫	等保存finished+标签>0才contact-add	verified
-tools/delete_all_contacts.py	清空联系人	selectOption:all+backend-progress	verified
+tools/delete_all_contacts.py	清空联系人	私有高危工具，未随公开仓分发；公开用户按api-reference人工封装	private-not-distributed
 tools/delete_all_products.py	清空产品档案	product-list+product-delete id	verified
-tools/delete_all_templates.py	清空模板	template-delete单删(已修,去硬编码token)	verified
+tools/delete_all_templates.py	清空模板	私有高危工具，未随公开仓分发	private-not-distributed
 tools/purge_all_contacts.py	清空联系人(旧)	历史版本,引用filter旧参	deprecated
 tools/check_rules.sh	AI自查	规则/问题/token检查	verified
 tools/audit_company.py	搜索页审计	词匹配初筛(⚠️仅趋势,临界须AI反思)	verified
@@ -51,7 +59,7 @@ tools/capture_st100.py	试错抓包脚本	Playwright/curl实验用,勿生产引�
 tools/capture_tpl_var.py	试错抓包脚本	Playwright/curl实验用,勿生产引用	research
 tools/capture_tpleditor.py	试错抓包脚本	Playwright/curl实验用,勿生产引用	research
 tools/capture_ui8000.py	试错抓包脚本	Playwright/curl实验用,勿生产引用	research
-tools/delete_all_tags.py	清空标签	tags/tag-delete+folder-delete(逐个)	verified
+tools/delete_all_tags.py	清空标签	私有高危工具，未随公开仓分发	private-not-distributed
 tools/lfx_pipeline.py	规模化保存管线(旧)	历史主力,序列contact-add;注意旧operator:not	deprecated
 tools/lfx_mass_save.py	批量保存(旧)	旧法current+selectKeys,勿用	deprecated
 tools/lfx_mass_save_printer.py	写真机批量(旧)	旧法	deprecated
@@ -72,11 +80,11 @@ tools/create_es_templates.py	西语模板旧	旧脚本	deprecated
 tools/cap_varlist.py	试错抓包脚本	Playwright/curl实验用,勿生产引用	research
 tools/resolve_schedule.py	时区计划时间解析	schedule-list按--tz/--name解析schedule_id(--list列全部);★schedule_id各账号不同,禁止硬编码,建序列前必跑	verified
 tools/check_login.py	第一步登录检查(只读)	benefits/refine-data验证token;org自动从token提取;无/失效打印官方教程引导(https://www.laifa.xin/share/ai/laifaxin-ai-account-connection)	verified
-tools/build_sequence.py	S9建序列(一条龙)	运行时解析tz+notSentTags→建序列+规则+12步step-create;--approval S9闸门;--dry-run	verified
+tools/build_sequence.py	S9建序列(一条龙)	校验纯昵称+profile+tmap.meta hash/status+稳定项目键;运行时解析tz/notSentTags;12步	verified
 tools/contact_add.py	S10加联系人(一条龙)	时序守卫(finished+标签>0)+contact-add views:[]铁律+add数核对;--approval S10闸门;--dry-run	verified
 tools/tag_add.py	S5前置·建标签(一条龙缺口#3)	contacts/tags-add建标签+同名查重复用+铁律7中文提醒;--list免审批;--approval S2/S5闸门	verified
-tools/log_op.py	操作流水写入器	ops-log.tsv唯一写入口;13列强制+save行必填校验+--tail查询	verified
+tools/log_op.py	操作流水写入器	私有运营工具，未随公开仓分发	private-not-distributed
 tools/segments_infer.py	推理N轮→客群落地	inference-generate×N+segment-list拉全量含query_en/query_total;--approval S2	verified
-tools/pull_stats.py	效果拉取	report-data序列级日统计+退信率/零打开异常提醒;templates.md效果更新源	verified
-activate_sequence.py	S12激活	激活+回读status防假+--deactivate回滚+否定句校验;S12审批硬闸;实测(2026-09-02激活/回滚)	verified
-seed_resolve.py	S3取域名	--id(主:结果id→base-info得域名)/--keyword(全览)/--company(兜底);只读;实测(2026-09-03)	verified
+tools/pull_stats.py	效果拉取	私有运营工具，未随公开仓分发	private-not-distributed
+tools/activate_sequence.py	S12激活	profile+合规证据+绑定审批+回读active+状态推进	verified
+tools/seed_resolve.py	S3取域名	--id结果id→base-info取域名;只读	verified

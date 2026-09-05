@@ -1,0 +1,11 @@
+{
+  "project": "<operator_key>/<product_key>",
+  "seq": "<序列id>",
+  "profile_sha256": "<当前product-profile完整sha256>",
+  "checked_at": "YYYY-MM-DDTHH:MM:SS",
+  "market": {"status": "pending", "evidence": {"source": "<法规/平台规则URL或用户确认记录>", "checked_at": "YYYY-MM-DDTHH:MM:SS", "detail": "<适用市场与结论>"}},
+  "list_source": {"status": "pending", "evidence": {"source": "<名单来源记录>", "checked_at": "YYYY-MM-DDTHH:MM:SS", "detail": "<来源与适用依据>"}},
+  "sender_identity": {"status": "pending", "evidence": {"source": "<运营方档案/用户确认>", "checked_at": "YYYY-MM-DDTHH:MM:SS", "detail": "<发送主体核查；邮件签名区仍只含纯昵称>"}},
+  "unsubscribe": {"status": "pending", "evidence": {"source": "<实际页面/平台核验>", "checked_at": "YYYY-MM-DDTHH:MM:SS", "detail": "<退订入口实际验证结果>"}},
+  "suppression": {"status": "pending", "evidence": {"source": "<标签/拒收名单核验>", "checked_at": "YYYY-MM-DDTHH:MM:SS", "detail": "<询盘/不发标签与拒收机制结果>"}}
+}

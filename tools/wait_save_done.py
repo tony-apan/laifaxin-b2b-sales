@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """★ 时序守卫：等联系人保存任务 status:finished + 校验标签联系人>0，才可 contact-add 加序列。
-用法: python3 wait_save_done.py --token <TOKEN> --org <orgId> --task <保存任务id> --tag <联系人标签id> --timeout 900
+用法: python3 wait_save_done.py --token <TOKEN> --org <orgId> --task <保存任务id> --tag <联系人标签id> --record runs/<operator_key>/<product_key>/operation-record.md --timeout 900
 """
 import json, subprocess, sys, time, argparse
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from update_run_state import read_meta, require_state, update_frontmatter
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--token", required=True)
 ap.add_argument("--org", required=True)
 ap.add_argument("--task", required=True, help="refine/company-save 返回的任务id")
 ap.add_argument("--tag", required=True, help="联系人标签id（contact tag）")
+ap.add_argument("--record", required=True, help="项目operation-record；finished+标签>0后推进S6,next=S7")
 ap.add_argument("--timeout", type=int, default=900, help="最大等待秒数")
 args = ap.parse_args()
+try: require_state(args.record, ("S5",))
+except ValueError as exc: print(f"❌ {exc}"); sys.exit(4)
+rec = read_meta(args.record)
+if rec.get("save_task_id", "") != args.task or rec.get("contact_tag_id", "") != args.tag:
+    print("❌ --task/--tag 与 operation-record 中本次保存任务/联系人标签不一致——拒绝用历史任务或其他标签推进S6")
+    sys.exit(4)
 
 def api(path, payload, timeout=40):
     cmd = ["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}",
@@ -43,6 +53,8 @@ for i in range(6):
         except (TypeError, ValueError, AttributeError): n = None  # ★形状异常(间歇空)→重试,勿裸崩(对齐 contact_add)
         if n and n > 0:
             print(f"✅ 标签 {args.tag} 联系人={n} >0 → 可以 contact-add")
+            update_frontmatter(args.record, {"status": "S6", "next_state": "S7", "updated": time.strftime("%Y-%m-%d")}, expected_states=("S5",))
+            print(f"✅ 运行状态已推进: {args.record} → S6 (next=S7)")
             sys.exit(0)
         print(f"⚠️ 标签 {args.tag} 联系人={n}，仍为空（可能去重无新增），重试中...")
     time.sleep(8)

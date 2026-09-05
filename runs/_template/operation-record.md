@@ -4,13 +4,18 @@ description: "完整跑一遍「产品」获客，每步记录（可核查）"
 created: "YYYY-MM-DD"
 updated: "YYYY-MM-DD"
 author: "AI Agent + 用户"
-status: inprogress
-related: [../../../specs/threshold-method, ../../../specs/domain-scale-sop, ../../../specs/sequence-config, ../../../specs/api-reference]
+status: S0
+next_state: S0a_PRODUCT_PROFILE
+operator_key: "${OPERATOR_KEY}"
+product_key: "${PRODUCT_KEY}"
+profile_version: ""
+profile_sha256: ""
+related: [specs/environment-setup, specs/migration-handoff, specs/product-profile-sop, specs/threshold-method, specs/domain-scale-sop, specs/sequence-config, specs/api-reference]
 ---
 
 # 🛶「产品」客户开发·流程核查记录
 
-> 每步记录关键参数/结果，供核查。**判断标准 = AI语义反思"会不会买"**（非关键词）→ 见 [threshold-method.md](../../../specs/threshold-method.md)。
+> 每步记录关键参数/结果，供核查。**判断标准 = AI语义反思"会不会买"**（非关键词）→ 仓库根路径 `specs/threshold-method.md`。
 
 ## ✅ 本轮最终记录（唯一当前真相）
 | 环节 | 本轮真实值 |

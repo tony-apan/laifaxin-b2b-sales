@@ -1,6 +1,6 @@
 #!/bin/bash
 # ★ 流程闸门（Gate）：流程开始前强制运行。未通过=禁止任何保存/模板/序列/contact-add 操作。
-# 用法: bash gate_check.sh --token <TOKEN> [--org <orgId>] [--product 金属粉末]
+# 用法: bash gate_check.sh --token <TOKEN> [--org <orgId>] [--product <operator_key>/<product_key>]
 #   ★第一步建议先跑: python3 tools/check_login.py --token <TOKEN>（登录检查+无token引导教程）
 #   --org 可省略：token=web.laifaxin.com&<orgId>&<hash>，自动提取中段（官方:accesstoken已含账号信息）
 KB="$(cd "$(dirname "$0")/.." && pwd)"
@@ -17,7 +17,7 @@ ok(){ echo "  ✅ $1"; PASS=$((PASS+1)); }
 bad(){ echo "  ❌ $1"; FAIL=$((FAIL+1)); }
 echo "🚦 流程闸门（Gate Check）— 必须全部通过才能开始流程"
 echo "[1] 必读文档存在（唯一真源）"
-for f in RULES.md INDEX.md specs/threshold-method.md specs/domain-scale-sop.md specs/sequence-config.md; do
+for f in RULES.md INDEX.md specs/environment-setup.md specs/migration-handoff.md specs/operator-profile-sop.md specs/product-profile-sop.md specs/threshold-method.md specs/domain-scale-sop.md specs/sequence-config.md; do
   [ -f "$KB/$f" ] && ok "文档 $f" || bad "文档 $f 缺失"
 done
 echo "[2] token 有效（流程第一步=登录检查,建议先跑 tools/check_login.py——引导更全）"
@@ -37,6 +37,17 @@ grep -q "selectOption:\"front\"" "$KB/specs/domain-scale-sop.md" && ok "front保
 grep -q "等联系人保存任务" "$KB/RULES.md" && ok "时序规则已读" || bad "RULES 缺时序规则"
 grep -q "lfxFieldVeriable" "$KB/specs/sequence-config.md" && ok "模板code变量规则已读" || bad "sequence-config 缺code变量"
 grep -q "搜索锚" "$KB/RULES.md" && ok "S3搜索锚规则已读(AI数据库搜索三步链)" || bad "RULES 缺S3搜索锚规则"
+grep -q "签名区.*只有昵称\|签名.*只有昵称" "$KB/RULES.md" && ok "邮件签名纯昵称铁律已读" || bad "RULES 缺邮件签名纯昵称铁律"
+if grep -q '`draft`' "$KB/specs/product-profile-sop.md" && grep -q '`confirmed`' "$KB/specs/product-profile-sop.md" && grep -q '`declined`' "$KB/specs/product-profile-sop.md"; then ok "产品档案状态机已读"; else bad "product-profile-sop 缺 draft/confirmed/declined 状态机"; fi
+if [ -n "$PRODUCT" ]; then
+  PROFILE="$KB/runs/$PRODUCT/product-profile.md"
+  if [ -f "$PROFILE" ]; then
+    STATUS=$(grep -m1 '^status:' "$PROFILE" | cut -d: -f2- | tr -d ' "')
+    case "$STATUS" in confirmed|declined) ok "产品档案可续跑(status=$STATUS): runs/$PRODUCT/product-profile.md" ;; *) bad "产品档案未确认(status=${STATUS:-缺失})——draft 禁止进入 S2" ;; esac
+  else
+    bad "未找到项目产品档案: runs/$PRODUCT/product-profile.md（--product 应传 operator_key/product_key）"
+  fi
+fi
 echo "[4] 未解决问题警示(仅提醒,不计入闸门失败,不拦你现在找客户)"
 echo "  ℹ️ 下面几条是「发信激活前」的待办提醒——不影响搜索/保存/建序列; AI 会在激活(S12)前再提醒你"
 # 本地数据表（不入库，缺失自动跳过）

@@ -1,190 +1,278 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""★统一模板生成器（多产品参数化）——替代旧版产品专用模板脚本
+"""★统一模板生成器（多产品参数化）——生产路径一律 --plan <模板计划JSON>（旧内置 PRODUCTS 事实文案字典已删除,防未溯源事实直接上线）
 ★差异达标(模板差异实测（工具级）): 正文 = 轮次angle全句 + 变体body全句, 仅 Hi+签名 固定 → 两两 Jaccard≤0.70
+★签名硬闸门: --name 须为纯个人昵称(如 Tony/Iris),启动即校验——含公司/职位/产品/邮箱/数字/from → 退出2;渲染只 <p>{昵称}</p>,plan 不允许自带 signature 字段
+★产品档案硬闸门: --profile 必填,status 须 confirmed/declined(draft/缺失/结构错 → 退出4);plan.profile_sha256 须匹配当前档案(declined 也写实际 hash)
+★事实闸门: 邮件文本(主题/正文轮次句/变体句)出现高风险事实(数字/%/ISO/认证/天数/MOQ/折扣/产能/库存/稀缺/价格/免费/food-grade/certified 等)
+  → plan 必须含 claims[],每个命中句子被某条 exact_text 覆盖；source/profile_field/evidence_text 必须对应 product-profile 真实字段（evidence_text 逐字存在于字段内容）;declined 档案不允许任何高风险事实 → 退出2
+  (轮次号 R01/中文主题名不参与扫描,只扫用户可见文案)
 用法:
-  python3 gen_templates.py --token <T> --org <orgId> --product 皮筏艇 --prefix "英-皮筏艇-" --suffix=-RT --name <昵称> --approval <ap-id> --project <产品> [--preview]
+  python3 gen_templates.py --token <T> --org <orgId> --prefix "英-皮筏艇-" --suffix=-RT --name Tony \
+      --profile runs/<operator_key>/<product_key>/product-profile.md --plan <plan.json> --approval <ap-id> --project <operator_key>/<product_key> [--preview]
   生成后必跑 tools/check_template_diff.py --prefix 实测差异(模板差异实测（工具级）)
-  ★任意产品(无需改代码): --plan <模板计划JSON> --plan-name <产品名>
-      JSON 结构 = {"directions": [["R01","中文名","主题纯文案","正文轮次句"], ...], "variants": ["正文变体句", ...]}
+  plan JSON = {"profile_sha256": "<当前档案sha256>", "directions": [["R01","中文名","主题纯文案","正文轮次句"], ...],
+               "variants": ["正文变体句", ...], "claims": [{"exact_text":"...","source":"...","profile_field":"⑤","evidence_text":"档案字段中的原文"}](出现高风险事实时必填)}
+退出码: 0=成功 1=审批/模板创建失败 2=输入校验失败(昵称/plan结构/哈希不匹配/claims) 4=产品档案闸门(draft/缺失/结构错)
 """
-import json, subprocess, time, sys, argparse, re
+import json, subprocess, time, sys, argparse, re, hashlib
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from approval import require_approval
+from approval import require_approval, stable_params_hash
+from profile_utils import ensure_same_project_paths, profile_field_facts, profile_gate, validate_nickname
+from project_lock import acquire_project_lock
+from update_run_state import require_state, update_frontmatter
+
+KB = Path(__file__).resolve().parent.parent
 
 VAR = '<code class="lfxFieldVeriable" contenteditable="false">{联系人:名称}</code>'
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--token", required=True)
 ap.add_argument("--org", required=True)
-ap.add_argument("--product", default="", help="产品名——★内置文案仅支持:皮筏艇/玻璃瓶;其他产品须先用 --plan 提供任意模板计划(或由AI现写文案入PRODUCTS)")
+ap.add_argument("--product", default="", help="产品名(仅展示/兜底命名;文案一律来自 --plan)")
 ap.add_argument("--prefix", required=True, help="模板名前缀,如 英-玻璃瓶-")
 ap.add_argument("--suffix", default="-GL", help="命名后缀")
 ap.add_argument("--foid", default="", help="模板分组id(默认自动按 --prefix 建同名分组并归入;传 0 = 未指定目录,不推荐——120 个模板会散落)")
-ap.add_argument("--name", required=True, help="签名昵称=客户邮件里看到的落款(★GATE0昵称,建议英文如 Tina from ABC Corp;必填防误用他人默认名)")
-ap.add_argument("--preview", action="store_true", help="仅草稿展示(渲染视图,不创建)")
-ap.add_argument("--out", default="", help="可选: 落盘 name→id 映射 JSON(供重建序列 step-save 用)")
+ap.add_argument("--name", required=True, help="签名昵称=客户邮件落款·纯个人昵称(如 Tony/Iris;启动即校验:含公司/职位/产品/邮箱/数字/from→退出2)")
+ap.add_argument("--profile", required=True, help="★产品档案路径(硬闸门): status 须 confirmed/declined,plan.profile_sha256 须匹配其 sha256(draft/缺失→退出4)")
+ap.add_argument("--preview", action="store_true", help="仅草稿展示(渲染视图,不创建;各硬闸门照常执行)")
+ap.add_argument("--out", default="", help="可选: 落盘 name→id 映射 JSON(供重建序列 step-save 用;同时写 <out>.meta.json 记录 profile/plan 溯源)")
+ap.add_argument("--record", default="", help="项目 operation-record.md；创建全部成功后自动推进 status=S8,next_state=S9")
 ap.add_argument("--approval", default="", help="★审批凭证id(审批闸门·工具级): .local/approvals.tsv 或编排器输出")
-ap.add_argument("--project", default="", help="产品名(审批project匹配)")
-ap.add_argument("--plan", default="", help="★模板计划JSON(任意产品,优先于内置PRODUCTS查找): {\"directions\": [[\"R01\",\"中文名\",\"主题纯文案\",\"正文轮次句\"], ...], \"variants\": [\"正文变体句\", ...]}")
+ap.add_argument("--project", required=True, help="稳定项目键=<operator_key>/<product_key>；须与 --profile frontmatter 一致(审批project匹配)")
+ap.add_argument("--plan", default="", help="★模板计划JSON文件路径(必填,生产路径唯一文案来源): {\"profile_sha256\":..,\"directions\":[[\"R01\",\"中文名\",\"主题纯文案\",\"正文轮次句\"],...],\"variants\":[...],\"claims\":[...]}")
 ap.add_argument("--plan-name", default="", help="--plan 时的产品名(仅用于展示/提示,如 皮筏艇-经销商; 默认取 --product)")
-try:
-    args = ap.parse_args()
-except SystemExit as _parse_exit:
-    # ★argparse 必填校验失败(缺 --prefix/--name 等): 未用 --plan/--product 时追加一行提示(支持任意产品)
-    if _parse_exit.code != 0 and "--plan" not in sys.argv and "--product" not in sys.argv:
-        print("（提示：用 --plan <模板计划JSON> --plan-name <产品名> 支持任意产品；插件详情见 --help）", file=sys.stderr)
-    raise
-if not args.plan and not args.product:
-    print("❌ 缺 --product <产品名>——或改用 `--plan <模板计划JSON> --plan-name <产品名>` 指定任意产品计划。")
-    print("（提示：用 --plan <模板计划JSON> --plan-name <产品名> 支持任意产品；插件详情见 --help）")
-    raise SystemExit(2)
+args = ap.parse_args()
+if not args.prefix.strip() or not args.suffix.strip():
+    print("❌ --prefix/--suffix 不能为空"); raise SystemExit(2)
 SIGN = args.name
 
-# 每轮 = (轮次号, 中文, 主题纯文案, 正文轮次句)；每变体 = 正文全句(唯一,互不相同)
-PRODUCTS = {
-  "皮筏艇": (
-    [("R01","破冰","Inflatable rafts for your outfitter","We manufacture commercial inflatable rafts and supply outfitters running guided river trips."),
-     ("R02","信任","Certified whitewater raft supplier","Our rafts are built to ISO 6185-1 (inflatable boats standard) and supplied to outfitter and rental fleets overseas."),
-     ("R03","降本","Cut your fleet cost","Switching to us cuts your fleet cost per unit without sacrificing durability or safety."),
-     ("R04","产能","Run more trips","Our factory keeps steady output so you can scale trips without waiting on supply."),
-     ("R05","稀缺","Fall production slots filling","Our fall production slots are filling fast — booking early secures your delivery window."),
-     ("R06","趋势","River tourism is growing","River tourism demand is climbing, and outfitters are booking earlier to secure capacity."),
-     ("R07","环保","Durable repairable construction","Our rafts are built durable and repairable — patch kits included, so hulls stay in service longer."),
-     ("R08","交期","20-day raft delivery","We deliver in about 20 days from order to your dock, even for mixed model fleets."),
-     ("R09","服务","Full outfitter support","One team handles design, QA and after-sales so you get support through the whole life."),
-     ("R10","促行动","Special fleet pricing now","We're offering an extra 8% off this month for outfitters who confirm their fleet plan now."),
-     ("R11","二次触达","Your raft fleet options","Following up on the raft options from my earlier emails, ahead of the peak season rush."),
-     ("R12","最后机会","Final call before stock ends","This is the final call before the remaining raft stock closes for the season.")],
-    ["I've attached our 2026 outfitter catalog with 12 raft models, capacity specs and deck layouts for your fleet team.",
-     "We'll courier a free fabric sample with welded-seam and abrasion test results so your team can feel the PVC quality.",
-     "You can pick hull color, valve position and print your logo on each tube, and we configure every raft to your brand.",
-     "We offer protected territory and local dealer support with spare parts stocked in your region for faster service.",
-     "For fleet orders of 20 or more units we apply a tiered bulk rate and lock pricing for the whole season.",
-     "Book a live video tour of our factory line and watch a raft go from PVC sheet to pressure-tested hull in eight minutes.",
-     "I can send a per-trip cost worksheet showing where fleet savings typically come from — just reply.",
-     "I can send the full spec sheet with MSDS, buoyancy tubes, floor type and valve pressure ratings this afternoon.",
-     "Start with a small trial batch of two units to benchmark durability against your current supplier before scaling.",
-     "Reply with your fleet size and I'll return a reference price list within 24 hours, with no commitment needed."]),
-  "皮筏艇-经销商": (
-    [("R01","破冰","Wholesale rafts for your catalog","We supply commercial inflatable rafts to dealers and distributors, and we're opening new wholesale accounts for next season."),
-     ("R02","信任","ISO 6185-1 raft line for dealers","Our rafts are built to ISO 6185-1, the inflatable boats standard, and offered through dealer channels in North America and Europe."),
-     ("R03","降本","Dealer margins on rafts","Wholesale pricing is set so dealers keep a healthy margin against local brand alternatives."),
-     ("R04","产能","Reliable stock for your orders","Our factory holds steady output, so your dealer orders restock on schedule through the season."),
-     ("R05","稀缺","Dealer allocation closing soon","This season's dealer allocation is nearly full — confirming early locks your supply window."),
-     ("R06","趋势","Dealer demand for rafts rising","River tourism keeps growing, and dealers are adding inflatable rafts to their lines earlier each year."),
-     ("R07","环保","Repairable rafts, fewer returns","Durable, repairable construction with patch kits means fewer warranty issues for your shop."),
-     ("R08","交期","20-day delivery for dealers","Dealer orders ship about 20 days from order confirmation, with mixed pallet and container terms."),
-     ("R09","服务","Dealer support program","Dealers get protected territory, spare parts, and marketing materials — one team for the whole account."),
-     ("R10","促行动","First-order dealer discount","We're offering an additional 8% off first dealer orders confirmed this month."),
-     ("R11","二次触达","Your wholesale raft program","Following up on the wholesale program from my earlier emails before allocation closes."),
-     ("R12","最后机会","Dealer allocation closes this week","The sign-up window for dealer accounts closes this week — reply now and we'll hold your allocation.")],
-    ["I've attached our wholesale price list with 12 raft models, tiered brackets and MOQ terms for your buyers.",
-     "We'll courier a fabric sample with seam and abrasion test results your team can keep in the showroom.",
-     "Add your own brand on every raft — private label, colors, logo printing — and reply for the brand options sheet.",
-     "We assign protected territory to new dealers and stock spare parts in your region — reply to check your area.",
-     "Combine 20+ units in one order and we apply a tiered wholesale rate, with pricing locked for the season — reply for the bracket sheet.",
-     "Schedule a live factory tour and watch a raft go from PVC sheet to pressure-tested hull in real time.",
-     "I'll send a dealer margin worksheet with typical resale math — just reply.",
-     "I can send the full spec pack — materials, buoyancy, valves, load ratings — this afternoon.",
-     "Start with a small sample order of two units to benchmark quality before you commit.",
-     "Tell me your target monthly volume and I'll send dealer pricing within 24 hours."]),
-  "皮筏艇-零售商": (
-    [("R01","破冰","Rafts for your outdoor store","We make commercial inflatable rafts sold through outdoor retailers, and we're opening new retail accounts."),
-     ("R02","信任","ISO 6185-1 raft line for retail","Built to the ISO 6185-1 standard for inflatable boats, our line is aimed at outdoor retail — and we're welcoming new store accounts."),
-     ("R03","降本","Retail-friendly raft pricing","Our landed cost is set so your store keeps a healthy retail margin per unit."),
-     ("R04","产能","Stock ready for your peak season","We keep steady output so your seasonal buy lands before the summer rush."),
-     ("R05","稀缺","Season allocation filling fast","Seasonal allocation is filling — early orders lock your shelf units."),
-     ("R06","趋势","Shoppers are asking for rafts","Paddle sports keep growing, and shoppers are asking stores for rafts and kayaks earlier each season."),
-     ("R07","环保","Easy-care rafts, happy customers","Durable, easy-to-repair rafts mean fewer returns and more repeat customers for your store."),
-     ("R08","交期","Fast delivery for store orders","Small store orders ship about 20 days from order confirmation, with low minimums to fit your stockroom."),
-     ("R09","服务","Retail support kit","You get product photos, size charts, and after-sales support — everything your floor team needs."),
-     ("R10","促行动","Seasonal opening order discount","Confirm your opening order this month and we'll apply 8% off your first seasonal buy."),
-     ("R11","二次触达","Your store's raft options","Following up on the raft options from my earlier emails before season allocation closes."),
-     ("R12","最后机会","Season allocation closes this week","The new-account window closes this week — reply and we'll hold seasonal stock for your store.")],
-    ["I've attached our retail catalog with 12 raft models, sizes and suggested retail pricing for your category.",
-     "We'll courier a fabric sample with wear-test results your floor team can show customers.",
-     "Order a small mix of sizes and colors — low minimums fit a single store's stockroom — and reply for the order sheet.",
-     "We include display photos, size matrix and care cards for your shelves and web store — reply to see the kit.",
-     "Bundle 10+ units for your seasonal buy and we hold the tiered rate through summer — reply for the bracket sheet.",
-     "Watch a live factory walkthrough and see our quality checks from material to finished hull.",
-     "Want the numbers behind retail sell-through? I'll send a margin worksheet — just reply.",
-     "I can send the full spec sheet with sizes, weights and safety ratings this afternoon.",
-     "Start with a two-unit trial to see how it sells on your floor before scaling.",
-     "Send your planned seasonal order size and I'll reply with store pricing the same day."]),
-  "玻璃瓶": (
-    [("R01","破冰","Cosmetic bottles for your brand","We manufacture cosmetic glass bottles and packaging for skincare and beauty brands."),
-     ("R02","信任","Certified cosmetic packaging supplier","Our bottles are food-grade, supplied to beauty and personal-care brands overseas."),
-     ("R03","降本","Cut your packaging cost","Switching to us lowers your packaging cost per unit while keeping premium glass quality."),
-     ("R04","产能","Scale up bottle supply","Our lines keep steady output so you can scale launches without supply delays."),
-     ("R05","稀缺","Quarter production slots filling","This quarter's production slots are filling — booking early secures your delivery window."),
-     ("R06","趋势","Clean beauty packaging demand","Clean beauty demand is rising, and brands are reserving packaging capacity earlier."),
-     ("R07","环保","Recyclable glass packaging","We use recyclable glass and low-waste molding so your packaging meets eco standards."),
-     ("R08","交期","Fast stock-shape delivery","Stock shapes deliver in about 20 days; custom molds are quoted separately with realistic timelines."),
-     ("R09","服务","Full packaging support","One team handles design, tooling and after-sales support through the full product life."),
-     ("R10","促行动","Special batch pricing now","We're offering an extra 8% off this month for brands that confirm their packaging plan."),
-     ("R11","二次触达","Your bottle options","Following up on the bottle options from my earlier emails, before your next launch."),
-     ("R12","最后机会","Final call before stock ends","Final call before this season's glass stock closes for new orders.")],
-    ["I've attached our catalog with 40 bottle shapes, neck finishes and closure options for your range.",
-     "We'll courier free glass samples with wall-thickness and drop-test results for your QC team.",
-     "You can pick bottle color, frosting, and print your logo on the glass for a fully branded look.",
-     "We offer dedicated account support with a local engineer for tooling and color matching.",
-     "For orders of 50,000 or more units we apply a tiered bulk rate and hold pricing for the quarter.",
-     "Book a live video tour of our furnace and molding line to see quality control in real time.",
-     "I can send a cost-per-unit breakdown showing where packaging savings typically come from — just reply.",
-     "I can send the full spec with glass type, capacity, and decoration options this afternoon.",
-     "Start with a small trial batch of 2,000 units to benchmark quality before you scale.",
-     "Reply with your expected volume and I'll return reference pricing within 24 hours."]),
-}
+# ---------- 签名昵称硬闸门(启动即校验,退出2) ----------
+_nick_ok, _nick_why = validate_nickname(SIGN)
+if not _nick_ok:
+    print(f"❌ --name 不是纯个人昵称({SIGN!r}): {_nick_why}")
+    print("   签名=纯个人昵称(如 Tony/Iris);公司名/官网/邮箱/职位/产品绝不进签名——可写入 product-profile 供建档。改好昵称重跑。(exit 2)")
+    raise SystemExit(2)
+
+if not args.plan:
+    print("❌ 缺 --plan <模板计划JSON>——内置 PRODUCTS 事实文案字典已删除,生产路径一律由 --plan 提供计划(防止未经用户确认/溯源的事实文案上线)。")
+    print('   plan JSON: {"profile_sha256":"<当前档案sha256>","directions":[["R01","中文名","主题纯文案","正文轮次句"],...],"variants":["正文变体句",...],"claims":[...](有高风险事实时必填)}')
+    raise SystemExit(2)
 
 def load_plan(path):
-    """读取 --plan 模板计划JSON(与 PRODUCTS 同构): {"directions": [[轮次号,中文名,主题,正文轮次句],...], "variants": [正文变体句,...]}
-    无效(读不到/JSON错/结构错)→ 明确报错 exit 2,绝不静默兜底。"""
+    """读取 --plan 模板计划JSON: {"profile_sha256":..,"directions":[[轮次号,中文名,主题,正文轮次句],...],"variants":[..],"claims":[..]}
+    返回 (directions, variants, plan_dict, plan_sha256); 无效(读不到/JSON错/结构错)→ 明确报错 exit 2,绝不静默兜底。"""
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            plan = json.load(f)
+        plan_bytes = Path(path).read_bytes()
+        plan = json.loads(plan_bytes.decode("utf-8"))
     except FileNotFoundError:
         print(f"❌ --plan 文件不存在: {path}"); raise SystemExit(2)
-    except json.JSONDecodeError as e:
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
         print(f"❌ --plan JSON 解析失败(无效JSON): {path} -> {e}"); raise SystemExit(2)
     except Exception as e:
         print(f"❌ --plan 读取失败: {path} -> {e}"); raise SystemExit(2)
     if not isinstance(plan, dict) or not isinstance(plan.get("directions"), list) or not isinstance(plan.get("variants"), list):
-        print(f'❌ --plan JSON 结构无效(应为 {{"directions": [[轮次号,中文名,主题纯文案,正文轮次句],...], "variants": [正文变体句,...]}}): {path}'); raise SystemExit(2)
+        print(f'❌ --plan JSON 结构无效(应为 {{"profile_sha256":..,"directions": [[轮次号,中文名,主题纯文案,正文轮次句],...], "variants": [正文变体句,...], "claims": [...]}}): {path}'); raise SystemExit(2)
     directions, variants = plan["directions"], plan["variants"]
     if not directions or not variants:
         print(f"❌ --plan 内容为空: directions/variants 至少各 1 条: {path}"); raise SystemExit(2)
     for i, d in enumerate(directions):
         if not isinstance(d, (list, tuple)) or len(d) < 4 or not all(isinstance(x, str) and x.strip() for x in d[:4]):
-            print(f"❌ --plan directions[{i}] 无效(应为 [轮次号,中文名,主题,正文轮次句] 四项字符串): {d!r}"); raise SystemExit(2)
+            print(f"❌ --plan directions[{i}] 无效(应为 [轮次号,中文名,主题纯文案,正文轮次句] 四项字符串): {d!r}"); raise SystemExit(2)
     for i, v in enumerate(variants):
         if not isinstance(v, str) or not v.strip():
             print(f"❌ --plan variants[{i}] 无效(应为非空字符串): {v!r}"); raise SystemExit(2)
     if len({d[0] for d in directions}) != len(directions):
         print("❌ --plan 轮次号重复: directions 每项第 0 位(如 R01)须唯一"); raise SystemExit(2)
-    print(f"  ✅ --plan 加载: {path} ({len(directions)}轮方向×{len(variants)}变体, 签名={SIGN})")
-    return directions, variants
+    if "signature" in plan:
+        print("❌ plan 不允许 signature 字段——签名只能来自 --name(纯昵称),渲染固定为 <p>{昵称}</p> (exit 2)"); raise SystemExit(2)
+    plan_sha = hashlib.sha256(plan_bytes).hexdigest()
+    return directions, variants, plan, plan_sha
 
-def pick():
-    if args.plan:
-        return load_plan(args.plan)  # ★--plan 优先,覆盖 PRODUCTS 查找(任意产品)
-    for key in PRODUCTS:
-        if args.product == key:
-            return PRODUCTS[key]
-    best = None
-    for key in PRODUCTS:
-        if key in args.product and (best is None or len(key) > len(best)):
-            best = key
-    if best:
-        return PRODUCTS[best]
-    print(f"❌ 内置文案暂不支持「{args.product}」——禁止兜底用其他产品文案(会生成内容全错的模板,新手门槛整改(工具级)/B3-2)。")
-    print("   正确做法: 由 AI 按用户在 GATE0 给的产品信息与 RULES/sequence-config 生成规则现写 12轮方向句×10变体句,")
-    print("   加入本文件 PRODUCTS 字典后再运行(参考 皮筏艇/玻璃瓶 的结构: 每轮一句angle+每变体一句body)。")
-    print('   或用 `--plan <模板计划JSON> --plan-name <产品名>` 指定计划(JSON 结构: {"directions":[["R01","中文名","主题纯文案","正文轮次句"],...],"variants":["正文变体句",...]})。')
+DIRECTIONS, VARIANTS, PLAN, PLAN_SHA = load_plan(args.plan)
+
+# ---------- 产品档案硬闸门(confirmed/declined 才放行;draft/缺失/结构错→退出4) ----------
+PROFILE_PATH = Path(args.profile)
+if not PROFILE_PATH.is_absolute():
+    PROFILE_PATH = KB / PROFILE_PATH
+PROFILE_STATUS, PROFILE_ISSUES, _PROFILE_META, PROFILE_SHA = profile_gate(PROFILE_PATH)
+EXPECTED_PROJECT = f"{_PROFILE_META.get('operator_key', '').strip()}/{_PROFILE_META.get('product_key', '').strip()}"
+if not PROFILE_ISSUES and args.project != EXPECTED_PROJECT:
+    PROFILE_ISSUES.append(f"--project={args.project!r} 与档案稳定项目键 {EXPECTED_PROJECT!r} 不一致——拒绝跨运营方/产品复用审批")
+if PROFILE_ISSUES:
+    print(f"❌ 产品档案闸门未过: {PROFILE_PATH}")
+    for _i in PROFILE_ISSUES:
+        print(f"   - {_i}")
+    print("  指引: python3 tools/product_profile.py init --profile <档案> --operator-key <运营方> --product-key <产品> [--declined] 建档;")
+    print("        用户拍板后 confirm --profile <档案> --by <纯昵称> --quote <用户原话> 置 confirmed;declined 可用无具体事实的通用计划。(exit 4)")
+    raise SystemExit(4)
+
+# ---------- 档案哈希绑定(plan 必须对准当前档案;declined 也写实际 hash) ----------
+if PLAN.get("profile_sha256") != PROFILE_SHA:
+    print(f"❌ plan.profile_sha256 与当前档案不匹配: plan={str(PLAN.get('profile_sha256'))[:16]}... != profile={PROFILE_SHA[:16]}...")
+    print("   档案已变动或 plan 抄错——用 `python3 tools/product_profile.py status --profile <档案>` 取当前 profile_sha256 更新 plan 后重跑。(exit 2)")
     raise SystemExit(2)
 
-DIRECTIONS, VARIANTS = pick()
+# ---------- 事实闸门: 高风险句子必须被 claims 覆盖(轮次号/中文主题名不扫描) ----------
+RISK_RE = re.compile(
+    r"\d|[０-９%％]|certif(?:ied|ication)|food[- ]grade|\bMOQ\b|minimum order|discount|\bfree\b|"
+    r"price|pricing|stock\w*|inventor\w*|scarc\w*|\blimited\b|allocation|capacity|lead time|"
+    r"\bISO\b|\bCE\b|\bFDA\b|\bRoHS\b|\bUL\b|\bSGS\b|\bBPA\b|\bLFGB\b|"
+    r"complian\w*|approv\w*|register\w+|warrant\w+|guarantee\w*|turnaround|ships?\s+in|\bweek\b|"
+    r"认证|食品级|免费|折扣|库存|稀缺|产能|价格|交期|优惠|现货|清仓|质保|保修|担保|合规",
+    re.IGNORECASE,
+)
+
+def _sentences(text):
+    parts = re.split(r"[.!?。！？；;\n]+", text or "")
+    return [re.sub(r"\s+", " ", s).strip() for s in parts if s and s.strip()]
+
+def _risky_hits():
+    """扫描用户可见文案(主题/正文轮次句/变体句)中含高风险事实的句子。轮次号(R01)与中文主题名不参与。"""
+    hits = []
+    for d in DIRECTIONS:
+        for where, text in ((f"{d[0]}/主题", d[2]), (f"{d[0]}/正文轮次句", d[3])):
+            for s in _sentences(text):
+                if RISK_RE.search(s):
+                    hits.append((where, s))
+    for vi, body in enumerate(VARIANTS, 1):
+        for s in _sentences(body):
+            if RISK_RE.search(s):
+                hits.append((f"V{vi:02d}/正文变体句", s))
+    return hits
+
+def _all_user_sentences():
+    """用户可见文案(主题/正文轮次句/变体句)的全部句子集合(claims[].exact_text 必须逐句对应其中之一)。"""
+    sents = set()
+    for d in DIRECTIONS:
+        for text in (d[2], d[3]):
+            sents.update(_sentences(text))
+    for body in VARIANTS:
+        sents.update(_sentences(body))
+    return sents
+
+# ---------- evidence↔风险句 强关联校验(静态红队P1): 实体/数字 token 保守子集 ----------
+_CLAIM_STD_TOKENS = ("ISO", "CE", "FDA", "RoHS", "UL", "SGS", "BV", "TUV", "EMC", "LVD",
+                     "REACH", "ASTM", "IEC", "BPA", "LFGB")
+_CLAIM_CLASS_RES = (
+    ("TIMING", re.compile(r"\b(?:week|weeks|day|days|hour|hours)\b|周|天|小时|工作日", re.IGNORECASE)),
+    ("WARRANTY", re.compile(r"\bwarrant(?:y|ies)\b|\bguarantee\b|质保|保修|担保", re.IGNORECASE)),
+    ("CERT", re.compile(r"certif|complian|approv|register|认证|合格|资质", re.IGNORECASE)),
+    ("MOQ", re.compile(r"\bMOQ\b|minimum order|起订", re.IGNORECASE)),
+    ("FOODGRADE", re.compile(r"food[- ]grade|食品级", re.IGNORECASE)),
+    ("FREE", re.compile(r"\bfree\b|免费", re.IGNORECASE)),
+    ("PRICE", re.compile(r"\bprice|pricing|价格|报价", re.IGNORECASE)),
+    ("DISCOUNT", re.compile(r"discount|off\b|折扣|优惠", re.IGNORECASE)),
+    ("STOCK", re.compile(r"stock|inventory|allocation|库存|现货|清仓", re.IGNORECASE)),
+    ("CAPACITY", re.compile(r"capacity|产能", re.IGNORECASE)),
+    ("SCARCITY", re.compile(r"scarce|scarcity|limited|slots?\s+(?:fill|clos)|稀缺|名额|档期", re.IGNORECASE)),
+)
+
+def _claim_tokens(text):
+    """抽取风险实体(认证标准等, 逐个精确) / 语义类(时限·保修·认证·MOQ·食品级, 跨语言任一命中) / 数字 token。"""
+    low = str(text or "").lower()
+    ents = set()
+    for std in _CLAIM_STD_TOKENS:
+        if re.search(r"(?<![a-z0-9])" + re.escape(std.lower()) + r"(?![a-z0-9])", low):
+            ents.add(std)
+    for name, rx in _CLAIM_CLASS_RES:
+        if rx.search(low):
+            ents.add(name)
+    nums = set()
+    for tok in re.findall(r"\d[\d,，.]*", str(text or "")):
+        t = tok.replace(",", "").replace("，", "").rstrip(".")
+        if t:
+            nums.add(t)
+    return ents, nums
+
+def _normalize_claim_sentence(text):
+    """允许复制原句时保留句尾标点；归一化后必须恰好是一条完整句子。"""
+    parts = _sentences(str(text or ""))
+    return parts[0] if len(parts) == 1 else ""
+
+
+def _check_claim_items(claims):
+    facts = profile_field_facts(PROFILE_PATH)
+    for i, c in enumerate(claims):
+        if not isinstance(c, dict) or not all((c.get(k) or "").strip() for k in ("exact_text", "source", "profile_field", "evidence_text")):
+            print(f"❌ plan.claims[{i}] 无效: 每项须含 exact_text/source/profile_field/evidence_text 且全部非空: {c!r} (exit 2)")
+            raise SystemExit(2)
+        field_text = str(c["profile_field"])
+        m = re.search(r"[1-8①②③④⑤⑥⑦⑧]", field_text)
+        if not m:
+            print(f"❌ plan.claims[{i}].profile_field 须指向档案 ①..⑧ 某字段: {field_text!r} (exit 2)")
+            raise SystemExit(2)
+        token = m.group(0)
+        field_no = int(token) if token in "12345678" else "①②③④⑤⑥⑦⑧".index(token) + 1
+        fact = facts.get(field_no, {})
+        source = (fact.get("source") or "").strip()
+        content = (fact.get("content") or "").strip()
+        if not content or content in ("（待补）", "待补") or source.lower() in ("", "none", "推断"):
+            print(f"❌ plan.claims[{i}] 指向的档案字段 {field_no} 没有可引用的已确认内容/来源(source={source or 'none'}) (exit 2)")
+            raise SystemExit(2)
+        if str(c["source"]).strip() != source:
+            print(f"❌ plan.claims[{i}].source 与档案字段 {field_no} 的 source 不一致: claim={c['source']!r} profile={source!r} (exit 2)")
+            raise SystemExit(2)
+        evidence = re.sub(r"\s+", " ", str(c["evidence_text"])).strip()
+        content_norm = re.sub(r"\s+", " ", content).strip()
+        if evidence not in content_norm:
+            print(f"❌ plan.claims[{i}].evidence_text 未逐字存在于档案字段 {field_no} 内容中: {evidence!r} (exit 2)")
+            raise SystemExit(2)
+        exact_norm = _normalize_claim_sentence(c["exact_text"])
+        if exact_norm not in content_norm:
+            print(f"❌ plan.claims[{i}].exact_text 必须逐字存在于所指档案字段内容（高风险事实不允许改写/扩张）: {exact_norm!r}")
+            raise SystemExit(2)
+        # 强关联(静态红队P1): 风险句中的实体(ISO/CE/FDA/RoHS/UL...)与全部数字 token 必须在 evidence 中出现
+        s_ent, s_num = _claim_tokens(str(c["exact_text"]))
+        e_ent, e_num = _claim_tokens(evidence)
+        miss_ent, miss_num = sorted(s_ent - e_ent), sorted(s_num - e_num)
+        if miss_ent or miss_num:
+            print(f"❌ plan.claims[{i}].evidence_text 与风险句强关联不足: 缺实体token {miss_ent} / 缺数字token {miss_num}——"
+                  "evidence 须包含风险句中的认证标准/时限/保修等实体与全部数字, 不允许用无关真实短语挂靠声明 (exit 2)")
+            raise SystemExit(2)
+
+def validate_claims():
+    hits = _risky_hits()
+    claims = PLAN.get("claims")
+    if claims is not None:
+        if not isinstance(claims, list):
+            print("❌ plan.claims 须为数组(每项 {exact_text, source, profile_field, evidence_text}) (exit 2)"); raise SystemExit(2)
+        # exact_text 必须是文案中的完整句子(逐句相等; 不允许半句/拼句/无关句)——先查, 报错更准
+        norm = [_normalize_claim_sentence(c["exact_text"]) for c in claims]
+        all_sents = _all_user_sentences()
+        unknown = [str(claims[i]["exact_text"]) for i, nc in enumerate(norm) if not nc or nc not in all_sents]
+        if unknown:
+            print("❌ 以下 claims[].exact_text 不是文案中的完整句子(把整句原文逐字写进 exact_text, 不允许半句/拼接/无关句):")
+            for nc in unknown[:5]:
+                print(f"   - {nc}")
+            raise SystemExit(2)
+        _check_claim_items(claims)
+    if not hits:
+        print("  ✅ 事实闸门: 未检出高风险事实句(通用口径)")
+        return
+    if PROFILE_STATUS == "declined":
+        print("❌ 档案 status=declined——只能用无具体事实的通用计划,但文案出现高风险事实:")
+        for loc, s in hits:
+            print(f"   - [{loc}] {s}")
+        print("   要用具体事实须先让用户提供资料并 confirm 档案(见 tools/product_profile.py)。 (exit 2)")
+        raise SystemExit(2)
+    if not claims:
+        print("❌ 文案出现高风险事实但 plan 缺 claims 数组(每项 {exact_text, source, profile_field},句子原文写进 exact_text):")
+        for loc, s in hits:
+            print(f"   - [{loc}] {s}")
+        raise SystemExit(2)
+    norm_set = set(_normalize_claim_sentence(c["exact_text"]) for c in claims)
+    missing = [(loc, s) for loc, s in hits if s not in norm_set]
+    if missing:
+        print("❌ 以下高风险句子未被 claims[].exact_text 覆盖(把整句原文逐字写进 exact_text):")
+        for loc, s in missing:
+            print(f"   - [{loc}] {s}")
+        raise SystemExit(2)
+    print(f"  ✅ 事实闸门: {len(hits)} 个高风险句子全部被 claims 完整逐句覆盖(来源可溯+evidence强关联, 档案 {PROFILE_STATUS})")
+
+validate_claims()
+print(f"  ✅ --plan 加载: {args.plan} ({len(DIRECTIONS)}轮方向×{len(VARIANTS)}变体, 档案={PROFILE_STATUS} sha={PROFILE_SHA[:12]}..., 签名={SIGN})")
 DISPLAY = args.plan_name or args.product or "自定义计划"  # 展示用产品名(--plan 时可用 --plan-name 指定)
 
 def html_for(rnd, zh, subj, angle, body):
@@ -208,9 +296,13 @@ def preview():
 
 def ensure_folder():
     """S8 固化(2026-09-03 用户拍板): 模板必须归入分组,禁止散落在未指定目录。
-    --foid 显式给 id 则直接用; 否则按 prefix 查 templates-folder-list, 无则建同名分组。"""
+    --foid 显式给 id 则直接用(★foid=0=未指定目录, 拒绝); 否则按 prefix 查 templates-folder-list,
+    无则建同名分组; 解析/创建失败必须退出——不允许模板散落未指定目录。"""
     if args.foid:
-        return args.foid
+        if str(args.foid).strip() == "0":
+            print("❌ --foid 0 = 未指定目录, 120 个模板会散落——S8 固化: 模板必须归入分组, 传已有分组 id 或留空自动建 (exit 1)")
+            raise SystemExit(1)
+        return str(args.foid).strip()
     fl = subprocess.run(["curl", "-sSL", "-X", "POST",
                          f"https://web.laifaxin.com/api/mailbox/templates-folder-list?uid={args.org}",
                          "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}", "-d", "{}"],
@@ -238,8 +330,8 @@ def ensure_folder():
             return str(fid)
     except Exception:
         pass
-    print("   ⚠️ 分组创建失败——模板将落入未指定目录(不推荐)。可 --foid <id> 重试")
-    return "0"
+    print("❌ 模板分组解析/创建失败——为避免模板散落未指定目录, 已中止(未创建任何模板)。稍后重跑, 或 --foid <已有分组id> 指定 (exit 1)")
+    raise SystemExit(1)
 
 
 def add(name, subject, html):
@@ -259,12 +351,35 @@ def add(name, subject, html):
         return "ERR:" + str(e)
 
 if args.preview:
+    if not args.record:
+        print("❌ 模板预览必须带 --record <operation-record.md>，以便换机续接记录S7"); sys.exit(2)
+    if not ensure_same_project_paths(args.record, PROFILE_PATH):
+        print("❌ --record 与 --profile 不在同一项目目录"); sys.exit(4)
+    try: require_state(args.record, ("S6", "S7"))
+    except ValueError as exc: print(f"❌ {exc}"); sys.exit(4)
     preview()
+    update_frontmatter(args.record, {"status": "S7", "next_state": "S8"}, expected_states=("S6", "S7"))
+    print(f"✅ 运行状态已推进: {args.record} → S7 (next=S8；仍未创建线上模板)")
     sys.exit(0)
+if not args.record or not args.out:
+    print("❌ 正式创建模板必须带 --record <operation-record.md> 和 --out <项目/tmap.json>，否则换机状态/序列映射无法恢复"); sys.exit(2)
+if not ensure_same_project_paths(args.record, PROFILE_PATH):
+    print("❌ --record 与 --profile 不在同一项目目录"); sys.exit(4)
+try: require_state(args.record, ("S6", "S7", "S8")); acquire_project_lock(args.record, "gen_templates")
+except (ValueError, RuntimeError) as exc: print(f"❌ {exc}"); sys.exit(4)
 
-args.foid = ensure_folder()  # S8: 模板必须归入分组(禁散落未指定目录)
+# ★审批顺序(静态红队P1): 审批闸门必须先于任何平台写(ensure_folder 的分组查询/创建也是写路径的一部分)
+try:
+    out_rel = str(Path(args.out).resolve().relative_to(KB.resolve()))
+except ValueError:
+    out_rel = str(Path(args.out).resolve())
+binding = {"project": args.project, "org_sha256": hashlib.sha256(str(args.org).encode()).hexdigest(),
+           "profile": {"sha256": PROFILE_SHA, "status": PROFILE_STATUS, "version": _PROFILE_META.get("profile_version", "")},
+           "plan": {"sha256": PLAN_SHA}, "name": SIGN, "prefix": args.prefix, "suffix": args.suffix,
+           "foid": str(args.foid or "auto"), "out": out_rel}
+require_approval(args.approval, args.project, ("S7", "S8"), what="批量创建模板", expected_hash=stable_params_hash(binding))
 
-require_approval(args.approval, args.project, ("S7", "S8"), what="批量创建模板")
+args.foid = ensure_folder()  # S8: 模板必须归入分组(禁散落未指定目录; 失败即退出)
 
 print(f"生成 {DISPLAY} {len(DIRECTIONS)}x{len(VARIANTS)}={len(DIRECTIONS)*len(VARIANTS)} (签名={SIGN}, 每轮/每变体正文句不同):")
 results = {}
@@ -281,6 +396,28 @@ if bad:
     print(f"❌ {len(bad)} 个模板创建失败(示例: {bad[:3]} -> {results[bad[0]]})——中止，勿用此映射重建序列(模板id校验(工具级))")
     sys.exit(1)
 if args.out:
-    with open(args.out, "w") as f:
+    out_p = Path(args.out)
+    out_p.parent.mkdir(parents=True, exist_ok=True)
+    with open(args.out, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=1)
     print(f"已落盘 {len(results)} 条 name→id 映射到 {args.out}")
+    # 溯源元数据(与 tmap 同目录; 静态红队P1): 写完 tmap 后计算其内容 hash,
+    # 连同 project_key/org_sha256(哈希非明文)/档案路径(相对KB)+hash+status/plan 哈希 供 build_sequence 逐项校验
+    tmap_sha = hashlib.sha256(out_p.read_bytes()).hexdigest()
+    try:
+        profile_rel = str(PROFILE_PATH.resolve().relative_to(KB.resolve()))
+    except ValueError:
+        profile_rel = str(PROFILE_PATH)
+    meta = {"tmap_sha256": tmap_sha, "project_key": args.project,
+            "org_sha256": hashlib.sha256(str(args.org).encode("utf-8")).hexdigest(),
+            "profile_path": str(PROFILE_PATH), "profile_path_rel": profile_rel,
+            "profile_sha256": PROFILE_SHA, "profile_status": PROFILE_STATUS,
+            "plan_sha256": PLAN_SHA, "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    with open(args.out + ".meta.json", "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False, indent=1)
+    print(f"已落盘溯源元数据到 {args.out}.meta.json (tmap_sha={tmap_sha[:12]}..., profile={PROFILE_STATUS} sha={PROFILE_SHA[:12]}..., plan_sha={PLAN_SHA[:12]}...)")
+if args.record:
+    update_frontmatter(args.record, {"status": "S8", "next_state": "S9", "updated": time.strftime("%Y-%m-%d"),
+                                      "profile_version": f'"{_PROFILE_META.get("profile_version", "")}"',
+                                      "profile_sha256": f'"{PROFILE_SHA}"'}, expected_states=("S6", "S7", "S8"))
+    print(f"✅ 运行状态已推进: {args.record} → S8 (next=S9)")

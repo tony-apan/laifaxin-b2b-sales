@@ -2,9 +2,9 @@
 name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
-version: 0.3.12
+version: 0.4.0
 created: 2026-08-30
-updated: 2026-09-03
+updated: 2026-09-04
 author: "独立审查 agent（对抗判定后落地）"
 related: [RULES.md, INDEX.md, methodology/decision-trees.md]
 tags: [skill入口, 触发路由, 状态机, 入驻, 获客]
@@ -26,7 +26,8 @@ audience: AI优先
 flowchart TD
     T["用户给 token"] --> N["问一次:昵称+一句话产品<br/>(中英皆可)"]
     N --> S0["S0: AI出ABCD获客方向<br/>用户选字母"]
-    S0 --> S2["S2: 推演具体客群<br/>用户选编号"]
+    S0 --> S0A["S0a: 分两轮主动索取<br/>公司档案+产品档案"]
+    S0A --> S2["S2: 推演具体客群<br/>用户选编号"]
     S2 --> S3["S3: 用户有认得的买家网址?<br/>有→填入;没有→标准路径,不追问"]
     S3 --> S4["S4: 逐页审计<br/>找70%筛选边界"]
     S4 --> S5["S5-S6: 保存+数量账<br/>展示数据,用户确认"]
@@ -47,17 +48,19 @@ flowchart TD
 
 | 用户说（触发词） | 路由到 |
 |------------------|--------|
-| 新会话 / 换机 / 接手 / "接着上次" | `python3 tools/onboard_check.py`（自检+读本地状态）→ 本文件 → `RULES.md` |
-| "更新到最新版 / 升级 / 老用户更新" | README「🔄 更新到新版本」办法 A 指令块=完整步骤：①判断安装方式（有 .git→git pull；无→ZIP 覆盖到**原目录**，禁解压新文件夹）②备份 `.local/` 与 `runs/` 到系统文件夹外（成功后可删）③git pull 遇冲突先停不强推；ZIP 覆盖后查"新版已删除的旧文件"残留，列出问用户再清，不自删 ④跑 `python3 tools/onboard_check.py` 体检 → 汇报新版本号 + CHANGELOG 变化 + 数据完好核对 |
-| "帮我找 X 产品的客户" / 开新项目 | §2 前置检查 → ① `python3 tools/check_login.py --token <T>`（登录检查）→ ② `bash tools/gate_check.sh --token <T>`（闸门）→ ③ `python3 tools/flow_orchestrator.py`（S0→S12 向导）|
+| "新电脑第一次安装" / 环境缺 Python / `python` 找不到 | `specs/environment-setup.md` → `bootstrap.sh --install` 或 Windows `bootstrap.ps1 -Install` → check-only → onboard。⚠️PowerShell脚本当前仅静态检查、未在全新Windows实机跑完；失败按SOP官方安装兜底 |
+| 新会话（同机） / "接着上次" | `onboard_check.py` 枚举 `runs/*/*/operation-record.md` 的可续接项目 → 用户选项目 → 读 operation-record + product-profile 状态/版本/hash → 从当前节点继续；无项目才走 S0 新建 |
+| "换机 / 换电脑 / 另一台电脑接手" | README「💻 换电脑继续干」完整指令块 + `specs/migration-handoff.md`：旧机迁移 `.local/`+`runs/`+可选本地`db/` → 新机恢复同名路径 → token重新获取 → onboard枚举项目 → 禁止从S0重跑已有项目 |
+| "更新到最新版 / 升级 / 老用户更新" | README「🔄 更新到新版本」办法 A：判断 git/ZIP → 备份 `.local/`+`runs/` → 更新原目录 → bootstrap check-only → 用输出的 `python_cmd` 跑 `onboard_check.py` → 汇报版本/变化/数据完好；冲突或旧文件残留先列出问用户，不强推不自删 |
+| "帮我找 X 产品的客户" / 开新项目 | 环境 bootstrap 全绿 → S0 昵称+一句话产品 → S0a `operator_profile.py` + `product_profile.py` 建档/确认(或declined) → 登录检查 → `gate_check.sh --product <operator_key>/<product_key>` → `flow_orchestrator.py --profile <档案路径>` |
 | "我这产品适合跑吗 / 大宗 / 长周期 / 好几年才采购" | §2 → 登录检查/闸门 → `specs/product-fit.md`（强/条件/弱三档判定表）：S0 判定 + 如实告知弱适配预期，由用户决定（不拒绝、不静默）|
 | "这客户/这批准不准" / "临界在哪" | 状态机 S4 → `specs/threshold-method.md`（AI 反思 70% 判据）+ `tools/audit_company.py`（⚠️仅趋势初筛）|
 | "怎么才存了这么点 / 邮箱太少 / 数量对不上" | S6 数量账：`output-templates/S6-数量账.md`——四机制（max3/验真/去重/异步提取）逐项解释；**未知邮箱默认已保存**；<1.0 邮箱/家建议查锚点 |
 | "保存这批 / 前 N 条" | 状态机 S5/S6 → `tools/save_first_n.py`（★必须带 S5 的 `--approval`）|
 | "写开发信 / 模板 / 预览" | 状态机 S7 → `tools/gen_templates.py --preview`；S8 生成后必跑 `tools/check_template_diff.py`（模板**自动归入同名分组**，禁散落"未指定目录"）|
-| "建序列 / 跟进计划" | 状态机 S9 → `python3 tools/build_sequence.py --tmap runs/<运营方>/<产品>/tmap.json --approval <S9凭证>`（tz/notSentTags 运行时解析+12 步；规范 `specs/sequence-config.md`）|
-| "加联系人 / 进序列" | 状态机 S10 → `python3 tools/contact_add.py --seq <id> --tags <标签id> --task <任务id> --approval <S10凭证>`（内置时序守卫+views:[] 铁律）|
-| "激活 / 发信" | S12：仅用户明确"确认激活" → **`python3 tools/activate_sequence.py --seq <id> --confirm "<用户原话>" --approval <S12凭证> --project <产品>`**（激活+回读 status:active 防假成功）；★**空序列测完激活后须回滚 inactive**（防后续加联系人即真发）；发信前区分责任：平台负责发送基础设施与退订技术呈现，运营方仍须核验目标市场、名单来源、发送主体、实际退订入口与拒收要求 |
+| "建序列 / 跟进计划" | `build_sequence.py --token <T> --org <org> --name <序列名> --tmap runs/<operator_key>/<product_key>/tmap.json --profile .../product-profile.md --record .../operation-record.md --from-name <纯昵称> --project <operator_key>/<product_key> --approval <S9凭证>` |
+| "加联系人 / 进序列" | `contact_add.py --token <T> --org <org> --seq <id> --tags <标签id> --task <任务id> --record .../operation-record.md --project <operator_key>/<product_key> --approval <S10凭证>`；查询失败/active/状态不符均fail-closed，views固定[] |
+| "激活 / 发信" | S12：项目 `compliance-check.json` 绑定project/seq/profile且五项pass+结构化evidence → 用带完整参数的 `flow_orchestrator` 在当前TTY让用户现场确认并签发S12凭证（S12禁止approval grant）→ `activate_sequence.py --profile ... --compliance-file ... --record ... --confirm '<同一原话>' --approval <凭证>` |
 | "验证这批对不对" | `tools/verify_exclude.py`（排除4区）/ `tools/verify_sequence.py`（12步）/ `tools/check_template_diff.py`（差异≥30%）|
 | "模板重建 / 换模板" | `tools/rebuild_templates.py`（⚠️半自动，顺序铁律见 L-43，需人工分步）|
 | "清空重来" | 危险操作，先用户确认。产品档案清空：`python3 tools/delete_all_products.py`（默认 dry-run，--execute --confirm "DELETE-ALL" 才真删）；联系人/模板清空按 `specs/api-reference.md` 清空工具节封装 |
@@ -78,31 +81,32 @@ flowchart TD
   - 首次连接只做只读检查（不搜客/不保存/不扣点/不发信）；换账号需重新获取
 - **★最小必要输入（2026-09-03 用户拍板：渐进索取，禁止开局列清单）**：
   - **开跑只问 2 项**：① **token** ② **昵称 + 一句话产品**（如"我卖不锈钢保温杯，主要卖欧美"）。中文或英文任一均可理解，不要因为语言形式重复追问。
-  - **★昵称规范（2026-09-03 用户拍板）**：昵称**只含个人称呼**（Tony / Iris 等纯人名）；发现含公司名/产品名/职位（如 "Iris | XX Textiles"、"保温杯厂-老王"）→ **一次性说明并请用户改**："昵称建议只放个人名字，公司信息可以放邮件正文——您想改成什么？"
+  - **★昵称规范（2026-09-03 用户拍板）**：昵称**只含个人称呼**（Tony / Iris 等纯人名）；发现含公司名/产品名/职位（如 "Iris | XX Textiles"、"保温杯厂-老王"）→ **一次性说明并请用户改**："昵称只放个人名字；公司信息我会存入本地产品档案用于分析，但不会进入邮件签名——您想用什么昵称？"
   - **后续节点用到现在才要**：S0 出 A/B/C/D 方案选字母；S2 出具体客群表选编号（两步分工，不重复问）；S3 用户可给一个认得的买家网址（没有就走标准路径，不追问）；S7 邮件签名只用昵称——公司/官网/邮箱（用户自己的商业资产）AI 主动要 **仅供 AI 建档/背调**，绝不写进邮件签名。
-  - **★产品资料=获客必需素材，用户不给AI也主动要（2026-09-04 强化）**：产品资料（卖什么/卖给谁/核心卖点/客群方向）是**做获客的前提**。用户**给**了官网/目录/卖点 → AI 读取提炼；用户**没给** → AI **主动要一次**并给填空模板+示例（降低负担、可跳过），**绝不逼问**。**主动要话术**："为了把客群和开发信写得准，能不能用两三句话告诉我：①卖的是什么（品类+给谁用）②我的优势/卖点 ③主要卖给哪些国家/客群？不记得也没关系，我先按行业通用口径出一版，您看到不对再改。"★**可主动要（用户自己的商业资产=仅供AI建档）**：公司名/官网/邮箱/认证证书/产能/MOQ/交期/价格带——AI 会要并记入 product-profile.md（背调/客群判断用），**绝不写进邮件正文或签名**（邮件签名=只有昵称，2026-09-04 用户拍板）。★**不索要（他人信息）**：潜在买家/客户/联系人的联系方式清单、终端用户邮箱。边界与提炼方法见 `specs/product-profile-sop.md`。提炼结果落成 `runs/<运营方>/<产品>/product-profile.md`（8 字段+source），**S0 请用户确认**，之后 **S2 客群/S4 客户线/S7 卖点/S9 钩子全部从这份档案取知识**（⚠️注意：卖点/差异化用于**正文的卖点描述**，但公司名/官网/邮箱**只进文档不进签名**），零上下文 AI 断点续接也先读它。★档案与用户一句话产品/目标市场冲突时，**以用户口径为准**并标注差异。**是 AI 去查去分析，不是让用户解释**。
-  - **公司名/官网/邮箱/认证/产能/MOQ 等用户自己资产 = 可主动要**（给模板可跳过），**仅供 AI 建档/背调**，绝不写进邮件正文或签名（签名=只昵称）；没有时按行业合理值表述、不编造具体数字。
+  - **★产品资料=获客必需素材，用户不给AI也主动要**：公司级资料按 `operator-profile-sop.md` 回落 `.local/operators/<operator_key>.md`；产品级资料按 `product-profile-sop.md` 回落 `runs/<operator_key>/<product_key>/product-profile.md`。每次单独问一组，给填空模板、可跳过、不逼问。★**邮件边界**：邮件末尾签名区永远只有纯个人昵称；公司名/官网/联系邮箱不进入签名；经用户确认且有字段级来源的认证/产能/MOQ/交期/价格带可用于正文卖点；推断或无来源的具体事实禁止写入。★潜在买家/客户/联系人第三方联系方式不索要、不写入上述档案。S2/S4/S7/S9 必须绑定当前 profile path/version/hash；零上下文续接先读两类档案。
+  - **公司级/产品级资料都可主动要**（每次单独问一组，给模板可跳过）：公司名/官网/联系邮箱/默认市场→operator-profile；产品线/认证/产能/MOQ/交期/价格带→product-profile。签名区只含昵称；confirmed 且有来源的产品事实可进正文卖点；没有事实时只用无具体承诺的通用表达。
   - 每次**只问当前节点必需的一件事**，给默认建议，用户回复"确认/否/要改"即可推进。
 - **闸门硬条件**：`bash tools/gate_check.sh --token <TOKEN>` 全部通过 = 开始流程的**唯一通行证**；未通过**禁止任何保存/模板/序列/contact-add**。
 - 缺 ① 或 ② → **停，向用户要，不猜不代填**。
 - token 只放命令/环境变量，**绝不写入任何文件**。
-- 本地运营方档案（`.local/operator-profile.md`，首次运行自动生成）：昵称为必需；公司名/官网/邮箱=用户自己的商业资产，AI 可主动要（给模板、可跳过），**仅供 AI 建档/背调**，**绝不写进邮件签名**（签名=只昵称）；没提供不编造。**客户/联系人邮箱等他人信息不索要**。
+- 本地运营方档案（`.local/operators/<operator_key>.md`，旧单文件兼容）：昵称为必需；公司名/官网/邮箱可主动要、跨产品/换机复用；签名区只昵称，客户第三方资料不写入。
 
 ## 3️⃣ 状态机 S0-S12（每节点一句话判据，细节见 RULES.md）
 
 | 节点 | 一句话判据 |
 |------|-----------|
 | S0 INPUT_GATE | **只需昵称+一句话产品**（中英皆可）。★S0 出 A/B/C/D **获客方向方案**（含推荐与淘汰理由），用户选字母——禁止开局索要清单。★产品资料（卖什么/卖点/客群方向）：用户给官网/目录/卖点 → AI 读取并落成 `runs/<运营方>/<产品>/product-profile.md`；用户没给 → **AI 主动要一次**（给模板可跳过、不逼问）→ 拿到或按行业通用口径出档案。★**产品适配度判定（只读前置）**：出方案前先按 `specs/product-fit.md` 四问判 **强/条件/弱适配**，结论+理由随 ABCD 方案一起展示；弱适配必须如实说明预期（冷邮件回询盘以月/年计，建议小样验证），由用户决定，不静默走流程 |
+| S0a PROFILE_PENDING | 分两轮主动索取：①公司级资料→`.local/operators/<operator_key>.md`（多公司隔离/跨产品/换机复用）②产品级资料→`runs/<operator_key>/<product_key>/product-profile.md`。每轮一组、可跳过不逼问；产品档案必须 confirmed 或 declined 才能进 S1，draft 阻断；后续绑定版本/hash |
 | S1 PATH_PENDING | 有精准网址→快速路径 A；无→标准路径 B **自动选择，不追问**（用户随时可补网址切换） |
 | S2 SEGMENT_PENDING | 推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add，非 product-add，否则 generate 500；generate 后轮询 list 至非空；★客群推演**优先读 product-profile.md** 的产品线/客群/卖点，推得更准）|
 | S3 SEED_PENDING | AI 数据库搜索链三步：①query_en 搜第一页（25字段/条，含 id、无 domain）②代表买家 id→`domain/base-info` 取域名 ③域名作 keyword 走主搜扩量（禁 similar-list）→用户确认锚点；随后 S4 审计、S5/S6 按审计关键词保存（域名/长文本均实测✅） |
 | S4 AUDIT_RUNNING | 只读+AI 语义反思找 70% 临界（50页跳→三页平均→逐页→跌破往前）；**★按 v2 三条客户线(直采/OEM/拓品)逐条判定+判定表留痕+边界敏感性检查**；未完成不能保存 |
 | S5 SAVE_PENDING | 展示临界 N/标签/排除4区/max/点数，用户确认后才保存（→输出 approval_id）|
 | S6 SAVE_RUNNING | front 保存；等任务 status:finished；用标签结果对账。★完成后主动出示**数量账**（S6-数量账.md：max3/验真/去重/异步四机制；1.4~2.1 邮箱/家属正常，<1.0 查锚点） |
-| S7 TEMPLATE_PENDING | 只生草稿，展示 3-8 个**渲染后视图**+理由，确认后才批量创建。★正文签名只用昵称（2026-09-04 用户拍板：禁止公司名/官网/邮箱/认证等任何其他内容）；公司名/官网/邮箱/认证/产能/MOQ（用户自己的商业资产）AI **主动要** **仅供 AI 建档/背调**，绝不写进邮件正文或签名——未确认不写、**不编造**；★卖点/差异化**取自 product-profile.md**（可引用数字先给用户看，不凭空造）|
+| S7 TEMPLATE_PENDING | 只生草稿，展示 3-8 个**渲染后视图**+理由，确认后才批量创建。★邮件末尾签名区只有纯个人昵称，禁止公司名/官网/邮箱/职位/认证/宣传语。★正文卖点只可使用当前 confirmed product-profile 中有字段级来源的事实（认证/产能/MOQ/交期/价格带等），计划绑定 profile hash 并逐句 claims 校验；declined 档案只用无具体事实通用表达 |
 | S8 TEMPLATE_BUILD | 生成 120 模板并**自动归入同名分组**（禁散落未指定目录），断言变量样式/标题/差异（Jaccard≤0.70），失败回 S7 |
 | S9 SEQUENCE_PENDING | 12 步(30分/5/15/30天)+纽约时区+单日30000/单家5+notSentTags，确认后建。★客群成交/询盘周期以季~年计时（条件/弱适配），如实告知节奏为快周期设计，建议调低轮次或改人工培育 |
-| S9a FIXED_TAGS | 账号固定标签“询盘/不发”：先查同名，存在复用 id，不存在才建；不随产品重复创建，记录 id(名称) |
+| S9a FIXED_TAGS（S9内部子检查，不单独推进operation status） | 账号固定标签“询盘/不发”：build_sequence前先查同名，存在复用id，不存在才经绑定审批创建；notSentTags解析失败则S9 fail-closed |
 | S10 CONTACT_PENDING | finished+标签联系人>0+序列 inactive+对账+确认后 contact-add(views:[]) |
 | S11 READY_INACTIVE | 输出完整流程与参数，测试不激活，发"流程待确认"。★**用户核实面板**六条：①标签 id(名称)成对表 ②客群+客群代表完整名单(每客群第一页10条) ③保存范围+抽样页判定数据 ④跨轮模板渲染样例≥5封(收件人视图) ⑤其他事实(配额消耗/事故披露/未验证项标注) ⑥逐环节审查确认矩阵——入 runs/<产品>/verification-panel.md |
 | S12 ACTIVE | 仅用户明确"确认激活"才激活；激活前 AI 逐项自查市场/名单/主体/退订/拒收并展示，用户只做最终确认 |
@@ -136,25 +140,26 @@ flowchart TD
 7c. **语言三方配对**：标签/模板/序列语言一致才 contact-add（西语客群禁收英语信）——contact_add.py 内置守卫
 8. 内部命名（标签/视图/序列/模板分组）一律中文；邮件正文=目标市场语言（默认全球英语）
 
-## 5️⃣ 新会话三步走
+## 5️⃣ 新会话 / 换机三步走
 
-1. `python3 tools/onboard_check.py`（自动打印读什么/当前状态/下一步）
-2. 读 `.local/` 本地状态（当前状态+下一步，勿重头；首次运行自动生成）
-3. 读 `RULES.md`（唯一真源）→ 向用户要 token+昵称+一句话产品 → ①`tools/check_login.py`(登录检查) → ②`tools/gate_check.sh`(闸门) → ③按状态机逐节点跑
+1. **环境先就绪**：无 Python 先按 `specs/environment-setup.md` 跑 `bootstrap.sh/bootstrap.ps1`；环境全绿后运行 `python3|py tools/onboard_check.py`，让它枚举可续接项目。
+2. **有项目先续接**：用户选择 `runs/<operator_key>/<product_key>/` → 读 `operation-record.md` 当前状态 + `product-profile.md` 状态/版本/hash + `reflection/evidence/verify-*` → 从当前节点继续，禁止从 S0 重跑；没有项目时才走新建流程。
+3. **换机先恢复本地状态**：按 `specs/migration-handoff.md` 从旧机迁移 `.local/`、`runs/<operator_key>/` 与可选本地 `db/`；token 在新机重新获取；历史 approvals 只作审计，未执行写节点与 S12 必须当前对话重新确认。
 
 ## 6️⃣ 关键文件地图
 
 | 类别 | 文件 |
 |------|------|
-| 规则（唯一真源） | `RULES.md` → `specs/api-reference.md`（接口模板）/ `specs/threshold-method.md`（70%临界）/ `specs/product-fit.md`（产品适配度三档·S0前置）/ `specs/product-profile-sop.md`（产品知识档案·提炼/主动要/回落/复用）/ `specs/domain-scale-sop.md`（域名搜+保存）/ `specs/sequence-config.md`（模板+序列）/ `specs/operations-sop.md` |
+| 规则（唯一真源） | `RULES.md` → `specs/environment-setup.md`（零Python依赖准备）/ `specs/migration-handoff.md`（换机续接）/ `specs/operator-profile-sop.md`（公司级资料主动索取/跨产品复用）/ `specs/product-profile-sop.md`（产品资料提炼/确认/版本/hash/复用）/ `specs/product-fit.md`（适配三档）/ `specs/threshold-method.md`（70%临界）/ `specs/domain-scale-sop.md`（保存）/ `specs/sequence-config.md`（模板+序列） |
 | 流程逻辑 | `methodology/decision-trees.md`（A/B 路径图）/ `INDEX.md`（导航）|
-| 当前状态 | `.local/`（本地状态+运营方档案+审批凭证；首次运行自动生成，每账号/每 clone 一份，不入 Git）|
-| 工具（工具=规则） | `tools/gate_check.sh`、`onboard_check.py`、`check_login.py`（登录+账号状态卡）、`flow_orchestrator.py`、`approval.py`、`seed_resolve.py`（S3 id→域名）、`tag_add.py`（S5 前置建标签，同名复用）、`save_first_n.py`（内置数量账输出）、`wait_save_done.py`、`gen_templates.py`（自动归组）、`check_template_diff.py`、`build_sequence.py`（S9，公司触发器=什么都不做）、`contact_add.py`（S10）、`activate_sequence.py`（S12 激活+回读防假+--deactivate）、`resolve_schedule.py`、`verify_exclude.py`、`verify_sequence.py`、`rebuild_templates.py`、`audit_company.py`、`render_preview.py`、`check_rules.sh`（AI 自查 token/规则/问题）|
-| 用户话术模板 | `output-templates/`（README=总索引；T-token/S0连接+画像+产品知识档案/S2/S3/S4审计中/S5/S6数量账/S7/S8构建中/S9/S10/S11/S12/Q1-Q5 16 个话术模板+1 个总索引——每模板=用户话术+AI执行要点与边界）|
+| 环境/迁移 SOP | `specs/environment-setup.md`（零 Python bootstrap）/ `specs/migration-handoff.md`（换机备份/恢复/续节点） |
+| 当前状态 | `runs/<operator_key>/<product_key>/operation-record.md`（流程节点）+ 同目录 `product-profile.md`（资料状态/版本/hash）；`.local/` 只存运营方档案与审批流水，不是当前节点真源 |
+| 工具（工具=规则） | `tools/bootstrap.sh`/`bootstrap.ps1`（无Python环境准备）、`onboard_check.py`（环境复查+可续接项目扫描）、`product_profile.py`/`profile_utils.py`（S0a档案状态/版本/hash+纯昵称/第三方信息闸门）、`gate_check.sh`、`check_login.py`（登录+账号状态卡）、`flow_orchestrator.py`、`approval.py`、`seed_resolve.py`（S3 id→域名）、`tag_add.py`（S5 前置建标签，同名复用）、`save_first_n.py`（内置数量账输出）、`wait_save_done.py`、`gen_templates.py`（profile+claims+签名硬闸门，自动归组）、`check_template_diff.py`、`build_sequence.py`、`contact_add.py`、`activate_sequence.py`、`resolve_schedule.py`、`verify_exclude.py`、`verify_sequence.py`、`rebuild_templates.py`、`audit_company.py`、`render_preview.py`、`check_rules.sh` |
+| 用户话术模板 | `output-templates/`（README=总索引；T-token/S0连接+画像/S0a运营方档案+产品知识档案/S2/S3/S4审计中/S5/S6数量账/S7/S8构建中/S9/S10/S11/S12/Q1-Q5 17 个话术模板+1 个总索引）|
 | 档案（多公司多产品） | `runs/<运营方>/<产品>/`（operation-record/reflection/evidence/**product-profile**/verify-*）+ `runs/_template/` + 本地运行记录（不入 Git）|
-| 问题与教训 | 本地问题登记（`db/issues.tsv`，本地数据不入 Git，open 即待办）/ `lessons/lessons-learned.md`（L-01~L-53；L-44 起为脱敏抽象条目，随库分发）/ `review-cycle.md`（旁观者审查）|
+| 问题与教训 | 本地问题登记（`db/issues.tsv`，本地数据不入 Git，open 即待办）/ `lessons/lessons-learned.md`（L-01~L-54；L-44 起为脱敏抽象条目，随库分发）/ `review-cycle.md`（旁观者审查）|
 
-> ⚠️ **执行纪律**：写操作工具必须带 `--approval <id> --project <产品>`（审批硬闸门·工具级，凭证在 `.local/approvals.tsv`）；每次操作前先读 RULES+对应 spec；本 SKILL.md 只是入口，与 RULES/specs 冲突时以后者为准。
+> ⚠️ **执行纪律**：写操作必须带 `--approval <id> --project <operator_key>/<product_key>`；凭证仅 `confirm+confirmed` 可用，并须与工具按实际参数重算的hash一致。modify/pending/backfilled不可授权。
 > 🆘 新手黑话/常见疑惑：`glossary/glossary.md`（系统词人话表）· `wiki/faq.md`（配额/接口空/数量落差/None 等FAQ）· 渐进索取/昵称/署名/账号状态卡规则见上方 §2 与 output-templates/
 > ⚠️ **审批闸门边界（防呆不防恶）**：`--approval` 校验的是本地 `.local/approvals.tsv`（每账号/每 clone 一份，不入 Git），该文件对本机 AI 可写——**自证行 ≠ 用户授权**。高风险操作（保存/建序列/加联系人/激活）仍必须在对话中出示用户原话；AI 自行 append 的凭证视为无效（审批补记·内部教训）。
-> 🔑 **凭证出口**：`flow_orchestrator.py` 确认节点是 approval 凭证的**唯一合法出口**；审批补记（内部）的 backfilled 行不构成写授权。新 AI 给新产品写开发信文案前，先按「新产品文案军规」执行（数字可举证/标准写到底/禁假前提假稀缺/环保具体化/CTA 轮换——见 docs/07 与 specs/sequence-config.md）。
+> 🔑 **凭证出口**：① `flow_orchestrator.py` 在节点实际参数齐全时签发绑定 hash 的 confirm/confirmed 凭证；② 参数尚未齐时只记 pending，待执行前用 `approval.py grant --params-file <实际参数JSON>` + 当前对话用户确认原话签发。modify/pending/backfilled 不构成写授权。

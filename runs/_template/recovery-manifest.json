@@ -1,0 +1,8 @@
+{
+  "project": "<operator_key>/<product_key>",
+  "from_state": "ERROR_BLOCKED",
+  "target_state": "<operation-record.next_state>",
+  "resolved_at": "YYYY-MM-DDTHH:MM:SS",
+  "reason": "<原错误原因与修复摘要>",
+  "verification": {"status": "pending", "path": "recovery-verification.md", "sha256": ""}
+}

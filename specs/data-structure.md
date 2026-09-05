@@ -11,7 +11,7 @@ status: verified
 audience: 人+AI
 ---
 
-> ⚠️ **布局注记（2026-08-30）**：档案/存储布局以 `runs/<运营方>/<产品>/` + 本地运营方档案（`.local/operator-profile.md`，不入 Git）为准（RULES「多公司/多产品」）；本文下文的 laifaxin-ops/clients 等目录为**设计参考/未实施**，勿按此建目录。
+> ⚠️ **布局注记（2026-08-30）**：档案/存储布局以 `runs/<运营方>/<产品>/` + 本地运营方档案（`.local/operators/<operator_key>.md`，不入 Git）为准（RULES「多公司/多产品」）；本文下文的 laifaxin-ops/clients 等目录为**设计参考/未实施**，勿按此建目录。
 
 # 📦 数据结构规范（Data Structure Standard）
 

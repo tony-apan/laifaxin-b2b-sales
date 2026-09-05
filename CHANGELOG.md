@@ -2,8 +2,18 @@
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
 
+## [v0.4.0] - 2026-09-04
+换机续接与资料回落成为**可执行主链**，不再只是文档承诺：
+- **零 Python 环境准备**：新增 `tools/bootstrap.sh`（macOS/Linux/WSL/Git Bash）与 `tools/bootstrap.ps1`（Windows PowerShell），先 check-only、缺项自动安装、安装后复查；新增 AI 专用 `specs/environment-setup.md`。macOS `--check-only` 已实测全绿；PowerShell 脚本在本机无 Windows/pwsh，当前仅完成静态语法结构审查，未声明 Windows 实机通过。
+- **换机续接**：新增 `specs/migration-handoff.md` 与 README 旧机/新机两段完整复制块；迁移 `.local/`、`runs/<operator_key>/`、可选本地 `db/`，token 新机重取；`onboard_check.py` 自动枚举 operation-record 状态与 profile 版本，禁止从 S0 重跑已有项目。历史 approvals 只作审计，未执行写节点和 S12 必须新机当前对话重新确认。
+- **公司级资料档案**：新增 `tools/operator_profile.py` + `specs/operator-profile-sop.md` + `S0a-运营方档案`话术；AI 分轮主动索取公司名/官网/用户自己的联系邮箱/默认市场语言，回落 `.local/operators/<operator_key>.md`（多公司隔离，旧单文件兼容）跨产品/换机复用，不保存 token 或第三方资料。
+- **产品级资料状态机**：新增 `tools/product_profile.py` + `profile_utils.py`，product-profile 必须 `draft→confirmed` 或 `declined` 才能进入 S1；记录 operator/product稳定键、版本、字段级 source/confidence、确认原话、正文hash和append-only变更记录；补资料后二次确认自动升版本，operation-record 自动推进状态。
+- **模板/序列硬闸门**：`flow_orchestrator.py` 必传 profile；`gen_templates.py` 移除含无来源 ISO/交期/折扣/稀缺等事实的内置 PRODUCTS，生产只接受绑定 profile hash 的 plan；高风险事实 claims 必须逐句绑定档案字段/source/evidence_text；签名昵称硬校验，渲染末段只有纯昵称；`build_sequence.py` 校验 tmap.meta/profile hash/status/稳定项目键，档案更新后旧模板映射不可复用；修复规则回读成功反而退出的旧控制流。
+- **签名/正文精确边界**：邮件末尾签名区永远只有纯个人昵称；公司名/官网/联系邮箱不进入签名；经用户确认且有字段级来源的认证/产能/MOQ/交期/价格带可用于正文卖点；推断或无来源的具体事实禁止写入。
+- README/SKILL/RULES/INDEX/node-playbook/sequence-config/operations-sop/gate/check_rules/运行模板/机器索引同步装配。主链完成 Python/Shell 编译、macOS bootstrap、19 项离线失败路径矩阵、档案二次升版与模板签名/claims 实测；独立审查发现项继续见本版本发布说明。
+
 ## [v0.3.12] - 2026-09-04
-**【更正】邮件签名=只有昵称（v0.3.11 口径错误回滚）**：v0.3.11 误把"公司名/官网/邮箱等可写进正文/落款由用户拍板"。实际拍板应为——**邮件正文签名=只有昵称，禁止公司名/官网/邮箱/认证等任何其他内容**；公司名/官网/邮箱/认证/产能/MOQ/交期/价格带这些用户自己的商业资产**可以提供给 AI，AI 建立文档（product-profile.md）做背调/客群判断用，但绝不写进邮件正文或签名**。
+**【更正】邮件签名=只有昵称（v0.3.11 口径错误回滚）**：v0.3.11 误把"公司名/官网/邮箱等可写进正文/落款由用户拍板"。准确边界是：**邮件末尾签名区只有纯个人昵称，禁止公司名/官网/邮箱/职位/认证、宣传语等任何其他内容**；公司名/官网/联系邮箱供 AI 建立运营方档案、读取网站和分析，不进入签名；认证/产能/MOQ/交期/价格带等产品事实写入 product-profile，只有经用户确认且有字段级来源时才可用于正文卖点，无来源或推断的具体事实不得写入。
 - 覆盖纠正：RULES（S0/S7/运营方档案/产品知识档案 4 处）、SKILL（mermaid/S0/S7/铁律7a/产品资料段/运营方档案 7 处）、specs/product-profile-sop.md（2 处）、output-templates（S0-产品知识档案/S0-画像方案/S7-模板确认/README 全局规则）、tools/onboard_check.py（2 处）。
 - 校验：grep 全仓确认不再有"可写进正文/落款/展示带不带由用户拍板"残留；"可主动要"均标注"仅供 AI 建档/背调、绝不进邮件签名"。
 

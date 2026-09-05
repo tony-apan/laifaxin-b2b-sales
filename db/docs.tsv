@@ -29,11 +29,22 @@ specs/node-playbook.md	specs	node-playbook	现行
 specs/operations-sop.md	specs	operations-sop	现行	
 specs/sequence-config.md	specs	sequence-config	现行	
 specs/threshold-method.md	specs	threshold-method	现行	
+specs/environment-setup.md	specs	环境准备SOP	现行	bootstrap,零Python,跨平台
+specs/migration-handoff.md	specs	换机续接SOP	现行	换机,迁移,断点续接
+specs/operator-profile-sop.md	specs	运营方档案SOP	现行	主动索取,公司级资料,签名
+specs/product-profile-sop.md	specs	产品知识档案SOP	现行	主动索取,字段来源,版本,hash
+specs/product-fit.md	specs	产品适配度判定	现行	适配度,强条件弱
 wiki/faq.md	wiki	faq	参考	
 wiki/guided-tour.md	wiki	guided-tour	参考	
 runs/_template/README.md	runs	template-README	模板	
 runs/_template/operation-record.md	runs	operation-record-template	模板	
 runs/_template/reflection.md	runs	reflection-template	模板	
-tools/README.md	其他	tools-README	现行
+runs/_template/audit-manifest.json	runs	S4审计证据manifest	模板	project,profile,seed,hash,time
+runs/_template/verification-manifest.json	runs	S11验证证据manifest	模板	project,org,seq,profile,hash,time
+runs/_template/compliance-check.json	runs	S12合规证据manifest	模板	五项结构化证据
+runs/_template/recovery-manifest.json	runs	ERROR恢复证据manifest	模板	project,target,hash,time
+tools/README.md	其他	tools-README	现行	工具
 docs/09-mass-outreach-to-precision-follow-up.md	docs	广撒网获询盘+精准背调跟进	现行	广撒网,询盘,背调,长期跟进
 output-templates/Q1-Q5-询盘精准跟进.md	模板	询盘接管与精准跟进话术模板	模板	询盘,背调,ABCD分级
+output-templates/S0a-运营方档案.md	模板	运营方档案主动索取话术	模板	公司级资料,回落,签名
+output-templates/S0-产品知识档案.md	模板	产品知识档案确认话术	模板	产品资料,来源,版本,确认

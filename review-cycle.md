@@ -24,7 +24,7 @@ status: active
 1. 本地会话记录（用户指令+问题+待办；不入 Git）
 2. 本地问题登记 `db/issues.tsv`（本地数据，不入 Git）
 3. 本地运行记录 `db/runs.tsv`（本地数据，不入 Git）
-4. `lessons/lessons-learned.md`（教训L-01~L-53）
+4. `lessons/lessons-learned.md`（教训L-01~L-54）
 5. `RULES.md`（强制流程+铁律）
 6. 本次执行日志/记录（reflection-*.md）
 

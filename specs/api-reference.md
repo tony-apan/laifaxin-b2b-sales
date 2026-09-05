@@ -162,7 +162,7 @@ POST /api/operation/backend-task-status  { "type":"cluesSave", "id":"<save任务
 | `POST /api/contacts/companies/show` | 公司列表 | ★按标签过滤用 filters 数组: `filters:[{property:tags,operator:include,value:<标签ID>,values:[<标签ID>],valueType:select}]`（filter.tags 失效返全库,ISS-52）|
 | `POST /api/contacts/contacts/show` | 联系人列表 | ⚠️按标签过滤须用 **filters 数组**(见上,实测精确;filter.tags 返全库 total 假通过 ISS-52)；viewId:all（delete_all_contacts 用）——★见下方「联系人正确参数」节 |
 | `POST /api/contacts/contacts/save` | 保存联系人 | |
-| `POST /api/contacts/contacts/delete` | **批量删联系人（异步·软删）** | ⚠️ `{selectTotal, selectKeys:[], selectOption:"all", filters:[]}` → 返回backendId；软删入回收站；单任务上限50000(串行)（完整实测payload见文末★联系人正确参数） |
+| `POST /api/contacts/contacts/delete` | **批量删联系人（异步·软删）** | ⚠️ `{selectTotal, selectKeys:[], selectOption:"all", filters:[]}` → 返回backendId；软删入回收站；单任务上限50000(串行)（完整实测payload见文末★联系人正确参数）🔴 **路径硬性说明：`contacts/delete`（少一层）=404 HTML，不是本接口**（2026-09-04 实测） |
 | `POST /api/contacts/contacts/select-count` | 选择计数 | |
 | `POST /api/contacts/black/domains-list` | 黑名单域名 | |
 
@@ -356,10 +356,16 @@ POST /api/mailbox/template-add
 ## ★ 联系人正确参数（★用户实测模板，勿猜）
 - **查联系人 total** `contacts/contacts/show`：
   `{"viewId":"all","keyword":"","keyword_fields":["name","domain","keywords","seo_description"],"filters":[],"current":1,"pageSize":20,"sort":{"create_time":-1},"logic":"and"}`
-  ⚠️ 用 viewId+keyword_fields+filters(空数组)；**不用** filter:{}（旧错）
+  ⚠️ 用 viewId+keyword_fields+filters(空数组)；**不用** filter:{}（旧错）；🔴 **pageSize ≥10 是硬校验**——传 1~9 直接 `422 校验参数错误`（2026-09-04 实测）
 - **清空联系人** `contacts/contacts/delete`：
   `{"selectAll":false,"selectKeys":[],"selectSort":{"create_time":-1},"selectTotal":N,"selectOption":"all","filters":[],"keyword":"","logic":"and","sort":{"create_time":-1}}`
   ⚠️ **selectOption:"all"**（非"current"）；selectKeys=[]（全部）；带 selectSort/sort
+- **🔴 删除接口硬性说明（2026-09-04 账号清空实测，违反即白干）**：
+  1. 路径**必须**是 `contacts/contacts/delete`——写成 `contacts/delete` 直接 **404（HTML 响应）**，脚本 `json.loads` 失败静默吞掉=一批都没删；
+  2. **删除是软删入回收站**：按标签 `filters:[tags include]` 删除后，标签视图立即为 0，但**全量 `filters:[]` 查询仍见这批人**——清空账号必须对全量再发一次删除任务；
+  3. **提交成功唯一判定 = 响应 `"success":true` + 拿到 `data.backendId`**；JSON 解析失败/空对象一律视为未提交，必须重发；
+  4. **终态核对唯一标准 = `contacts/contacts/show` 全量 `total=0`**；`backend-progress` 出现 `finished 0/N` 也可能实际已全删（进度计数不可信），但**反过来 finished≠可跳过终态核对**；
+  5. 单任务上限 50000，6767 人单批即可；删除异步串行，轮询 `backend-progress` 间隔 ≥5s。
 - **删除/任务进度** `operation/backend-progress` `{"id":backendId}`：
   → data.status/total/finished/progress（★这才是进度接口，backend-task-status 只返回id无进度）
 - **工具**：清空工具（未随库分发；按上述正确参数封装轮询）
@@ -368,10 +374,11 @@ POST /api/mailbox/template-add
   - delete 参数是 **id**（列表 _id），不是 product_id！
 - **AI推演产品**（inference-*）：`profile/inference-product-add/list/delete`（推演客群用，product_id）
 - ⚠️ 我误用过 inference-product-delete 删"基础产品档案"——**两套**！用户界面"产品档案"= product-*；推演= inference-product-*
+- ✅ 2026-09-04 实测：`inference-product-delete {"product_id":"6a98…3448"}` 删推演档案 success；删后 inference-product-list 归 0
 
 ## ★ 清空工具（未随库分发；按本节正确参数自行封装）
 - 清空产品：product-list 全量 + product-delete id 逐个
-- 清空联系人：contacts/delete selectOption:all + backend-progress
+- 清空联系人：`contacts/contacts/delete` selectOption:all + backend-progress + **show 终态核对 total=0**
 - 清空模板：templates-list 收集 + **template-delete 单删**逐个；templates-delete 批量 500 勿用（L-39 教训）
 ## ★ 视图接口（★清空易漏项 + 接口名易错）
 - 查：`views/views-list` `{"type":"companyDbSearch"}` → data.systemViews(系统默认"所有企业",勿删) / mineViews(用户自建) / othersViews

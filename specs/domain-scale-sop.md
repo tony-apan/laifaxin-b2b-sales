@@ -25,7 +25,7 @@ audience: 人+AI
 ③ 审计找 70% 临界点（★find_threshold.py：**从前往后二分找"最后一张≥70%的页"**，保存到该页；一旦某页<70%就不看后面，往前精确找边界）
       ↓
 ④ **保存前 N 条（一个任务，不收集id！）**：`refine/company-save` + `selectTotal:N` + `selectKeys:[]` → 见 [save_first_n.py](../tools/save_first_n.py)
-      用法: `python3 save_first_n.py --token $TOKEN --org <orgId> --keyword <种子> --n <前N条数(界面"选择前N",如8000)> --company-tag .. --contact-tag .. --approval <ap-id> --project <产品>`（★--approval 硬闸门必传，否则工具 exit 1 拒绝写入，审批闸门(工具级)）
+      用法: `save_first_n.py --keyword <种子> --n <N> --company-tag .. --contact-tag .. --profile runs/<operator_key>/<product_key>/product-profile.md --record .../operation-record.md --approval <绑定凭证> --project <operator_key>/<product_key>`（工具按完整实际参数重算审批hash）
       ↓
 ⑤ 验证（★backend-task-status type=cluesSave 的 contactSaveCount/companySaveCount，**非 company-save-list**）
 ```
@@ -150,7 +150,7 @@ python3 audit_company.py --query "<seed-domain>" --pages 1,500,950,990,1000 \
 curl -X POST /api/benefits/refine-data
 
 # 3. 规模化保存（★现行=save_first_n.py front保存；旧版批量脚本已 deprecated 未随库分发——operator:"not"无效+翻页收集id=封号风险）
-python3 tools/save_first_n.py --token $TOKEN --org <orgId> --keyword <种子> --n <前N> --company-tag <id> --contact-tag <id> --approval <ap-id> --project <产品>
+python3 tools/save_first_n.py --token $TOKEN --org <orgId> --keyword <种子> --n <前N> --company-tag <id> --contact-tag <id> --profile runs/<operator_key>/<product_key>/product-profile.md --record runs/<operator_key>/<product_key>/operation-record.md --approval <绑定凭证> --project <operator_key>/<product_key>
 ```
 
 ## 五、实操结果（2026-08-21 电动自行车，纯 API）

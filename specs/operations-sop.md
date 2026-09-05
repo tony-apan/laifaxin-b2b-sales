@@ -11,7 +11,7 @@ status: verified
 audience: 人+AI
 ---
 
-> ⚠️ **布局注记（2026-08-30）**：档案/存储布局以 `runs/<运营方>/<产品>/` + 本地运营方档案（`.local/operator-profile.md`，不入 Git）为准（RULES「多公司/多产品」）；本文下文的 laifaxin-ops/clients 等目录为**设计参考/未实施**，勿按此建目录。
+> ⚠️ **布局注记（2026-08-30）**：档案/存储布局以 `runs/<运营方>/<产品>/` + 本地运营方档案（`.local/operators/<operator_key>.md`，不入 Git）为准（RULES「多公司/多产品」）；本文下文的 laifaxin-ops/clients 等目录为**设计参考/未实施**，勿按此建目录。
 
 # 🏭 代运营完整 SOP（Operations Standard Operating Procedure）
 
@@ -22,24 +22,23 @@ audience: 人+AI
 
 ## 一、项目初始化（签约客户）
 
-### 1.1 收集客户信息（company-profile.md）
-> ⚠️ **本节"让客户提供公司名/网址/联系人/预算"的清单已废弃（2026-09-03 渐进索取拍板）**：禁止主动索要这些信息；用户主动提供才记录。详见 RULES S0。
-| 必填 | 来源 |
-|------|------|
-| 公司名称 / 网址 | **让客户提供自己的网址**（用户明确要求） |
-| 产品（可能多个） | 客户描述 |
-| 联系人 / 职位 / 姓名 | 客户提供 |
-| 目标市场 / 语言 | 客户提供（决定时区！） |
-| 平台账号（来发信 token/orgId/点数） | 客户提供（accounts.tsv，⚠️脱敏） |
-| 预算（点数） | 客户提供（决定保存规模！） |
+### 1.1 渐进收集并分层回落客户资料
+> 现行规则：开局只问 token + 纯个人昵称 + 一句话产品；进入 S0a 后分两轮主动索取（均可跳过、不逼问）：公司名/官网/自己的联系邮箱/默认市场→`.local/operators/<operator_key>.md`；产品线/卖点/认证/产能/MOQ/交期/价格带→当前 `product-profile.md`。潜在买家/联系人第三方资料不索要；邮件末尾签名区只有昵称。详见 `operator-profile-sop.md` 与 `product-profile-sop.md`。
+| 资料 | 回落位置/规则 |
+|------|-------------|
+| 公司名称 / 官网 / 用户自己的联系邮箱 / 默认市场语言 | `.local/operators/<operator_key>.md`；跨产品复用，换机随 `.local/` 迁移 |
+| 产品线 / 卖点 / 认证 / 产能 / MOQ / 交期 / 价格带 | `runs/<operator_key>/<product_key>/product-profile.md`；逐字段 source/confidence，确认后版本/hash锁定 |
+| 来发信 token / orgId | **只在当前会话命令/环境变量中使用，不落任何文件；换机重新获取** |
+| 潜在买家/联系人资料 | 由平台搜索/保存流程产生，不要求用户提供，不写入 operator/product profile |
+| 点数预算 | S5 确认材料/operation-record，决定保存规模 |
 
-### 1.2 从客户网址提炼信息（★单独存储）
-用户给了自己网址 → **AI 提炼**（domain/base-info + 搜索）：
-- 公司行业 / NAICS 码 / 产品 / 规模 / 官网描述
-- 存到 `company-profile.md`（产品/职位/邮箱/定位）
-- 提炼的**产品词/业务描述词** → 作为后续搜索的种子词
+### 1.2 从用户官网/目录提炼信息（公司级与产品级分层）
+用户给了官网或产品目录 → AI 读取并提炼：
+- 公司身份/官网/默认市场 → `.local/operators/<operator_key>.md`
+- 产品线/卖点/规格/认证/可引用数字 → 当前 `product-profile.md`（字段级来源）
+- 产品词/业务描述词 → 仅在用户确认 product-profile 后用于 S2/S3
 
-> ⚠️ **流程**：客户提供网址 → 我提炼 → **展示给客户确认**（产品描述/目标客群对不对）→ 确认后才往下走。
+> ⚠️ **流程**：AI 提炼 → 用 S0a 话术展示 → 用户确认/修改 → 工具回落并生成版本/hash → 才往下走；用户跳过则记录 declined，不静默绕过。
 
 ---
 

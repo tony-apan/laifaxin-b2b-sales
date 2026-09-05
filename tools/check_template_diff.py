@@ -11,8 +11,14 @@ args=ap.parse_args()
 def api(path,p,t=60):
     cmd=["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}","-H","Content-Type: application/json","-H",f"accesstoken: {args.token}","-d",json.dumps(p)]
     r=subprocess.run(cmd,capture_output=True,text=True,timeout=t)
-    try: return json.loads(r.stdout).get("data",{})
-    except: return {}
+    try:
+        d=json.loads(r.stdout)
+        if d.get("success") is False: raise ValueError(d.get("message") or "服务端拒绝")
+        if "data" not in d: raise ValueError("返回缺data")
+        return d["data"] or {}
+    except Exception as exc:
+        print(f"❌ 接口失败，无法验证模板差异: {path} -> {exc}")
+        sys.exit(1)
 
 # 1) 收集模板名+id（跳过 folder）
 tpls=[]
@@ -25,8 +31,8 @@ for pg in range(1,30):
         if nm.startswith(args.prefix): tpls.append({"name":nm,"id":t.get("_id")})
     if len(tpls)>=args.limit: break
 print(f"模板数: {len(tpls)} (前缀 {args.prefix})")
-if not tpls:
-    print("⚠️ 未匹配到模板(前缀可能错)"); sys.exit(2)
+if len(tpls) != args.limit:
+    print(f"❌ 模板数量={len(tpls)}，期望={args.limit}；缺模板时不得做差异达标结论"); sys.exit(1)
 
 # 2) 逐模板取真实 html（★模板正文在 template-info，不在 templates-list）
 missing=[]
@@ -35,14 +41,21 @@ for t in tpls:
     t["subject"]=info.get("subject","")
     t["html"]=info.get("html","")
     if not t["html"]: missing.append(t["name"])
-if missing: print(f"⚠️ {len(missing)} 个模板 html 为空: {missing[:5]}")
+if missing:
+    print(f"❌ {len(missing)} 个模板 html 为空: {missing[:5]}——空正文不能参与差异结论")
+    sys.exit(1)
 
 def words(s):
     s=re.sub(r"<[^>]+>"," ",s).lower()
-    return set(re.findall(r"[a-z0-9]+",s))
+    return set(x for x in re.findall(r"[^\W_]+",s,flags=re.UNICODE) if x)
 def jac(a,b):
     if not a or not b: return 0.0
     return len(a&b)/len(a|b)
+
+for t in tpls:
+    if not words(t["html"]):
+        print(f"❌ 模板无法分词，不能计算差异: {t['name']}")
+        sys.exit(1)
 
 bad=[]; maxsim=0; worst=None
 for i in range(len(tpls)):
