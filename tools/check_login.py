@@ -18,8 +18,9 @@ def guide(reason):
   方法一（小白，不敲代码）: 登录 web.laifaxin.com → 页面右键"检查" → 顶部"应用程序"(Application) →
       左侧 存储→本地存储→https://web.laifaxin.com → 分别复制 accesstoken 和 orgId 两项的"值"
   方法二（⭐推荐，一条命令两样全拿）: 页面右键"检查" → 顶部"控制台"(Console) → 粘贴这一行并回车:
-      copy("TOKEN="+localStorage.getItem("accesstoken")+"\\nORG="+localStorage.getItem("orgId"));
-      显示 undefined = 已复制成功（剪贴板里是两行：TOKEN=... 和 ORG=...，整段直接发给 AI 即可）
+      var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\\norgId="+localStorage.getItem("orgId")),console.log("✅ 已复制到剪贴板！请回到对话框 Ctrl+V 粘贴发送给 AI")):console.log("❌ 未登录或页面不对——请先登录 web.laifaxin.com 再重试");
+      成功会显示 ✅ 提示（不再是无意义的 undefined）；显示 ❌ = 未登录，先登录再试
+      复制出来的是两行：accesstoken=... 和 orgId=...（字段名与页面存储一致），整段发给 AI 即可
   ⚠️ 粘贴代码时浏览器可能提示 "Don't paste code"——输入 allow pasting 再粘
   🔴 企业账号/多组织：右上角头像"切换账号"后 orgId 会变、token 不变——切换后必须重新执行上面的命令
   ❓ ORG=null = 未登录/页面不对 → 确认已登录，刷新重试
@@ -42,21 +43,21 @@ args.token = tok
 
 # ★一键双取格式自动拆分（2026-09-06：用户用一条 copy 命令同时复制 token+orgId，
 #   AI 可把剪贴板整段原样传给 --token，本工具自动拆出 TOKEN=/ORG= 两行——防 AI 转述出错）
-if "TOKEN=" in tok and "ORG=" in tok:
-    m_tok = re.search(r"TOKEN=([^\s]+)", tok)
-    m_org = re.search(r"ORG=([^\s]+)", tok)
+if ("accesstoken=" in tok or "TOKEN=" in tok) and ("orgId=" in tok or "ORG=" in tok):
+    m_tok = re.search(r"(?:accesstoken|TOKEN)=([^\s]+)", tok)
+    m_org = re.search(r"(?:orgId|ORG)=([^\s]+)", tok)
     if m_tok and m_org:
         parsed_tok, parsed_org = m_tok.group(1), m_org.group(1)
-        if parsed_org.lower() == "null":
-            print("❌ ORG=null——未登录或页面不对。请在 web.laifaxin.com 登录后重新执行复制命令。")
+        if parsed_tok.lower() == "null" or parsed_org.lower() == "null":
+            print("❌ 复制内容含 null——未登录或页面不对。请在 web.laifaxin.com 登录后重新执行复制命令。")
             sys.exit(2)
         if not args.org:
             args.org = parsed_org
         args.token = parsed_tok
         tok = parsed_tok
-        print("# 检测到一键双取格式——已自动拆分 TOKEN/ORG")
+        print("# 检测到一键双取格式（accesstoken/orgId）——已自动拆分")
     else:
-        print("⚠️ 看起来是一键双取格式但解析失败——请确认复制命令完整执行（undefined=成功）")
+        print("⚠️ 看起来是一键双取格式但解析失败——请回到网页控制台重新执行复制命令")
 
 segs = tok.split("&")
 uid_from_token = segs[1] if len(segs) >= 3 else ""

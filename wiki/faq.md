@@ -93,7 +93,7 @@ A：让 AI 直接生成 **HTML 源码** → 来发信邮件模板 → 编辑源�
 A：标题开头或结尾加 1 个高度相关的 Emoji（如 🛶），增强视觉吸引力。别滥用。
 
 **Q：我有个人账号和企业账号，切换后 AI 操作的是哪个空间？**
-A：token 中段是你的**用户ID**（切换不变）；localStorage 的 `orgId` 才是**当前工作空间**（个人号=用户ID 本身，企业号是独立数字ID）。网页右上角头像"切换账号"后 orgId 会变——**重新执行一条复制命令即可**：控制台粘贴 `copy("TOKEN="+localStorage.getItem("accesstoken")+"\nORG="+localStorage.getItem("orgId"));`，把剪贴板整段发给 AI（不用拆分，工具自动识别 TOKEN=/ORG= 两行）。只发 token 不发 orgId 时，AI 默认按个人号空间操作，企业号数据看不到。
+A：token 中段是你的**用户ID**（切换不变）；localStorage 的 `orgId` 才是**当前工作空间**（个人号=用户ID 本身，企业号是独立数字ID）。网页右上角头像"切换账号"后 orgId 会变——**重新执行一条复制命令即可**：控制台粘贴 `var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),console.log("✅ 已复制到剪贴板！请回到对话框 Ctrl+V 粘贴发送给 AI")):console.log("❌ 未登录或页面不对——请先登录 web.laifaxin.com 再重试");`，把剪贴板整段发给 AI（不用拆分，字段名与存储键一致，工具自动识别；显示 ✅=成功、❌=未登录）。只发 token 不发 orgId 时，AI 默认按个人号空间操作，企业号数据看不到。
 
 ## ❓ 删除进度怎么查？保存进度怎么查？
 - **保存**（refine/company-save 返回 data.id）→ `operation/backend-task-status {"type":"cluesSave","id":<id>}` → data.contactSaveCount

@@ -9,9 +9,11 @@
 3. 在页面按右键 → 点"检查"（Mac 是 ⌥Option+⌘I）
 4. 顶部点「Console / 控制台」标签
 5. 粘贴这一行并回车：
-   copy("TOKEN="+localStorage.getItem("accesstoken")+"\nORG="+localStorage.getItem("orgId"));
-   （显示 undefined = 已复制成功，剪贴板里是两行：TOKEN=... 和 ORG=...）
+   var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),console.log("✅ 已复制到剪贴板！请回到对话框 Ctrl+V 粘贴发送给 AI")):console.log("❌ 未登录或页面不对——请先登录 web.laifaxin.com 再重试");
+   （成功显示 ✅ 已复制到剪贴板！；显示 ❌ = 未登录，先登录再试）
 6. 回到这里整段粘贴给我（Ctrl+V / ⌘V）——不用拆分，我能自动识别
+
+复制出来的两行字段名（accesstoken= / orgId=）与页面存储键名一一对应，AI 拿到就知道哪个是哪个。
 
 ⚠️ 小提示：
 - 粘贴代码时浏览器可能提示 "Don't paste code"——按提示输入 allow pasting 再粘
@@ -22,8 +24,8 @@
 ```
 
 ## AI 执行要点与边界
-- 用户粘贴的整段含 `TOKEN=` 和 `ORG=` 两行——**原样传给 `check_login.py --token '<整段>'`**，工具自动拆分，**不要自己转述拆解**（防转述出错）
-- ORG=null → 未登录/页面不对，引导重登后重复制
+- 用户粘贴的整段含 `accesstoken=` 和 `orgId=` 两行（字段名=页面存储键名，AI 直接对应）——**原样传给 `check_login.py --token '<整段>'`**，工具自动拆分，**不要自己转述拆解**（防转述出错）
+- accesstoken/orgId 任一为 null → 未登录/页面不对（工具和命令本身都会提示），引导重登后重复制
 - **orgId=工作空间ID**（localStorage `orgId` 键）：个人账号=用户ID本身；**企业账号是独立数字ID**——API `?uid=` 一律用它
 - token 中段=用户ID（切换 org 不变）；不能用 token 中段当企业 orgId
 - 用户只发 token 没带 ORG → 先确认是个人账号再回退 token 中段；有企业org嫌疑一律补问
