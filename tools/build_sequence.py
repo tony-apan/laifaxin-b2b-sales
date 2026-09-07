@@ -23,8 +23,8 @@ from project_lock import acquire_project_lock
 from update_run_state import require_state, update_frontmatter
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--token", required=True, help="accesstoken 整串(web.laifaxin.com&<orgId>&<hash>)")
-ap.add_argument("--org", required=True, help="orgId(=token 第2段)")
+ap.add_argument("--token", required=True, help="accesstoken 完整串（token中段是用户UID）")
+ap.add_argument("--org", required=True, help="当前工作空间ID=localStorage独立orgId键（企业必填；禁止拿token第2段代替）")
 ap.add_argument("--name", required=True, help="序列名,如 产品-英语-12轮10封-多轮开发")
 ap.add_argument("--tmap", required=True, help="gen_templates --out 产出的 name→id 映射 json(120个,有序);同目录须有 <tmap>.meta.json")
 ap.add_argument("--profile", required=True, help="当前产品档案路径；须与 tmap.meta 的 profile_sha256/status 一致")

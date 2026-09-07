@@ -12,7 +12,7 @@ audience: 人+AI
 
 # 🧭 获客完整流程·逻辑图（完整版）
 
-> **读图顺序**：① 批量获客引擎（登录→客群→搜索→保存→模板→序列）低成本广撒网 → ② S12 激活边界 → ③ 收到询盘信号后，由人或 AI 助手立即打“询盘”标签停后续邮件 → ④ 精准转化引擎（背调→A/B/C/D 分级→多渠道长期跟进）。
+> **读图顺序**：① 批量获客引擎（产品适配→登录→客群→搜索→保存→模板→序列）低成本广撒网 → ② S12 激活边界 → ③ 收到询盘信号后，由人或 AI 助手立即打“询盘”标签停后续邮件 → ④ 精准转化引擎（背调→A/B/C/D 分级→多渠道长期跟进）。
 > **真源**：状态机定义见 `../RULES.md`（S0-S12）；本文件=把 RULES 画成图，规则冲突时以 RULES 为准。
 
 ## 🎬 一句话主线
@@ -25,15 +25,15 @@ audience: 人+AI
 flowchart TD
     subgraph ENTRY["① 入口总线（每次会话必走）"]
         START([新会话 / 新产品]) --> ONB["onboard_check.py<br/>环境+文档引导"]
-        ONB --> CL{"check_login.py<br/>token 有效?"}
-        CL -- "无/失效" --> TK["引导用户按官方教程取 token<br/>（localStorage accesstoken）"] --> CL
-        CL -- "有效（org 自动提取）" --> GC{"gate_check.sh 闸门"}
+        ONB --> S0["S0 INPUT_GATE<br/>先收昵称+一句话产品<br/>了解产品并判断适配"]
+        S0 --> CL{"首次调用平台前<br/>check_login.py<br/>token + 当前orgId有效?"}
+        CL -- "无/失效/缺orgId" --> TK["引导用户按官方教程<br/>一键双取 token + orgId"] --> CL
+        CL -- "有效" --> GC{"gate_check.sh 闸门"}
         GC -- "未通过" --> EB["⛔ ERROR_BLOCKED<br/>只读检查·禁止一切写操作"]
-        GC -- "通过" --> S0
+        GC -- "通过" --> S1
     end
 
-    S0["S0 INPUT_GATE ★Gate0<br/>必填：昵称 + 基础产品信息<br/>（产品名/用途/行业/目标市场/卖点）<br/>缺一→询问，不猜不代填"]
-    S0 --> S1{"S1 PATH_PENDING<br/>有精准客户网址?"}
+    S1{"S1 PATH_PENDING<br/>有精准客户网址?"}
 
     subgraph PATHA["② A 快速路径（有精准网址：老客户/询盘方网址）"]
         A1["网址搜相似<br/>refine/company-list（keyword=网址）<br/>确认：是客户方非自己·相关产品·非4区"]
@@ -132,7 +132,7 @@ flowchart LR
 
 | 节点 | 名称 | 关键动作 | 确认/凭证 |
 |------|------|---------|----------|
-| S0 | INPUT_GATE | token+昵称+产品信息 | Gate0 必填 |
+| S0 | INPUT_GATE | 纯个人昵称+一句话产品→了解产品并判断适配；首次平台调用前再验证token+当前orgId | Gate0 必填 |
 | S1 | PATH_PENDING | 有网址→A；无→B | 路径判定 |
 | S2 | SEGMENT_PENDING | 推演4客群+五维+推荐 | 用户确认+审查① |
 | S3 | SEED_PENDING | query_en搜第一页→id取域名→域名keyword扩量 | 用户确认+审查② |

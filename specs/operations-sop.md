@@ -23,7 +23,7 @@ audience: 人+AI
 ## 一、项目初始化（签约客户）
 
 ### 1.1 渐进收集并分层回落客户资料
-> 现行规则：开局只问 token + 纯个人昵称 + 一句话产品；进入 S0a 后分两轮主动索取（均可跳过、不逼问）：公司名/官网/自己的联系邮箱/默认市场→`.local/operators/<operator_key>.md`；产品线/卖点/认证/产能/MOQ/交期/价格带→当前 `product-profile.md`。潜在买家/联系人第三方资料不索要；邮件末尾签名区只有昵称。详见 `operator-profile-sop.md` 与 `product-profile-sop.md`。
+> 现行规则：开局只问纯个人昵称 + 一句话产品（目标市场可选），不要催 token；进入 S0a 后分两轮主动索取（均可跳过、不逼问）：公司名/官网/自己的联系邮箱/默认市场→`.local/operators/<operator_key>.md`；产品线/卖点/认证/产能/MOQ/交期/价格带→当前 `product-profile.md`。完成产品了解与适配判断、首次调用来发信平台前，再一键双取 token + 当前工作空间 orgId；token 中段用户 UID 不得当企业 orgId。潜在买家/联系人第三方资料不索要；邮件末尾签名区只有昵称。详见 `operator-profile-sop.md` 与 `product-profile-sop.md`。
 | 资料 | 回落位置/规则 |
 |------|-------------|
 | 公司名称 / 官网 / 用户自己的联系邮箱 / 默认市场语言 | `.local/operators/<operator_key>.md`；跨产品复用，换机随 `.local/` 迁移 |

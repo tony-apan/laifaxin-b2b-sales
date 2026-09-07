@@ -2,9 +2,9 @@
 name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
-version: 0.4.15
+version: 0.4.16
 created: 2026-08-30
-updated: 2026-09-04
+updated: 2026-09-07
 author: "独立审查 agent（对抗判定后落地）"
 related: [RULES.md, INDEX.md, methodology/decision-trees.md]
 tags: [skill入口, 触发路由, 状态机, 入驻, 获客]
@@ -24,10 +24,10 @@ audience: AI优先
 
 ```mermaid
 flowchart TD
-    T["用户给 token"] --> N["问一次:昵称+一句话产品<br/>(中英皆可)"]
-    N --> S0["S0: AI出ABCD获客方向<br/>用户选字母"]
+    N["开局只问:纯个人昵称+一句话产品<br/>(目标市场可选)"] --> S0["S0: AI了解产品并判断适配<br/>出ABCD获客方向·用户选字母"]
     S0 --> S0A["S0a: 分两轮主动索取<br/>公司档案+产品档案"]
-    S0A --> S2["S2: 推演具体客群<br/>用户选编号"]
+    S0A --> T["首次调用平台前<br/>一键双取token+当前orgId"]
+    T --> S2["S2: 推演具体客群<br/>用户选编号"]
     S2 --> S3["S3: 用户有认得的买家网址?<br/>有→填入;没有→标准路径,不追问"]
     S3 --> S4["S4: 逐页审计<br/>找70%筛选边界"]
     S4 --> S5["S5-S6: 保存+数量账<br/>展示数据,用户确认"]
@@ -73,7 +73,7 @@ flowchart TD
 
 ## 2️⃣ 必备前置（硬条件，缺一停）
 
-- **★第一步=登录检查**：`python3 tools/check_login.py --token '<T>' --org '<orgId>'`（只读；🔴企业账号 orgId 必填）。无 token/失效 → **引导用户**按官方教程获取后发来：https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
+- **★首次调用来发信平台前必过=登录检查**（不是对话开局第一句；先收昵称+一句话产品并完成产品了解/适配判断）：`python3 tools/check_login.py --token '<T>' --org '<orgId>'`（只读；🔴企业账号 orgId 必填）。到此节点仍无 token/已失效 → **再引导用户**按官方教程获取后发来：https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
   - 方法一(小白)：登录 web.laifaxin.com → 右键"检查"→"应用程序"→本地存储→web.laifaxin.com→分别复制 `accesstoken` 和 `orgId` 的"值"
   - 方法二(⭐推荐，一条命令两样全拿)：检查→控制台→粘贴这一行并回车：
     `var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！回到对话框 Ctrl+V（Mac按⌘V）粘贴发送给 AI"):(location.host.indexOf("laifaxin")<0&&location.host.indexOf("worldtradetool")<0?"❌ 你现在打开的网页（"+location.host+"）不是来发信——新开标签页访问 web.laifaxin.com 并登录，再按 F12 打开控制台重新粘贴本命令":"❌ 来发信页面上没取到登录凭证——先看右上角有没有你的账号头像：没有=先登录；有=按 F5 刷新后再运行一次（不用退出重登）");`
@@ -85,15 +85,16 @@ flowchart TD
   - 首次连接只做只读检查（不搜客/不保存/不扣点/不发信）；换账号/切 org 需重新获取两样
   - 🔴 **token 单点有效**：用户在其他设备/浏览器登录、或网页重新登录 → 旧 token 立即作废——"token已失效"时引导重登+一键重取，同一份反复重试无意义（check_login 会计数升级提示）
   - ℹ️ token 开头域名可能是 web.laifaxin.com 或 web.worldtradetool.com 等——均正常，勿按域名判真伪
-- **★最小必要输入（2026-09-03 用户拍板：渐进索取，禁止开局列清单）**：
-  - **开跑只问 2 类**：① **token + orgId**（🔴企业账号 orgId 必填——个人账号 orgId==用户ID 可省略；获取见上）② **昵称 + 一句话产品**（如"我卖不锈钢保温杯，主要卖欧美"）。中文或英文任一均可理解，不要因为语言形式重复追问。
+- **★最小必要输入（2026-09-07 对抗收口：渐进索取，禁止开局列清单）**：
+  - **对话开局只问 1 类**：**纯个人昵称 + 一句话产品**（如“Tony；我卖不锈钢保温杯，主要卖欧美”），目标市场可选。不先催 token，不因语言形式重复追问。
+  - **首次调用来发信平台前再问第 2 类**：**token + 当前工作空间 orgId**（推荐按上方命令一键双取两行整段）。🔴 token 中段是用户 UID；企业账号 orgId 必须取 localStorage 的独立值，个人账号二者仅是恰好相同。
   - **★昵称规范（2026-09-03 用户拍板）**：昵称**只含个人称呼**（Tony / Iris 等纯人名）；发现含公司名/产品名/职位（如 "Iris | XX Textiles"、"保温杯厂-老王"）→ **一次性说明并请用户改**："昵称只放个人名字；公司信息我会存入本地产品档案用于分析，但不会进入邮件签名——您想用什么昵称？"
   - **后续节点用到现在才要**：S0 出 A/B/C/D 方案选字母；S2 出具体客群表选编号（两步分工，不重复问）；S3 用户可给一个认得的买家网址（没有就走标准路径，不追问）；S7 邮件签名只用昵称——公司/官网/邮箱（用户自己的商业资产）AI 主动要 **仅供 AI 建档/背调**，绝不写进邮件签名。
   - **★产品资料=获客必需素材，用户不给AI也主动要**：公司级资料按 `operator-profile-sop.md` 回落 `.local/operators/<operator_key>.md`；产品级资料按 `product-profile-sop.md` 回落 `runs/<operator_key>/<product_key>/product-profile.md`。每次单独问一组，给填空模板、可跳过、不逼问。★**邮件边界**：邮件末尾签名区永远只有纯个人昵称；公司名/官网/联系邮箱不进入签名；经用户确认且有字段级来源的认证/产能/MOQ/交期/价格带可用于正文卖点；推断或无来源的具体事实禁止写入。★潜在买家/客户/联系人第三方联系方式不索要、不写入上述档案。S2/S4/S7/S9 必须绑定当前 profile path/version/hash；零上下文续接先读两类档案。
   - **公司级/产品级资料都可主动要**（每次单独问一组，给模板可跳过）：公司名/官网/联系邮箱/默认市场→operator-profile；产品线/认证/产能/MOQ/交期/价格带→product-profile。签名区只含昵称；confirmed 且有来源的产品事实可进正文卖点；没有事实时只用无具体承诺的通用表达。
   - 每次**只问当前节点必需的一件事**，给默认建议，用户回复"确认/否/要改"即可推进。
-- **闸门硬条件**：`bash tools/gate_check.sh --token <TOKEN>` 全部通过 = 开始流程的**唯一通行证**；未通过**禁止任何保存/模板/序列/contact-add**。
-- 缺 ① 或 ② → **停，向用户要，不猜不代填**。
+- **闸门硬条件**：`bash tools/gate_check.sh --token '<一键双取两行整段>' --product <项目键>`（或纯 token + 显式 `--org <当前工作空间ID>`）全部通过 = 平台流程的**唯一通行证**；未通过**禁止任何保存/模板/序列/contact-add**。🔴 token 中段是用户 UID，不得当企业 orgId。
+- 缺开局的昵称/产品 → **只问缺项，不猜不代填**；到首次平台调用仍缺 token/orgId → 再引导一键双取并停在连接闸门。
 - token 只放命令/环境变量，**绝不写入任何文件**。
 - 本地运营方档案（`.local/operators/<operator_key>.md`，旧单文件兼容）：昵称为必需；公司名/官网/邮箱可主动要、跨产品/换机复用；签名区只昵称，客户第三方资料不写入。
 

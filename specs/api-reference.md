@@ -17,7 +17,7 @@ audience: AI优先（人可参考）
 
 ## 0. 认证与账户
 
-> ★**token 获取（新手第一步）**：官方教程 https://www.laifa.xin/share/ai/laifaxin-ai-account-connection —— 登录 web.laifaxin.com → 检查→应用程序→本地存储→分别复制 `accesstoken` 与 `orgId` 两项的"值"，或控制台依次 `copy(localStorage.getItem("accesstoken"));` 和 `copy(localStorage.getItem("orgId"));`。
+> ★**token 获取（完成产品了解/适配、首次调用平台前）**：官方教程 https://www.laifa.xin/share/ai/laifaxin-ai-account-connection —— 登录 web.laifaxin.com 后按教程一键双取 `accesstoken` 与 localStorage 独立 `orgId` 两行整段；不要在对话开局催 token。
 > 🔴 **org 机制勘误（2026-09-06 用户双截图实测，推翻旧口径"orgId 从 token 中段提取"）**：token 格式 `web.laifaxin.com&<用户UID>&<hash>`——**中段是用户ID不是 orgId**；真正的工作空间ID 在 localStorage 独立的 `orgId` 键：个人账号 orgId==用户UID（旧口径碰巧成立）；**企业账号 orgId 是独立数字ID（如 1804106008），切换"账号"（个人↔企业）后 orgId 变、token 不变**——API 的 `?uid=` 一律用 localStorage 的 orgId。企业账号必须 `--org <orgId>` 显式传入；切换账号/企业后 token+orgId 两样重新复制。
 
 | 接口 | 用途 | 备注 |
@@ -349,7 +349,7 @@ POST /api/mailbox/template-add
 
 ## 📌 使用注意
 
-1. **header 格式**：`accesstoken: web.laifaxin.com&<orgId>&<token>`（含 & 原样传）+ `uid: <orgId>`
+1. **header 与工作空间**：`accesstoken: web.laifaxin.com&<用户UID>&<token>`（含 `&` 原样传）；API 查询参数 `uid=<当前工作空间orgId>` 取 localStorage 独立 `orgId` 键。个人账号二者恰好相同；企业账号严禁拿 token 中段用户 UID 代替 orgId。
 2. **保存/搜索任务**：保存已**纯 API 可用**（refine/company-save，见 §4）；仅搜索任务 `search/tasks/create` type:keyword 维护中 → 走界面（旧记录"维护期走界面"已被 §4 实测推翻）
 3. **标签 ID**：公司/联系人两个独立体系，别混用
 4. **排除中国区**：默认 CN/TW/HK/MO

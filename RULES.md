@@ -2,7 +2,7 @@
 title: "来发信获客·规则总纲（唯一真源）"
 description: "所有规则的唯一入口：无论会话长短/换电脑，先读本文件再执行。强制流程+校验清单。"
 created: 2026-08-29
-updated: 2026-09-04
+updated: 2026-09-07
 author: "AI + 用户对抗"
 source: "皮筏艇/电动自行车全程"
 related: [specs/threshold-method, specs/domain-scale-sop, specs/sequence-config, specs/marketing-rules-2.0]
@@ -15,13 +15,13 @@ audience: 人+AI
 
 > **★ 执行原则**：**每次操作前先读本文件 + 引用的 specs**，严格按流程，**禁止凭记忆跳步**。
 > **本文件是唯一真源**，所有子规则从这里引用。换电脑/新会话：先读本仓库对应文件。
-> **★ 入口总线**：`onboard_check.py`（环境+文档引导）→ **`check_login.py`（流程第一步=登录检查，无 token 引导用户按[官方教程](https://www.laifa.xin/share/ai/laifaxin-ai-account-connection)获取）** → `gate_check.sh`（闸门，未通过**禁止任何保存/模板/序列/contact-add**）→ `flow_orchestrator.py`（向导）。闸门=开始流程的唯一通行证。
+> **★ 入口总线**：`onboard_check.py`（环境+文档引导）→ 先收昵称+一句话产品并完成 S0/S0a 产品了解与适配判断 → **首次调用来发信平台前，必须运行 `check_login.py`（无 token 才引导用户按[官方教程](https://www.laifa.xin/share/ai/laifaxin-ai-account-connection)获取）** → `gate_check.sh`（闸门，未通过**禁止任何保存/模板/序列/contact-add**）→ `flow_orchestrator.py`（向导）。登录检查是平台操作前第一步，不是对话开局第一句；闸门=写操作的唯一通行证。
 > **★ token 中途失效 SOP**：立即停止写操作 → 引导用户重取 → check_login复验 → 从当前operation-record节点继续，勿从S0重跑。
 > **审批信任边界**：本仓工具防呆，不提供密码学真人证明。它能阻断误操作、参数漂移、旧凭证、非TTY管道和错误状态；无法阻止恶意进程伪造TTY、直接改源码或本地审批/证据文件。S12 必须在受信任AI会话中由用户现场确认，主机级身份签名应由宿主产品提供。
 
 ## 🚨 强制流程与状态机（严格执行，禁止跳步）
 ```
-S0 INPUT_GATE: ★第一步=登录检查（tools/check_login.py 只读验证；无token/失效→引导用户按官方教程获取后交给AI）。★最小必要输入=昵称+一句话产品（中英皆可）；缺一只问这一项，不写入。★昵称规范（2026-09-03 用户拍板）：**只含个人称呼**（如 Tony / Iris）；**禁止**公司名/产品名/职位/号码等（如 "Iris | XX Textiles"、"Tony-保温杯厂" 一律要求改）。★产品适配度判定（只读前置，出 ABCD 方案前）：按 specs/product-fit.md 四问判 强/条件/弱适配，结论+理由随方案展示；弱适配必须如实告知预期（冷邮件回询盘以月/年计，建议小样 ≤500 家/1 轮验证），用户决定是否继续——不拒绝、不静默、不加输入项。★S0 出 A/B/C/D 获客方向方案（含推荐与淘汰理由）供选字母。★渐进索取（2026-09-03 拍板 + 2026-09-04 修正边界）：每次只问当前节点必需的一件事；禁止开局列清单。★**可主动要（用户自己的商业资产，仅供 AI 建档/分析用）**：公司名/官网/邮箱/认证证书/产能/MOQ/交期/价格带——用户自己的业务名片与产品实力，AI 主动要并给填空模板+示例（可跳过、不逼问），**用于 AI 的 product-profile.md 文档 / 背调 / 客群判断；公司身份与联系信息不自动写入邮件，认证/产能/MOQ/交期/价格带等产品事实只有在用户确认且有字段级来源后才可用于正文卖点；邮件签名始终只有昵称**。★**签名/落款铁律（2026-09-04 用户再次拍板）**：邮件正文签名**只有昵称**，禁止公司名/官网/邮箱/认证等任何其他内容。★**禁止索要（他人信息）**：潜在买家/客户/联系人的联系方式清单、终端用户邮箱——不索要、不收集。★没有用户提供时：正文不写这些字段、**不编造具体数字**。★例外：S0 方案末尾可提供**一次**官网/产品页入口（可选贡献，不追问不催促），用户给了即触发 AI 读取分析
+S0 INPUT_GATE: ★对话开局先收昵称+一句话产品并做产品了解/适配判断；**首次调用平台前**再运行 tools/check_login.py 只读验证（无token/失效→此时才引导用户按官方教程获取后交给AI），登录闸门仍是任何平台查询/写操作前第一步。★最小必要输入=昵称+一句话产品（中英皆可）；缺一只问这一项，不写入。★昵称规范（2026-09-03 用户拍板）：**只含个人称呼**（如 Tony / Iris）；**禁止**公司名/产品名/职位/号码等（如 "Iris | XX Textiles"、"Tony-保温杯厂" 一律要求改）。★产品适配度判定（只读前置，出 ABCD 方案前）：按 specs/product-fit.md 四问判 强/条件/弱适配，结论+理由随方案展示；弱适配必须如实告知预期（冷邮件回询盘以月/年计，建议小样 ≤500 家/1 轮验证），用户决定是否继续——不拒绝、不静默、不加输入项。★S0 出 A/B/C/D 获客方向方案（含推荐与淘汰理由）供选字母。★渐进索取（2026-09-03 拍板 + 2026-09-04 修正边界）：每次只问当前节点必需的一件事；禁止开局列清单。★**可主动要（用户自己的商业资产，仅供 AI 建档/分析用）**：公司名/官网/邮箱/认证证书/产能/MOQ/交期/价格带——用户自己的业务名片与产品实力，AI 主动要并给填空模板+示例（可跳过、不逼问），**用于 AI 的 product-profile.md 文档 / 背调 / 客群判断；公司身份与联系信息不自动写入邮件，认证/产能/MOQ/交期/价格带等产品事实只有在用户确认且有字段级来源后才可用于正文卖点；邮件签名始终只有昵称**。★**签名/落款铁律（2026-09-04 用户再次拍板）**：邮件正文签名**只有昵称**，禁止公司名/官网/邮箱/认证等任何其他内容。★**禁止索要（他人信息）**：潜在买家/客户/联系人的联系方式清单、终端用户邮箱——不索要、不收集。★没有用户提供时：正文不写这些字段、**不编造具体数字**。★例外：S0 方案末尾可提供**一次**官网/产品页入口（可选贡献，不追问不催促），用户给了即触发 AI 读取分析
 S0a PROFILE_PENDING: 按 `specs/operator-profile-sop.md` 与 `specs/product-profile-sop.md` 分两轮主动索取并回落：公司级资料→`.local/operators/<operator_key>.md`；产品级资料→`runs/<operator_key>/<product_key>/product-profile.md`。每轮只问一组、给模板/可跳过/不逼问。产品档案 `draft` 禁止进入 S1；用户确认→`confirmed`，跳过→`declined`，两者记录 path/version/hash 后方可继续。邮件签名区只昵称；confirmed 有来源产品事实可进正文卖点。
 S1 PATH_PENDING: 有精准网址→快速路径A；无→标准路径B自动选择不追问（用户随时可补网址切换）；两条路径的产出都会在后续节点展示确认
 S2 SEGMENT_PENDING: 标准路径推演默认4个；打印全部，判断是否精准潜在客户，给成交周期/询盘速度/量级/邮箱/竞争度/推荐；用户确认或要求更多
@@ -140,7 +140,7 @@ runs/INDEX.md          运营方×产品导航卡（生成物，源自 runs.tsv+
 | **删除**（contactsDelete，delete返回 backendId）| `operation/backend-progress` `{"id":<backendId>}` | data.backendId（delete返回）| status/total/finished/**progress** |
 | **template/序列** | 直接查对应 list 接口 | - | - |
 > ⚠️ backend-task-status 查删除=只返回id无进度（L-36 误判教训）；保存任务用 task-status（有contactSaveCount），删除用 backend-progress。
-> ⚠️ **token 来源**：每次由用户提供（web.laifaxin.com&<orgId>&<hash>），写在命令/环境；gate_check.sh --token 用同一 token。
+> ⚠️ **token 来源**：首次平台调用前由用户一键双取 `accesstoken` + localStorage 独立 `orgId`，只写在命令/环境。token 格式三段中第 2 段是用户 UID，不是企业工作空间 orgId；`gate_check.sh` 用两行整段或纯 token + 显式 `--org`。
 
 ## ★ 模板变量（★字段清单=记录；实际使用=策略，勿滥用）
 - **格式**：`<code class="lfxFieldVeriable" contenteditable="false">{联系人:名称}</code>`（{联系人:<title>}/{公司:<title>}，title=字段中文标题）

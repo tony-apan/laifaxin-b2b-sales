@@ -37,8 +37,8 @@ from profile_utils import profile_gate, read_profile, validate_nickname
 from update_run_state import require_state, update_frontmatter
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--token", required=True, help="accesstoken 整串(格式 web.laifaxin.com&<orgId>&<hash>)——用户按教程获取: https://www.laifa.xin/share/ai/laifaxin-ai-account-connection")
-ap.add_argument("--org", required=True, help="orgId(=token 第2段;必填,禁止默认租户)")
+ap.add_argument("--token", required=True, help="accesstoken 完整串（token 中段是用户UID，不是企业orgId）；获取教程: https://www.laifa.xin/share/ai/laifaxin-ai-account-connection")
+ap.add_argument("--org", required=True, help="当前工作空间ID=localStorage独立orgId键（企业必填；禁止拿token第2段用户UID代替）")
 ap.add_argument("--nickname", required=True, help="昵称=客户邮件落款·纯个人昵称(如 Tony/Iris;启动即校验:含公司/职位/产品/邮箱/数字/from→退出2)")
 ap.add_argument("--product", required=True, help="产品名(必填)")
 ap.add_argument("--product-info", default="", help="产品一句话(可选;档案 confirmed 时追加在档案正文之后,不覆盖档案)。★禁止填编造的 MOQ/认证/产能数字——用户没给的数字一律不写")
@@ -142,15 +142,15 @@ def api(path, p, t=60):
 LOGIN_GUIDE_URL = "https://www.laifa.xin/share/ai/laifaxin-ai-account-connection"
 
 def check_login_first():
-    """AI-2: S0 第一步=登录检查——复用 tools/check_login.py 的硬化三分类(exit 0/1/2/3), 不内联复写(terra 4-③)。"""
+    """AI-2: 平台流程第一步=登录检查——复用 tools/check_login.py 的硬化三分类(exit 0/1/2/3), 不内联复写(terra 4-③)。"""
     if args.dry_run:
-        print("●S0 第一步·登录检查: (dry-run 跳过线上校验)"); return
+        print("●平台连接前·登录检查: (dry-run 跳过线上校验)"); return
     try:
         r = subprocess.run([sys.executable, str(KB/"tools"/"check_login.py"), "--token", args.token, "--org", args.org],
                            capture_output=True, text=True, timeout=60)
     except subprocess.TimeoutExpired:
-        print("●S0 第一步·登录检查: ❌ 超时——稍等重试（这不是 token 问题）。"); sys.exit(1)
-    print("●S0 第一步·登录检查:")
+        print("●平台连接前·登录检查: ❌ 超时——稍等重试（这不是 token 问题）。"); sys.exit(1)
+    print("●平台连接前·登录检查:")
     print("\n".join("  " + l for l in (r.stdout or "").strip().splitlines()))
     if r.returncode == 1:
         print("   流程终止（token 失效——按上面教程重取后重跑本向导, 已确认 approvals 不作废）。")

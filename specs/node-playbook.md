@@ -21,7 +21,7 @@ audience: 人+AI
 
 | 规则 | 内容 | 来源 |
 |------|------|------|
-| **流程闸门** | 流程开始前必须 `bash tools/gate_check.sh --token <TOKEN>` 全绿（token 有效 + 必读文档存在 + 规则 grep 命中）；未通过禁止任何保存/模板/序列/contact-add 操作 | `../RULES.md` L18；脚本 `../tools/gate_check.sh` |
+| **流程闸门** | 首次平台调用前必须 `bash tools/gate_check.sh --token '<一键双取两行整段>' --product <项目键>`（或纯 token + 显式 `--org <当前工作空间ID>`）全绿；token 中段是用户 UID，不得当企业 orgId；未通过禁止任何保存/模板/序列/contact-add 操作 | `../RULES.md` L18；脚本 `../tools/gate_check.sh` |
 | **节点确认** | 高影响节点必须收到**本节点明确确认**；确认原话、参数 JSON/hash、时间写入 `.local/approvals.tsv`（★审批流水：每账号/每 clone 一份，不入 Git） | `../RULES.md` L40 |
 | **审批硬闸门（工具级）** | 新项目稳定键=`<operator_key>/<product_key>`，确认参数同时绑定当前 product-profile path/version/hash；legacy 项目可暂用旧产品名但不得跨运营方复用。写工具无有效 approval 或项目键不符直接 exit 1；换机历史 approvals 只作审计，未执行写节点与 S12 必须当前对话重新确认 | `../RULES.md` 状态转换与确认；`../tools/approval.py` |
 | **参数变化回退** | 产品、种子、临界N、标签、模板、配额任一变化 → 原确认失效 → 回到对应状态重新确认 | `../RULES.md` L42 |
@@ -36,10 +36,10 @@ audience: 人+AI
 ## 1. 节点矩阵（S0-S12，每个节点照抄执行）
 
 ### S0 INPUT_GATE + S0a PRODUCT_PROFILE（闸门 + 必填输入 + 产品知识档案）
-- **判据（来源）**：`../RULES.md` S0「开跑只问 token + 纯个人昵称 + 一句话产品；禁止开局列清单」。之后进入 S0a：按 `product-profile-sop.md`，用户给官网/目录/卖点就由 AI 读取提炼；没给则 AI 主动要一次（给填空模板、可跳过、不逼问）。公司名/官网/邮箱/认证/产能/MOQ/交期/价格带等**用户自己的商业资产可以主动要**；潜在买家/客户/联系人联系方式等第三方信息不索要。
+- **判据（来源）**：`../RULES.md` S0「开跑先问纯个人昵称 + 一句话产品；禁止开局催 token 或列清单」。之后进入 S0a：按 `product-profile-sop.md`，用户给官网/目录/卖点就由 AI 读取提炼；没给则 AI 主动要一次（给填空模板、可跳过、不逼问）。公司名/官网/邮箱/认证/产能/MOQ/交期/价格带等**用户自己的商业资产可以主动要**；潜在买家/客户/联系人联系方式等第三方信息不索要。产品了解与适配完成、首次调用平台前再获取 token + 当前工作空间 orgId。
 - **签名与正文边界**：邮件末尾签名区**只能是纯个人昵称**；公司身份/官网/联系邮箱不进入签名。`product-profile.md` 中经用户确认且有字段级来源的认证、产能、MOQ、交期、价格带可用于正文卖点；无来源或仅为推断的具体事实不得写进正文。
 - **通过条件**：①环境 bootstrap check 全绿 ②昵称通过 `profile_utils.validate_nickname` ③token 登录检查 + gate_check 通过 ④项目目录 `runs/<operator_key>/<product_key>/` 已固定 ⑤product-profile 存在且状态为 `confirmed` 或 `declined`（draft 禁止进入 S2）；confirmed 记录 path+content hash，declined 仅允许通用无具体事实文案。
-- **脚本顺序**：无 Python 时先 `bash tools/bootstrap.sh --install`（macOS/Linux/Git Bash/WSL）或 `powershell -ExecutionPolicy Bypass -File tools/bootstrap.ps1 -Install`（Windows PowerShell）→ `python3|py tools/onboard_check.py` → `python3|py tools/product_profile.py init ...` → AI 按模板/SOP 填档 → `python3|py tools/product_profile.py confirm --profile ... --by <纯昵称> --quote '<用户确认原话>'` → `python3|py tools/check_login.py --token '<T>'` → `bash tools/gate_check.sh --token '<T>' --product <项目键>` → `python3|py tools/flow_orchestrator.py --profile <档案路径> ...`。
+- **脚本顺序**：无 Python 时先 `bash tools/bootstrap.sh --install`（macOS/Linux/Git Bash/WSL）或 `powershell -ExecutionPolicy Bypass -File tools/bootstrap.ps1 -Install`（Windows PowerShell）→ `python3|py tools/onboard_check.py` → `python3|py tools/product_profile.py init ...` → AI 按模板/SOP 填档 → `python3|py tools/product_profile.py confirm --profile ... --by <纯昵称> --quote '<用户确认原话>'` → 首次平台调用前一键双取 → `python3|py tools/check_login.py --token '<两行整段>'` → `bash tools/gate_check.sh --token '<两行整段>' --product <项目键>`（或两命令均用纯 token + 显式 `--org <当前工作空间ID>`）→ `python3|py tools/flow_orchestrator.py --profile <档案路径> ...`。
 - **产出记录**：`.local/operators/<operator_key>.md`（nickname/operator_key，不含 token）；`runs/<operator_key>/<product_key>/product-profile.md`（状态/版本/hash/字段级来源/变更记录）；`.local/approvals.tsv`（S0 gate_ok + profile hash）。
 
 ### S1 PATH_PENDING（路径分支）
@@ -156,7 +156,7 @@ audience: 人+AI
 
 | # | 易漏点 | 判据原文要点 | 来源 |
 |---|--------|-------------|------|
-| 1 | **S0 闸门硬条件** | 昵称+一句话产品必填（中英皆可），缺一只问这一项；渐进索取，禁开局列清单；且必须 `gate_check.sh` 通过（token 有效+必读文档存在+规则命中）才能开始流程 | `../RULES.md` S0；`../methodology/decision-trees.md` Gate0 |
+| 1 | **S0 闸门硬条件** | 昵称+一句话产品必填（中英皆可），缺一只问这一项；渐进索取，禁开局列清单；首次平台调用前必须 `gate_check.sh` 通过（token+当前orgId有效、必读文档存在、规则命中）才能开始平台流程 | `../RULES.md` S0；`../methodology/decision-trees.md` Gate0 |
 | 2 | **S2 客群推荐维度** | 每个客群写「精准潜在客户：是/否/条件成立时是」并给成交周期/询盘速度/量级/邮箱可得/竞争度/推荐；只打印不代选 | `../RULES.md` L25/L51/L94 |
 | 3 | **S4 临界判定** | 判定=AI 反思「会不会买」语义推理，**不是关键词匹配**；工具词匹配只做趋势初筛；50页跳→三页平均→逐页→跌破往前；临界页人工逐条读完整10条 | `specs/threshold-method.md` L19-27/L50-58；L-26 |
 | 4 | **S5 保存前重复检查** | 保存前查 (keyword+seed+阈值+selectTotal+排除4区) 是否曾完成保存，已存则不重存（省额度）——★规则有、脚本缺（防重复保存缺口） | `../RULES.md` L73 |

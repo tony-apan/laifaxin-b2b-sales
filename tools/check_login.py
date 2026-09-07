@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""★流程第一步·登录检查（只读）：验证来发信 accesstoken 是否有效（benefits/refine-data 只读，不搜客/不保存/不扣点/不发信）。
+"""★平台连接前第一步·登录检查（只读）：验证来发信 accesstoken 是否有效（benefits/refine-data 只读，不搜客/不保存/不扣点/不发信）。
 无 token / 失效时打印官方教程引导，让用户获取后交给 AI。
 用法:
-  python3 check_login.py --token '<accesstoken完整串>'   # org 自动从 token 提取(官方:accesstoken已含账号信息)
-  python3 check_login.py --token '<...>' --org <orgId>   # 也可显式传
+  python3 check_login.py --token $'accesstoken=<完整串>\norgId=<当前工作空间ID>'  # 推荐：控制台一键双取整段
+  python3 check_login.py --token '<完整串>' --org <当前工作空间ID>            # 也可分开传；企业空间 orgId 必填
 官方教程: https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
 """
 import json, subprocess, argparse, sys, re, time, hashlib
@@ -74,7 +74,7 @@ elif len(segs) >= 3:
     print("   🔴 多org提醒：网页右上角头像可'切换账号'（个人↔企业）——切换后 orgId 会变，token 中段不变；")
     print("      请在控制台执行 copy(localStorage.getItem(\"orgId\")) 取当前工作空间ID，随 --org 传入，否则会操作错空间！")
 else:
-    print("❌ token 格式不对（应有 3 段: web.laifaxin.com&<orgId>&<长串>，你给的只有 %d 段）——大概率是没复制完整。" % len(segs))
+    print("❌ token 格式不对（应有 3 段: web.laifaxin.com&<用户UID>&<长串>，你给的只有 %d 段）——大概率是没复制完整。" % len(segs))
     print("   ★建议改用方法二一键复制（控制台 copy 命令），或对照教程重新复制整串；也可显式传 --org <orgId>。")
     sys.exit(2)
 

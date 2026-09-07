@@ -21,8 +21,8 @@ from project_lock import acquire_project_lock
 from update_run_state import record_matches_project, require_state, update_frontmatter
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--token", required=True, help="accesstoken 整串(web.laifaxin.com&<orgId>&<hash>)")
-ap.add_argument("--org", required=True, help="orgId(=token 第2段)")
+ap.add_argument("--token", required=True, help="accesstoken 完整串（token中段是用户UID）")
+ap.add_argument("--org", required=True, help="当前工作空间ID=localStorage独立orgId键（企业必填；禁止拿token第2段代替）")
 ap.add_argument("--seq", required=True, help="序列id")
 ap.add_argument("--tags", required=True, help="联系人标签id(逗号分隔)")
 ap.add_argument("--task", required=True, help="保存任务id(refine/company-save 返回)——★必填:时序铁律,无任务id=无法确认finished,拒绝执行")

@@ -13,8 +13,8 @@ KB = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KB / "tools"))
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--token", required=True, help="accesstoken 整串(web.laifaxin.com&<orgId>&<hash>)")
-ap.add_argument("--org", required=True, help="orgId(=token 第2段)")
+ap.add_argument("--token", required=True, help="accesstoken 完整串（token中段是用户UID）")
+ap.add_argument("--org", required=True, help="当前工作空间ID=localStorage独立orgId键（企业必填；禁止拿token第2段代替）")
 ap.add_argument("--name", default="", help="标签名(★客户群体中文名,如 水上运动行业客户——勿写产品名)")
 ap.add_argument("--type", default="", choices=["company", "contacts"], help="company=公司标签 / contacts=联系人标签")
 ap.add_argument("--profile", default="", help="创建标签时必填当前产品档案；--list只读免填")

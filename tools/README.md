@@ -20,7 +20,7 @@ audience: AI优先（人可参考）
 | 工具 | 用途 | 固化规则 |
 |------|------|---------|
 | `gate_check.sh` | 流程开始前强制闸门（token 有效 + 必读文档 + 规则命中） | ✅ 未通过禁止写操作 |
-| `check_login.py` | 流程第一步·登录检查（只读，三分类引导） | ✅ org 自动从 token 提取 |
+| `check_login.py` | 首次平台操作前·登录检查（只读，三分类引导；不是对话开局第一句） | ✅ 一键双取 token + 当前工作空间 orgId |
 | `bootstrap.sh` / `bootstrap.ps1` | 无 Python 前提的跨平台环境探测/自动安装/复查 | ✅ 环境入口；详见 environment-setup |
 | `onboard_check.py` | Python 就绪后的自检 + 可续接项目/status/profile扫描 | ✅ 不输出 token/审批原话/邮箱 |
 | `operator_profile.py` | 公司级资料档案（跨产品/换机复用） | ✅ 签名只读纯昵称；不含 token/第三方资料 |
@@ -87,11 +87,11 @@ bash bootstrap.sh --install
 python3 operator_profile.py init --operator-key <operator_key> --nickname <纯昵称>
 python3 product_profile.py init --profile ../runs/<operator_key>/<product_key>/product-profile.md --operator-key <operator_key> --product-key <product_key>
 
-# 登录检查（流程第一步）
-python3 check_login.py --token '<accesstoken>' [--org <orgId>]
+# 登录检查（产品了解/适配完成、首次平台调用前；一键双取整段优先）
+python3 check_login.py --token $'accesstoken=<完整串>\norgId=<当前工作空间ID>'
 
-# 流程闸门（未通过禁止写操作）
-bash gate_check.sh --token <TOKEN> [--org <orgId>]
+# 流程闸门（未通过禁止写操作；也可纯token + 显式--org）
+bash gate_check.sh --token $'accesstoken=<完整串>\norgId=<当前工作空间ID>' --product <operator_key>/<product_key>
 
 # 保存前N（★--approval 硬闸门）
 python3 save_first_n.py --token $TOKEN --org <orgId> --keyword <种子> --n <前N条数> \
