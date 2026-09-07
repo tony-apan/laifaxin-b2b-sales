@@ -6,6 +6,63 @@
 
 这是一个给 AI 使用的操作说明书和工具箱。它不是自动成交工具，也不是逐家公司手工定制的精准开发服务。
 
+<a id="quickstart"></a>
+## ⚡ 极速开始 · 第一步：把这段发给 AI
+
+**不用看懂任何细节——把整段复制发给你的 AI 助手即可，剩下的它全包。**
+
+
+"代码"＝给电脑下的指令，这套系统就是写好的指令集合。**你不用碰命令行——把下面整段复制给 AI 就行。**
+
+**办法 A（最简单）：把下面整段复制发给 AI**
+
+```text
+请帮我把这套外贸获客系统安装到我的电脑并完成学习：
+
+1. 下载代码库（若我已发你本地文件夹/ZIP 路径，跳过这步，直接用那个文件夹）：
+   git clone https://github.com/tony-apan/laifaxin-b2b-sales.git
+   （如果 git 不可用，直接下载 https://github.com/tony-apan/laifaxin-b2b-sales/archive/refs/heads/master.zip 并解压）
+
+2. 先把运行环境自动准备好（不要假设电脑已经有 Python）：
+   · Windows PowerShell：powershell -NoProfile -ExecutionPolicy Bypass -File tools/bootstrap.ps1 -Install
+   · macOS / Linux / Git Bash / WSL：bash tools/bootstrap.sh --install
+   安装脚本会先探测 Python、curl、Git、bash/grep/awk，缺什么装什么，装完再复查；
+   若系统没有可用包管理器，按输出给的官方下载地址处理，不要跳过环境复查。
+   完整标准见 specs/environment-setup.md。
+
+3. 通读仓库，重点按顺序学习：
+   ① README.md（产品定位与流程）
+   ② SKILL.md（你的执行入口：渐进引导图/路由表/状态机/铁律/话术模板索引）
+   ③ RULES.md（唯一真源：完整状态机与铁律）
+   ④ specs/environment-setup.md（环境准备）、specs/migration-handoff.md（换机续接）、
+      specs/operator-profile-sop.md（公司级资料回落）与 specs/product-profile-sop.md（产品资料回落）
+   ⑤ output-templates/README.md（之后每一步对用户说什么都照模板）
+   ⑥ 执行到对应节点时再精读其他 specs/ 与 methodology/
+
+4. 运行 python3 tools/onboard_check.py 自检；Windows 若 python3 不存在就用 py tools/onboard_check.py。
+
+5. 学完后向我汇报（用通俗中文；token 现在不用催，到时带我去拿）：
+   · 这套系统是干什么的、我的角色是什么
+   · 你需要我提供什么（听说只要 token 和昵称+一句话产品，确认一下）
+   · 整个流程分几步、哪些步骤会找我确认
+   · 有什么风险或注意事项
+
+6. 汇报完等我的产品介绍，然后按 SKILL.md 带我走完整个获客流程。
+   注意：系统默认不发信；每一步都要我确认；最终激活发信必须我明确说"确认激活"。
+```
+
+**办法 B：点两下鼠标（不用 AI 代劳）**
+
+在浏览器打开 https://github.com/tony-apan/laifaxin-b2b-sales （存代码的公开网站，用法和网盘差不多）→ 点网页**右上角 Code → Download ZIP**（ZIP＝压缩包，就是一个打包好的文件）→ 解压到桌面，然后把解压后的文件夹路径连同上面那段话一起发给 AI。
+
+# 来发信 B2B 批量获客系统
+
+![status](https://img.shields.io/badge/status-active-success) ![version](https://img.shields.io/github/v/release/tony-apan/laifaxin-b2b-sales) ![license](https://img.shields.io/badge/license-GPL--3.0-green) ![python](https://img.shields.io/badge/python-3.9+-blue) ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows%20PowerShell-lightgrey)
+
+> **批量触达相关买家，低成本筛出询盘；收到询盘后，再由业务员背调和精准跟进。**
+
+这是一个给 AI 使用的操作说明书和工具箱。它不是自动成交工具，也不是逐家公司手工定制的精准开发服务。
+
 **适合你，如果你：**
 
 - 缺少客户基数，想先批量验证一个市场；
@@ -54,7 +111,7 @@ flowchart TD
 
 | 快速入口 | |
 |---|---|
-| 🚀 [快速开始](#-第一步现在就把代码拿到手) | 下载仓库 → 准备 4 样 → 交给 AI |
+| 🚀 [极速开始：把这段发给 AI](#quickstart) | 安装+学习，一段指令全搞定 |
 | 📖 [完整方法：广撒网 + 精准跟进](docs/09-mass-outreach-to-precision-follow-up.md) | 成本账 / 询盘背调 / 分级 / 多渠道 |
 | 📦 [最新版下载与版本说明](https://github.com/tony-apan/laifaxin-b2b-sales/releases/latest) | Releases |
 | 🔄 [更新到新版本](#-更新到新版本老用户) | 同一台电脑升级（保留本地数据）|
@@ -62,51 +119,6 @@ flowchart TD
 | 💻 [换电脑继续干](#-换电脑继续干老用户) | 迁移本地状态，从当前节点接着跑 |
 
 ---
-
-## 📦 第一步：现在就把代码拿到手
-
-"代码"＝给电脑下的指令，这套系统就是写好的指令集合。**你不用碰命令行——把下面整段复制给 AI 就行。**
-
-**办法 A（最简单）：把下面整段复制发给 AI**
-
-```text
-请帮我把这套外贸获客系统安装到我的电脑并完成学习：
-
-1. 下载代码库（若我已发你本地文件夹/ZIP 路径，跳过这步，直接用那个文件夹）：
-   git clone https://github.com/tony-apan/laifaxin-b2b-sales.git
-   （如果 git 不可用，直接下载 https://github.com/tony-apan/laifaxin-b2b-sales/archive/refs/heads/master.zip 并解压）
-
-2. 先把运行环境自动准备好（不要假设电脑已经有 Python）：
-   · Windows PowerShell：powershell -NoProfile -ExecutionPolicy Bypass -File tools/bootstrap.ps1 -Install
-   · macOS / Linux / Git Bash / WSL：bash tools/bootstrap.sh --install
-   安装脚本会先探测 Python、curl、Git、bash/grep/awk，缺什么装什么，装完再复查；
-   若系统没有可用包管理器，按输出给的官方下载地址处理，不要跳过环境复查。
-   完整标准见 specs/environment-setup.md。
-
-3. 通读仓库，重点按顺序学习：
-   ① README.md（产品定位与流程）
-   ② SKILL.md（你的执行入口：渐进引导图/路由表/状态机/铁律/话术模板索引）
-   ③ RULES.md（唯一真源：完整状态机与铁律）
-   ④ specs/environment-setup.md（环境准备）、specs/migration-handoff.md（换机续接）、
-      specs/operator-profile-sop.md（公司级资料回落）与 specs/product-profile-sop.md（产品资料回落）
-   ⑤ output-templates/README.md（之后每一步对用户说什么都照模板）
-   ⑥ 执行到对应节点时再精读其他 specs/ 与 methodology/
-
-4. 运行 python3 tools/onboard_check.py 自检；Windows 若 python3 不存在就用 py tools/onboard_check.py。
-
-5. 学完后向我汇报（用通俗中文；token 现在不用催，到时带我去拿）：
-   · 这套系统是干什么的、我的角色是什么
-   · 你需要我提供什么（听说只要 token 和昵称+一句话产品，确认一下）
-   · 整个流程分几步、哪些步骤会找我确认
-   · 有什么风险或注意事项
-
-6. 汇报完等我的产品介绍，然后按 SKILL.md 带我走完整个获客流程。
-   注意：系统默认不发信；每一步都要我确认；最终激活发信必须我明确说"确认激活"。
-```
-
-**办法 B：点两下鼠标（不用 AI 代劳）**
-
-在浏览器打开 https://github.com/tony-apan/laifaxin-b2b-sales （存代码的公开网站，用法和网盘差不多）→ 点网页**右上角 Code → Download ZIP**（ZIP＝压缩包，就是一个打包好的文件）→ 解压到桌面，然后把解压后的文件夹路径连同上面那段话一起发给 AI。
 
 ## 第二步：准备 4 样东西
 
