@@ -83,11 +83,11 @@ flowchart TD
 
 **办法 B：点两下鼠标（不用 AI 代劳）**
 
-在浏览器打开 https://github.com/tony-apan/laifaxin-b2b-sales（存代码的公开网站，用法和网盘差不多）→ 点网页**右上角 Code → Download ZIP**（ZIP＝压缩包，就是一个打包好的文件）→ 解压到桌面，然后把解压后的文件夹路径连同上面那段话一起发给 AI。
+在浏览器打开 https://github.com/tony-apan/laifaxin-b2b-sales （存代码的公开网站，用法和网盘差不多）→ 点网页**右上角 Code → Download ZIP**（ZIP＝压缩包，就是一个打包好的文件）→ 解压到桌面，然后把解压后的文件夹路径连同上面那段话一起发给 AI。
 
 ## 第二步：准备 4 样东西
 
-- **① 一个来发信账号**。来发信（web.laifaxin.com）是帮你发邮箱、管跟进计划的平台，注册一个就行；账号的"钥匙"（token，一串字符）先不用管，第三步里 AI 会按官方教程（https://www.laifa.xin/share/ai/laifaxin-ai-account-connection）带你去拿。
+- **① 一个来发信账号**。来发信（web.laifaxin.com）是帮你发邮箱、管跟进计划的平台，注册一个就行；账号的"钥匙"（token，一串字符）先不用管，第三步里 AI 会按官方教程 https://www.laifa.xin/share/ai/laifaxin-ai-account-connection 带你去拿。
 - **② 你想卖的产品，一句话说清楚**。回答四个问题就行：卖什么？给谁用？卖到哪？凭什么买？比如"不锈钢保温杯，卖美国商超，工厂直供价格低"。
 - **③ 一台电脑**。Mac 或 Windows 都行。
 - **④ 一个会动手的 AI 助手**。这些都能用：**workbuddy / ZCode / DSH（＝DeepSeek Harness）/ Codex / Claude Code / Claude Desktop** 等（会自己动手的 AI 助手，任选其一，**免费可用版即可**；它们会直接读本仓库文件、执行命令、带你走完流程）。不确定用哪个 → 看文末二维码/联系作者。
@@ -99,7 +99,7 @@ flowchart TD
 把仓库交给它，两种方式任选：
 
 1. **给位置**：把第一步解压后的文件夹（或 ZIP 文件）路径直接告诉它；
-2. **发链接**：直接发 https://github.com/tony-apan/laifaxin-b2b-sales（这些助手能自己下载/读文件，不用你复制内容）。
+2. **发链接**：直接发 https://github.com/tony-apan/laifaxin-b2b-sales （这些助手能自己下载/读文件，不用你复制内容）。
 
 然后对它说这一句：
 

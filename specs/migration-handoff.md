@@ -166,7 +166,7 @@ python3 tools/onboard_check.py     # Windows 用 bootstrap 给出的 python_cmd�
 | 4 | 序列状态（S9 之后的项目） | token 重取后 `tools/verify_sequence.py --seq <id>` / sequence-details 线上核对 | S11 及之前：序列 **inactive**；S12 已激活：状态=active 且与档案记录一致 | 线上与档案不一致→列差异问用户，禁止盲目再激活/再加联系人 |
 | 5 | 审批流水 | `.local/approvals.tsv` 行数与关键行存在 | 历史可追溯（审计用） | 仅记录，不作为任何写操作的授权 |
 | 6 | 环境 | `bootstrap --check-only` 全绿 | `all_ok=1` | 回 environment-setup.md 错误分级处理 |
-| 7 | token | 引导用户按教程重取（https://www.laifa.xin/share/ai/laifaxin-ai-account-connection ）→ `check_login.py` 复验 → `gate_check.sh` 过闸 | 登录检查通过+闸门全绿 | 失效→再重取；不跳闸门 |
+| 7 | token | 引导用户按教程重取（ https://www.laifa.xin/share/ai/laifaxin-ai-account-connection ）→ `check_login.py` 复验 → `gate_check.sh` 过闸 | 登录检查通过+闸门全绿 | 失效→再重取；不跳闸门 |
 
 ## 4. 阶段四：定位续跑（禁止从 S0 重跑）
 

@@ -73,7 +73,7 @@ bash tools/bootstrap.sh --check-only
 python3 tools/onboard_check.py
 ```
 
-- **macOS 无 Homebrew** → 脚本**不会自动安装 Homebrew**（策略约束），明确失败并给出：Python 官方包 https://www.python.org/downloads/ ；git 可用 Apple 命令行工具 `xcode-select --install`；或用户同意后手动装 Homebrew（https://brew.sh ）再重跑 ②。
+- **macOS 无 Homebrew** → 脚本**不会自动安装 Homebrew**（策略约束），明确失败并给出：Python 官方包 https://www.python.org/downloads/ ， ；git 可用 Apple 命令行工具 `xcode-select --install`；或用户同意后手动装 Homebrew（ https://brew.sh ）再重跑 ②。
 - **Git Bash（MINGW/MSYS）里发现缺失** → Git Bash 没有包管理器，脚本会明确失败并引导转 PowerShell 跑 `bootstrap.ps1 -Install`。
 
 ### 2.3 退出码与稳定输出（AI 解析约定）
