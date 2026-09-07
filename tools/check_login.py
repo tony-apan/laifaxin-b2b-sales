@@ -18,8 +18,8 @@ def guide(reason):
   方法一（小白，不敲代码）: 登录 web.laifaxin.com → 页面右键"检查" → 顶部"应用程序"(Application) →
       左侧 存储→本地存储→https://web.laifaxin.com → 分别复制 accesstoken 和 orgId 两项的"值"
   方法二（⭐推荐，一条命令两样全拿）: 页面右键"检查" → 顶部"控制台"(Console) → 粘贴这一行并回车:
-      var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！请回到对话框 Ctrl+V 粘贴发送给 AI"):"❌ 未登录或页面不对——请先登录 web.laifaxin.com 再重试";
-      控制台会直接回显 ✅ 或 ❌ 提示文案（没有 undefined 尾巴）；复制出来是两行：accesstoken=... 和 orgId=...（字段名与页面存储一致），整段发给 AI 即可
+      var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！回到对话框 Ctrl+V（Mac按⌘V）粘贴发送给 AI"):(location.host.indexOf("laifaxin")<0&&location.host.indexOf("worldtradetool")<0?"❌ 你现在打开的网页（"+location.host+"）不是来发信——新开标签页访问 web.laifaxin.com 并登录，再按 F12 打开控制台重新粘贴本命令":"❌ 来发信页面上没取到登录凭证——先看右上角有没有你的账号头像：没有=先登录；有=按 F5 刷新后再运行一次（不用退出重登）");
+      控制台会直接回显 ✅ 或 ❌ 提示文案（没有 undefined 尾巴）；❌ 时按它说的做即可——两种原因命令会自动区分：网页开错 / 已登录但需刷新；复制出来是两行：accesstoken=... 和 orgId=...（字段名与页面存储一致），整段发给 AI 即可
   ⚠️ 粘贴代码时浏览器可能提示 "Don't paste code"——输入 allow pasting 再粘
   🔴 企业账号/多组织：右上角头像"切换账号"后 orgId 会变、token 不变——切换后必须重新执行上面的命令
   🔴 token 单点有效：在其他设备/浏览器登录，或网页重新登录 → 旧 token 立即作废（贴同一份没用，必须重取）
@@ -50,7 +50,7 @@ if ("accesstoken=" in tok or "TOKEN=" in tok) and ("orgId=" in tok or "ORG=" in 
     if m_tok and m_org:
         parsed_tok, parsed_org = m_tok.group(1), m_org.group(1)
         if parsed_tok.lower() == "null" or parsed_org.lower() == "null":
-            print("❌ 复制内容含 null——未登录或页面不对。请在 web.laifaxin.com 登录后重新执行复制命令。")
+            print("❌ 复制内容含 null——多半是控制台开在了别的网页，或来发信页面还没登录。先确认浏览器地址栏是 web.laifaxin.com 且右上角有你的账号头像；已登录就按 F5 刷新后重新执行复制命令（不用退出重登）。")
             sys.exit(2)
         if not args.org:
             args.org = parsed_org

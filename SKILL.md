@@ -2,7 +2,7 @@
 name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
-version: 0.4.11
+version: 0.4.12
 created: 2026-08-30
 updated: 2026-09-04
 author: "独立审查 agent（对抗判定后落地）"
@@ -76,8 +76,8 @@ flowchart TD
 - **★第一步=登录检查**：`python3 tools/check_login.py --token '<T>' --org '<orgId>'`（只读；🔴企业账号 orgId 必填）。无 token/失效 → **引导用户**按官方教程获取后发来：https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
   - 方法一(小白)：登录 web.laifaxin.com → 右键"检查"→"应用程序"→本地存储→web.laifaxin.com→分别复制 `accesstoken` 和 `orgId` 的"值"
   - 方法二(⭐推荐，一条命令两样全拿)：检查→控制台→粘贴这一行并回车：
-    `var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！请回到对话框 Ctrl+V 粘贴发送给 AI"):"❌ 未登录或页面不对——请先登录 web.laifaxin.com 再重试";`
-    →成功回显 ✅ 已复制（❌=未登录，无 undefined 尾巴）；剪贴板两行字段名与存储键一致（accesstoken=/orgId=）；**用户整段发给 AI 后原样传给 --token，工具自动拆分（兼容旧 TOKEN=/ORG= 格式）**
+    `var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！回到对话框 Ctrl+V（Mac按⌘V）粘贴发送给 AI"):(location.host.indexOf("laifaxin")<0&&location.host.indexOf("worldtradetool")<0?"❌ 你现在打开的网页（"+location.host+"）不是来发信——新开标签页访问 web.laifaxin.com 并登录，再按 F12 打开控制台重新粘贴本命令":"❌ 来发信页面上没取到登录凭证——先看右上角有没有你的账号头像：没有=先登录；有=按 F5 刷新后再运行一次（不用退出重登）");`
+    →成功回显 ✅ 已复制；❌ 自动区分两种原因并给出对应下一步（**网页开错** vs **已登录需刷新**），无 undefined 尾巴；剪贴板两行字段名与存储键一致（accesstoken=/orgId=）；**用户整段发给 AI 后原样传给 --token，工具自动拆分（兼容旧 TOKEN=/ORG= 格式）**
   - 🔴 **orgId=工作空间ID，与 token 中段（用户ID）是两回事**：个人账号二者恰好相同；**企业账号 orgId 是独立数字ID（如 1804106008），必须从 localStorage 单独复制**——网页右上角头像可"切换账号"（个人↔企业），切换后 orgId 变、token 不变，两样都重新复制发给 AI
   - ★请用 Chrome 或 Edge 打开 web.laifaxin.com（其他浏览器界面可能不同）
   - 粘贴时浏览器可能提示 "Don't paste code"（防骗保护，正常现象）——核对命令一致后按提示输入 allow pasting 再粘贴
