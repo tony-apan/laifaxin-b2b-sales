@@ -2,7 +2,7 @@
 title: "环境就绪 SOP（AI 执行·零 Python 前提 bootstrap）"
 description: "全新电脑（可能连 Python 都没有）由 AI 完成环境就绪的完整 SOP：bootstrap 悖论与解法、Windows/Unix 入口判断、check-only→install→复查流程、Python launcher 解析优先顺序、错误分级与处置。命令全部可复制，AI 执行，不让用户手工敲。"
 created: 2026-09-04
-updated: 2026-09-04
+updated: 2026-09-07
 author: "AI Agent"
 source: "bootstrap.sh / bootstrap.ps1 实操设计"
 related: [RULES.md, ../tools/bootstrap.sh, ../tools/bootstrap.ps1, migration-handoff.md]
@@ -109,6 +109,6 @@ AI 规则：**以 bootstrap 输出的 `python_cmd` 为准**，后续所有命令
 
 ## 6. 完成就绪后
 
-1. 跑 `python3 tools/onboard_check.py`（Windows 用 bootstrap 给出的 `python_cmd`）：输出环境自检 + 可续接项目扫描（`runs/*/*/operation-record.md`，排除 `_template`）+ 新会话引导。
-2. 若是**换电脑续接**（恢复过 `.local/`、`runs/`、`db/`），接着读 [migration-handoff.md](migration-handoff.md) 做迁移校验；冷启动则按 onboard_check 输出的新项目引导走（token → check_login → gate_check → flow_orchestrator）。
+1. 跑 `python3 tools/onboard_check.py`（Windows 用 bootstrap 给出的 `python_cmd`）：输出环境自检、可续接项目扫描（`runs/*/*/operation-record.md`，排除 `_template`）和安装完成后的任务菜单。
+2. 若是**换电脑续接**（恢复过 `.local/`、`runs/`、`db/`），接着读 [migration-handoff.md](migration-handoff.md) 做迁移校验；普通安装则先汇报安装/自检与旧项目扫描结果，再只问用户“你现在想做什么？”。安装阶段不得索取产品、市场、官网、昵称或 token，也不得默认进入 S0；用户选择具体任务后才按 SKILL 路由。
 3. 环境结论要向用户汇报成一句话（人话）：缺什么、装了什么、下一步做什么；技术细节留在 AI 侧。

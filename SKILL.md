@@ -2,7 +2,7 @@
 name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
-version: 0.5.0
+version: 0.5.1
 created: 2026-08-30
 updated: 2026-09-07
 author: "独立审查 agent（对抗判定后落地）"
@@ -20,7 +20,7 @@ audience: AI优先
 > **★用户展示话术=照模板**（把用户当小白）：每环节给用户看什么/怎么说，照 `output-templates/S<节点>-*.md` 填充输出（人话+链接+具体核对点）；平台页面直达链接见下方路由表。
 > **断言分级纪律**：关键断言须标成色——实测✅/引用📚/推断⚠️/假设❓；写操作断言必须实测或小样实测+对账。
 
-## 🗺 渐进引导图（AI 照此节奏要信息，禁止开局列清单）
+## 🗺 用户选择“开始新项目”后的渐进引导图（禁止安装后自动进入）
 
 ```mermaid
 flowchart TD
@@ -52,13 +52,15 @@ flowchart TD
 
 | 用户说（触发词） | 路由到 |
 |------------------|--------|
-| "新电脑第一次安装" / 环境缺 Python / `python` 找不到 | `specs/environment-setup.md` → `bootstrap.sh --install` 或 Windows `bootstrap.ps1 -Install` → check-only → onboard。⚠️PowerShell脚本当前仅静态检查、未在全新Windows实机跑完；失败按SOP官方安装兜底 |
-| 新会话（同机） / "接着上次" | `onboard_check.py` 枚举 `runs/*/*/operation-record.md` 的可续接项目 → 用户选项目 → 读 operation-record + product-profile 状态/版本/hash → 从当前节点继续；无项目才走 S0 新建 |
+| "安装 / 第一次安装 / 学习这个 Skill / 帮我装好" | **只执行安装学习阶段**：下载或识别旧安装→保留 `.local/`/`runs/` 更新→自动准备环境→通读 README/SKILL/RULES/specs→运行 onboard 自检+扫描旧项目→汇报后只问“安装完成。你现在想做什么？”；🔴此阶段禁止问产品/市场/官网/昵称/token，不得默认建新项目 |
+| "新电脑第一次安装" / 环境缺 Python / `python` 找不到 | `specs/environment-setup.md` → `bootstrap.sh --install` 或 Windows `bootstrap.ps1 -Install` → check-only → onboard；完成后回到任务选择，不自动进入 S0。⚠️PowerShell脚本当前仅静态检查、未在全新Windows实机跑完；失败按SOP官方安装兜底 |
+| 新会话（同机） / "接着上次" | `onboard_check.py` 枚举可续接项目并展示任务菜单；有项目先让用户选择是否续接，再读 operation-record + product-profile 从当前节点继续；无项目也不自动建新项目，仍等待用户选择任务 |
 | "换机 / 换电脑 / 另一台电脑接手" | README「💻 换电脑继续干」完整指令块 + `specs/migration-handoff.md`：旧机迁移 `.local/`+`runs/`+可选本地`db/` → 新机恢复同名路径 → token重新获取 → onboard枚举项目 → 禁止从S0重跑已有项目 |
 | "更新到最新版 / 升级 / 老用户更新" | README「🔄 更新到新版本」办法 A：判断 git/ZIP → 备份 `.local/`+`runs/` → 更新原目录 → bootstrap check-only → 用输出的 `python_cmd` 跑 `onboard_check.py` → 汇报版本/变化/数据完好；冲突或旧文件残留先列出问用户，不强推不自删 |
-| "帮我找 X 产品的客户" / 开新项目 | 环境 bootstrap 全绿 → S0 昵称+一句话产品 → S0a `operator_profile.py` + `product_profile.py` 建档/确认(或declined) → 登录检查 → `gate_check.sh --product <operator_key>/<product_key>` → `flow_orchestrator.py --profile <档案路径>` |
+| "帮我找 X 产品的客户" / 明确选择“开始新项目” | 用户已选择业务任务后才进入：S0 昵称+一句话产品 → S0a `operator_profile.py` + `product_profile.py` 建档/确认(或declined) → 登录检查 → `gate_check.sh --product <operator_key>/<product_key>` → `flow_orchestrator.py --profile <档案路径>` |
 | "我有官网 / 这是我们网站 / 产品页 / 产品目录 / 帮我了解公司和产品 / 优化定位" | **可选独立模块** `specs/website-profile-sop.md` → 先确认网址角色 → AI 读取公开页并生成六区候选 → `tools/website_profile.py` 校验/准备补丁/批准/正式档案单文件原子写入；失败或跳过不阻断 S0/S0a，不修改线上网站；买家网址转 S3 |
-| "我这产品适合跑吗 / 大宗 / 长周期 / 好几年才采购" | §2 → `specs/product-fit.md`（强/条件/弱三档判定表）：S0 只读判定 + 如实告知弱适配预期，由用户决定（不拒绝、不静默）；产品适配不需要 token |
+| "先了解完整流程 / 先看看怎么用 / 暂时不操作" | 只用通俗中文解释 README 的新项目流程图、产品适配、确认节点、默认不发信和询盘后人工跟进；**不索取产品/市场/官网/昵称/token，不执行 S0 或任何平台操作**；讲完停下等用户选择任务 |
+| "我这产品适合跑吗 / 大宗 / 长周期 / 好几年才采购" | 只问卖什么（已有就不重复问），按 `specs/product-fit.md` 强/条件/弱三档做只读判断并如实说明预期；不要求昵称或 token，不自动启动新项目 |
 | "这客户/这批准不准" / "临界在哪" | 状态机 S4 → `specs/threshold-method.md`（AI 反思 70% 判据）+ `tools/audit_company.py`（⚠️仅趋势初筛）|
 | "怎么才存了这么点 / 邮箱太少 / 数量对不上" | S6 数量账：`output-templates/S6-数量账.md`——四机制（max3/验真/去重/异步提取）逐项解释；**未知邮箱默认已保存**；<1.0 邮箱/家建议查锚点 |
 | "保存这批 / 前 N 条" | 状态机 S5/S6 → `tools/save_first_n.py`（★必须带 S5 的 `--approval`）|
@@ -76,7 +78,7 @@ flowchart TD
 | "查当前数据 / 最近跑批" | 本地运行记录（`db/runs.tsv`，本地数据不入 Git）+ 本地状态（`.local/`）|
 | **"询盘来了 / 回复后不回 / 怎么背调 / WhatsApp / LinkedIn / 电话跟进"** | `docs/09-mass-outreach-to-precision-follow-up.md`：先打账号固定标签「询盘」停自动群发 → 公司/联系人背调 → A/B/C/D 分级 → 邮件为主；仅在已有明确许可并满足目标市场规则后使用 WhatsApp/商务社媒/电话；明确拒绝→「不发」停邮件，并人工登记全渠道停止。群发找信号，精准跟进做转化 |
 
-## 2️⃣ 必备前置（硬条件，缺一停）
+## 2️⃣ 新获客项目的必备前置（用户明确选择后才执行，缺一停）
 
 - **★首次调用来发信平台前必过=登录检查**（不是对话开局第一句；先收昵称+一句话产品并完成产品了解/适配判断）：`python3 tools/check_login.py --token '<T>' --org '<orgId>'`（只读；🔴企业账号 orgId 必填）。到此节点仍无 token/已失效 → **再引导用户**按官方教程获取后发来：https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
   - 方法一(小白)：登录 web.laifaxin.com → 右键"检查"→"应用程序"→本地存储→web.laifaxin.com→分别复制 `accesstoken` 和 `orgId` 的"值"
@@ -155,7 +157,7 @@ flowchart TD
 ## 5️⃣ 新会话 / 换机三步走
 
 1. **环境先就绪**：无 Python 先按 `specs/environment-setup.md` 跑 `bootstrap.sh/bootstrap.ps1`；环境全绿后运行 `python3|py tools/onboard_check.py`，让它枚举可续接项目。
-2. **有项目先续接**：用户选择 `runs/<operator_key>/<product_key>/` → 读 `operation-record.md` 当前状态 + `product-profile.md` 状态/版本/hash + `reflection/evidence/verify-*` → 从当前节点继续，禁止从 S0 重跑；没有项目时才走新建流程。
+2. **先让用户选任务**：有项目就报告项目和节点，只有用户选择“继续以前的项目”后，才读取 `operation-record.md` + `product-profile.md` + `reflection/evidence/verify-*` 并从当前节点继续，禁止从 S0 重跑；没有项目仍展示任务菜单，只有用户选择“开始新的获客项目”后才进入新建流程。
 3. **换机先恢复本地状态**：按 `specs/migration-handoff.md` 从旧机迁移 `.local/`、`runs/<operator_key>/` 与可选本地 `db/`；token 在新机重新获取；历史 approvals 只作审计，未执行写节点与 S12 必须当前对话重新确认。
 
 ## 6️⃣ 关键文件地图

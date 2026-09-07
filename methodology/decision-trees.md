@@ -2,7 +2,7 @@
 title: "获客双引擎·完整逻辑图（广撒网获询盘→精准背调跟进）"
 description: "完整 Mermaid 逻辑图：批量获客引擎 S0-S12 低成本铺量拿询盘；询盘后进入精准转化引擎，停自动群发、公司背调、A/B/C/D 分级、邮件/WhatsApp/商务社媒/电话长期跟进。"
 created: 2026-08-29
-updated: 2026-09-03
+updated: 2026-09-07
 author: "AI + 运营方"
 related: [RULES.md, specs/threshold-method, specs/domain-scale-sop, specs/sequence-config, specs/operations-sop, specs/data-structure]
 tags: [逻辑图, 决策树, mermaid, 完整流程, 询盘闭环, 判断]
@@ -23,9 +23,12 @@ audience: 人+AI
 
 ```mermaid
 flowchart TD
-    subgraph ENTRY["① 入口总线（每次会话必走）"]
-        START([新会话 / 新产品]) --> ONB["onboard_check.py<br/>环境+文档引导"]
-        ONB --> S0["S0 INPUT_GATE<br/>先收昵称+一句话产品<br/>了解产品并判断适配"]
+    subgraph ENTRY["① 安装/学习入口与业务入口分离"]
+        START([安装 / 学习 / 新会话]) --> ONB["onboard_check.py<br/>环境自检+扫描旧项目"]
+        ONB --> TASK{"安装完成<br/>用户选择做什么?"}
+        TASK -- "开始新获客项目" --> S0["S0 INPUT_GATE<br/>再收昵称+一句话产品<br/>了解产品并判断适配"]
+        TASK -- "续接旧项目" --> OLD["先选项目<br/>从记录节点继续·不回S0"]
+        TASK -- "适配/网站提炼/更新换机/了解流程" --> ROUTE["按SKILL对应路由<br/>不默认进入S0"]
         S0 --> CL{"首次调用平台前<br/>check_login.py<br/>token + 当前orgId有效?"}
         CL -- "无/失效/缺orgId" --> TK["引导用户按官方教程<br/>一键双取 token + orgId"] --> CL
         CL -- "有效" --> GC{"gate_check.sh 闸门"}
