@@ -20,6 +20,8 @@
 - token 等同账号密码，只发给你信任的 AI，别发群里
 - 拿到 null = 还没登录，先登录再试
 - 🔴 切换过账号/企业后要重新复制（orgId 会变）
+- 🔴 **token 单点有效**：在其他设备/浏览器登录，或网页重新登录 → 旧 token 立即作废（同一份反复贴没用，必须重取）
+- ℹ️ token 开头域名可能是 web.laifaxin.com 或 web.worldtradetool.com 等——都正常，不影响
 - 图文教程：https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
 ```
 

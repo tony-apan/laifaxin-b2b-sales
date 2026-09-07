@@ -8,7 +8,7 @@
 
 | 快速入口 | |
 |---|---|
-| 🚀 [极速开始：把这段发给 AI](#quickstart) | 安装+学习，一段指令全搞定 |
+| 🌟🌟 [极速开始：把这段发给 AI](#quickstart) | 安装+学习，一段指令全搞定 |
 | 📖 [完整方法：广撒网 + 精准跟进](docs/09-mass-outreach-to-precision-follow-up.md) | 成本账 / 询盘背调 / 分级 / 多渠道 |
 | 📦 [最新版下载与版本说明](https://github.com/tony-apan/laifaxin-b2b-sales/releases/latest) | Releases |
 | 🔄 [更新到新版本](#-更新到新版本老用户) | 同一台电脑升级（保留本地数据）|

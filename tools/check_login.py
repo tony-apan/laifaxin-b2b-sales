@@ -7,7 +7,7 @@
   python3 check_login.py --token '<...>' --org <orgId>   # 也可显式传
 官方教程: https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
 """
-import json, subprocess, argparse, sys, re
+import json, subprocess, argparse, sys, re, time, hashlib
 
 GUIDE_URL = "https://www.laifa.xin/share/ai/laifaxin-ai-account-connection"
 
@@ -22,6 +22,8 @@ def guide(reason):
       控制台会直接回显 ✅ 或 ❌ 提示文案（没有 undefined 尾巴）；复制出来是两行：accesstoken=... 和 orgId=...（字段名与页面存储一致），整段发给 AI 即可
   ⚠️ 粘贴代码时浏览器可能提示 "Don't paste code"——输入 allow pasting 再粘
   🔴 企业账号/多组织：右上角头像"切换账号"后 orgId 会变、token 不变——切换后必须重新执行上面的命令
+  🔴 token 单点有效：在其他设备/浏览器登录，或网页重新登录 → 旧 token 立即作废（贴同一份没用，必须重取）
+  ℹ️ token 开头域名可能是 web.laifaxin.com 或 web.worldtradetool.com 等——都是正常的，不影响使用
   ❓ ORG=null = 未登录/页面不对 → 确认已登录，刷新重试
 拿到后把剪贴板整段发给 AI——首次连接只做本只读检查，不搜客/不保存/不发信。""")
 
@@ -78,12 +80,21 @@ else:
 
 cmd = ["curl","-sSL","-m","30","-X","POST",f"https://web.laifaxin.com/api/benefits/refine-data?uid={org}",
        "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}","-d","{}"]
+
+# ★接口抽风内置重试（2026-09-06 用户实测：平台时段性持续返回 None，AI 各自放弃改法=乱）：空返回自动重试×3（间隔5s）
 r = None
-try:
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
-    d = json.loads(r.stdout) if r.stdout.strip() else {}
-except Exception:
-    d = {}
+d = {}
+for attempt in range(3):
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
+        d = json.loads(r.stdout) if r.stdout.strip() else {}
+    except Exception:
+        d = {}
+    if d:
+        break
+    if attempt < 2:
+        print(f"  ⏳ 接口返回空（平台间歇抽风·已知）——5 秒后自动重试（{attempt+1}/3）...")
+        time.sleep(5)
 
 # ★B7-1/terra 3-①: 三分类——curl层失败(rc!=0)=网络; 空/非JSON=平台接口间歇空(已知)(轻文案); success=false=token
 if r is not None and r.returncode != 0:
@@ -132,5 +143,31 @@ if d.get("success") is True:
     sys.exit(0)
 else:
     msg = d.get("message") or (r.stdout[:80] if isinstance(r.stdout, str) else "")
+    # ★失效计数器（2026-09-06 用户实测：同一份 token 贴四次都"已失效"，AI 各自放弃）——
+    #   token 单点有效：在别处登录/重登 → 旧 token 立即作废。同一份连续失效≥2 次，重试没有意义，必须重取。
+    if "失效" in msg:
+        import pathlib as _pl
+        tok_hash = hashlib.sha256(args.token.encode()).hexdigest()[:12]
+        fail_file = __import__('pathlib').Path(__file__).resolve().parent.parent / ".local" / "token-fail.json"
+        count = 1
+        try:
+            hist = json.loads(fail_file.read_text(encoding="utf-8")) if fail_file.is_file() else {}
+            if hist.get("token_hash") == tok_hash:
+                count = int(hist.get("count", 0)) + 1
+        except Exception:
+            count = 1
+        fail_file.parent.mkdir(parents=True, exist_ok=True)
+        fail_file.write_text(json.dumps({"token_hash": tok_hash, "count": count,
+                                         "last": time.strftime("%Y-%m-%dT%H:%M:%S")}), encoding="utf-8")
+        if count >= 2:
+            print(f"🔴 这份 token 已连续 {count} 次失效——**同一份重试没有意义**，不要再贴它。")
+            print("   原因只有两种：")
+            print("   ① 你在别处登录过（其他设备/浏览器/网页重新登录）——来发信 token 单点有效，旧 token 立即作废；")
+            print("   ② token 长期未使用已过期。")
+            print("   ✅ 三步解决（约 1 分钟）：")
+            print("      1) 网页退出登录 → 重新登录（之后只在这一处使用，不要多端同时登录）")
+            print("      2) 控制台粘贴一键复制命令（两条 copy 中的第一条，见上方针引），重新拿 token+orgId")
+            print("      3) 把剪贴板整段发给 AI——新 token 立即生效")
+            sys.exit(1)
     guide(f"token 无效或未登录（接口返回: {msg}）")
     sys.exit(1)
