@@ -435,6 +435,9 @@ def validate_product_profile(path, require_confirmed=True):
             ok, why = validate_nickname(by)
             if not ok:
                 issues.append(f"confirmed_by 不是纯昵称({by}): {why}")
+        quote = meta.get("confirm_quote", "")
+        if not quote.strip():
+            issues.append("status=confirmed 但缺 confirm_quote（须由 product_profile.py confirm 记录用户确认原话）")
         h = meta.get("content_sha256", "")
         if not h:
             issues.append("status=confirmed 但缺 content_sha256(用 product_profile.py confirm 生成)")

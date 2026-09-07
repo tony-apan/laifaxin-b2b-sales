@@ -1,0 +1,25 @@
+{
+  "candidate_id": "${CANDIDATE_ID}",
+  "confirmed_own_hosts": ["example.com"],
+  "created_at": "${CREATED_AT}",
+  "kind": "website-profile-candidate",
+  "project": "${OPERATOR_KEY}/${PRODUCT_KEY}",
+  "schema_version": 1,
+  "sections": {
+    "ai_analysis": [],
+    "company_claims": [],
+    "conflicts": [],
+    "facts": [],
+    "recommendations": [],
+    "unverified": []
+  },
+  "source_documents": [
+    {
+      "role": "OWN_COMPANY_SITE",
+      "role_confirmed": true,
+      "sha256": "${SOURCE_SHA256}",
+      "url": "https://example.com/"
+    }
+  ],
+  "status": "candidate"
+}

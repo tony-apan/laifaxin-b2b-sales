@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "website-profile/schema-candidate.json",
+  "title": "Website profile candidate",
+  "description": "Structural contract. tools/website_profile_utils.py is the final safety authority for own-host, evidence, contact, and hash semantics.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "candidate_id", "project", "status", "created_at", "confirmed_own_hosts", "source_documents", "sections"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "website-profile-candidate"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "project": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "status": {"const": "candidate"},
+    "created_at": {"type": "string", "minLength": 1},
+    "confirmed_own_hosts": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "source_documents": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source_document"}},
+    "sections": {
+      "type": "object", "additionalProperties": false,
+      "required": ["facts", "company_claims", "ai_analysis", "recommendations", "conflicts", "unverified"],
+      "properties": {
+        "facts": {"$ref": "#/$defs/pending_targeted_items"},
+        "company_claims": {"$ref": "#/$defs/pending_targeted_items"},
+        "ai_analysis": {"$ref": "#/$defs/pending_untargeted_items"},
+        "recommendations": {"$ref": "#/$defs/pending_untargeted_items"},
+        "conflicts": {"$ref": "#/$defs/conflict_items"},
+        "unverified": {"$ref": "#/$defs/unverified_items"}
+      }
+    }
+  },
+  "$defs": {
+    "role": {"enum": ["OWN_COMPANY_SITE", "OWN_PRODUCT_PAGE", "OWN_CATALOG", "BUYER_SEED", "THIRD_PARTY_REFERENCE", "UNKNOWN"]},
+    "source_document": {
+      "description": "For own roles, Python validation additionally requires role_confirmed=true and an exact confirmed own host.",
+      "type": "object", "additionalProperties": false,
+      "required": ["url", "sha256", "role", "role_confirmed"],
+      "properties": {
+        "url": {"type": "string", "pattern": "^https://"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "role": {"$ref": "#/$defs/role"},
+        "role_confirmed": {"type": "boolean"}
+      }
+    },
+    "items": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "pending_targeted_items": {"type": "array", "items": {"allOf": [{"$ref": "#/$defs/item"}, {"$ref": "#/$defs/target_constraint"}, {"properties": {"confirmation_status": {"const": "pending"}}}]}},
+    "pending_untargeted_items": {
+      "type": "array",
+      "items": {"allOf": [{"$ref": "#/$defs/item"}, {"properties": {"confirmation_status": {"const": "pending"}, "target_profile": {"const": ""}, "target_field": {"const": ""}}}]}
+    },
+    "conflict_items": {"type": "array", "items": {"allOf": [{"$ref": "#/$defs/item"}, {"$ref": "#/$defs/target_constraint"}, {"properties": {"confirmation_status": {"const": "conflict"}}}]}},
+    "unverified_items": {"type": "array", "items": {"allOf": [{"$ref": "#/$defs/item"}, {"$ref": "#/$defs/target_constraint"}, {"properties": {"confirmation_status": {"const": "unverified"}}}]}},
+    "item": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "text", "source_url", "evidence_text", "confidence", "confirmation_status", "target_profile", "target_field"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "text": {"type": "string", "minLength": 1},
+        "source_url": {"type": "string", "pattern": "^https://"},
+        "evidence_text": {"type": "string"},
+        "confidence": {"enum": ["low", "medium", "high"]},
+        "confirmation_status": {"enum": ["pending", "conflict", "unverified"]},
+        "target_profile": {"enum": ["product", "operator", ""]},
+        "target_field": {"type": "string"}
+      }
+    },
+    "target_constraint": {
+      "oneOf": [
+        {"properties": {"target_profile": {"const": "product"}, "target_field": {"enum": ["1", "2", "3", "4", "5", "6", "7", "8"]}}},
+        {"properties": {"target_profile": {"const": "operator"}, "target_field": {"enum": ["company_name", "website", "contact_email", "target_markets", "default_languages"]}}}
+      ]
+    }
+  }
+}

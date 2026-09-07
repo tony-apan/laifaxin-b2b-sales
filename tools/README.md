@@ -25,6 +25,7 @@ audience: AI优先（人可参考）
 | `onboard_check.py` | Python 就绪后的自检 + 可续接项目/status/profile扫描 | ✅ 不输出 token/审批原话/邮箱 |
 | `operator_profile.py` | 公司级资料档案（跨产品/换机复用） | ✅ 签名只读纯昵称；不含 token/第三方资料 |
 | `product_profile.py` / `profile_utils.py` | 产品档案 init/confirm/validate/status + 版本/hash/昵称/第三方信息闸门 | ✅ draft阻断；confirmed/declined分流 |
+| `website_profile.py` / `website_profile_utils.py` | 独立可选网站增强：角色分类→六区候选→批准补丁→正式档案单文件原子写入 | ✅ 无网络；失败不改主状态；未批准不导入 |
 | `update_run_state.py` | operation-record 状态推进（换机续接真源） | ✅ 节点成功后更新 status/next_state/profile版本hash |
 | `finalize_audit.py` | S4审计收口（70%临界证据+独立放行review） | ✅ 证据过审才推进S4，之后才可保存 |
 | `finalize_run.py` | S11终检收口（verification-manifest绑定4证据hash/project/seq/profile） | ✅ 当前S10且证据全过才推进S11 |

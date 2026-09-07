@@ -191,12 +191,27 @@ def _rewrite_frontmatter(path, updates, body_override=None):
     Path(path).write_text(out, encoding="utf-8")
 
 
+def _reject_active_profile_change(profile):
+    """已激活项目先停用线上序列；本地改状态不能停止已经在发送的序列。"""
+    record = Path(profile).parent / "operation-record.md"
+    if not record.is_file():
+        return
+    meta = parse_frontmatter(record)
+    text = record.read_text(encoding="utf-8", errors="replace")
+    active = meta.get("status", "").upper().startswith("S12") or bool(
+        re.search(r"(?im)^\s*(?:status\s*:\s*)?ACTIVE\s*$", text)
+    )
+    if active:
+        _fail(2, "❌ 项目已处于 S12/ACTIVE，不能直接修改产品档案；本地改档不能停止线上发送。请先按现有停用流程确认序列已 inactive，再重试。")
+
+
 def cmd_confirm(args):
     """把 draft/declined 档案置为 confirmed: 记 confirmed_by(纯昵称)/confirmed_at/quote,
     content_sha256 对正文稳定计算; 正文逐字保留。"""
     p = Path(args.profile)
     if not p.is_file():
         _fail(2, f"❌ 档案不存在: {p} (先 init) (exit 2)")
+    _reject_active_profile_change(p)
     ok, why = validate_nickname(args.by)
     if not ok:
         _fail(2, f"❌ --by 不是纯昵称({args.by}): {why}——签名只能是纯个人昵称 (exit 2)")
@@ -228,8 +243,8 @@ def cmd_confirm(args):
         old_version = int(meta.get("profile_version", "1"))
     except ValueError:
         _fail(2, f"❌ profile_version 非整数: {meta.get('profile_version')!r} (exit 2)")
-    was_confirmed = meta.get("status") == "confirmed"
-    new_version = old_version + 1 if was_confirmed else old_version
+    was_terminal = meta.get("status") in ("confirmed", "declined")
+    new_version = old_version + 1 if was_terminal else old_version
     safe_quote = _safe_frontmatter_value(quote)
     summary = _safe_frontmatter_value(args.summary or "用户确认当前8字段与来源", max_len=160).replace("|", "/")
     body_with_log = _append_change_record(body, now, f"confirm v{new_version}", summary)
@@ -274,6 +289,7 @@ def cmd_confirm(args):
 def cmd_decline(args):
     p = Path(args.profile)
     if not p.is_file(): _fail(2, f"❌ 档案不存在: {p}")
+    _reject_active_profile_change(p)
     quote = " ".join(str(args.quote or "").split())
     if not any(w in quote for w in ("跳过", "不提供", "拒绝提供", "暂不提供")):
         _fail(2, "❌ decline须提供用户明确跳过/不提供资料的原话")

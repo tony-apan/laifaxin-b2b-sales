@@ -88,3 +88,5 @@ tools/segments_infer.py	推理N轮→客群落地	inference-generate×N+segment-
 tools/pull_stats.py	效果拉取	私有运营工具，未随公开仓分发	private-not-distributed
 tools/activate_sequence.py	S12激活	profile+合规证据+绑定审批+回读active+状态推进	verified
 tools/seed_resolve.py	S3取域名	--id结果id→base-info取域名;只读	verified
+tools/website_profile.py	网站资料增强(可选)	无网络:角色分类+六区候选校验+批准补丁+单档案原子导入;失败不阻断主线	verified
+tools/website_profile_utils.py	网站资料增强公共校验	stdlib schema/来源host/第三方联系/patch hash/原子写	foundation

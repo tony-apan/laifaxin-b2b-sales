@@ -36,7 +36,7 @@ audience: 人+AI
 ## 1. 节点矩阵（S0-S12，每个节点照抄执行）
 
 ### S0 INPUT_GATE + S0a PRODUCT_PROFILE（闸门 + 必填输入 + 产品知识档案）
-- **判据（来源）**：`../RULES.md` S0「开跑先问纯个人昵称 + 一句话产品；禁止开局催 token 或列清单」。之后进入 S0a：按 `product-profile-sop.md`，用户给官网/目录/卖点就由 AI 读取提炼；没给则 AI 主动要一次（给填空模板、可跳过、不逼问）。公司名/官网/邮箱/认证/产能/MOQ/交期/价格带等**用户自己的商业资产可以主动要**；潜在买家/客户/联系人联系方式等第三方信息不索要。产品了解与适配完成、首次调用平台前再获取 token + 当前工作空间 orgId。
+- **判据（来源）**：`../RULES.md` S0「开跑只需纯个人昵称 + 一句话产品；禁止开局催 token 或列清单」。卖给谁、卖到哪、自己的官网/产品页/目录全部选填；缺失时 AI 先推荐，不阻断、不冒充用户输入。进入 S0a 后，用户给自己的网址就走独立 `website-profile-sop.md`，先确认角色、生成六区候选、批准补丁后才导入；失败/跳过继续原流程。公司名/官网/邮箱/认证/产能/MOQ/交期/价格带等**用户自己的商业资产可以邀请补充**；潜在买家/客户/联系人联系方式等第三方信息不索要。产品了解与适配完成、首次调用平台前再获取 token + 当前工作空间 orgId。
 - **签名与正文边界**：邮件末尾签名区**只能是纯个人昵称**；公司身份/官网/联系邮箱不进入签名。`product-profile.md` 中经用户确认且有字段级来源的认证、产能、MOQ、交期、价格带可用于正文卖点；无来源或仅为推断的具体事实不得写进正文。
 - **通过条件**：①环境 bootstrap check 全绿 ②昵称通过 `profile_utils.validate_nickname` ③token 登录检查 + gate_check 通过 ④项目目录 `runs/<operator_key>/<product_key>/` 已固定 ⑤product-profile 存在且状态为 `confirmed` 或 `declined`（draft 禁止进入 S2）；confirmed 记录 path+content hash，declined 仅允许通用无具体事实文案。
 - **脚本顺序**：无 Python 时先 `bash tools/bootstrap.sh --install`（macOS/Linux/Git Bash/WSL）或 `powershell -ExecutionPolicy Bypass -File tools/bootstrap.ps1 -Install`（Windows PowerShell）→ `python3|py tools/onboard_check.py` → `python3|py tools/product_profile.py init ...` → AI 按模板/SOP 填档 → `python3|py tools/product_profile.py confirm --profile ... --by <纯昵称> --quote '<用户确认原话>'` → 首次平台调用前一键双取 → `python3|py tools/check_login.py --token '<两行整段>'` → `bash tools/gate_check.sh --token '<两行整段>' --product <项目键>`（或两命令均用纯 token + 显式 `--org <当前工作空间ID>`）→ `python3|py tools/flow_orchestrator.py --profile <档案路径> ...`。

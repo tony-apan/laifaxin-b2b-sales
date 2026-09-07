@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "website-profile/schema-patch.json",
+  "title": "Website profile patch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "patch_id", "candidate_id", "project", "target_profile", "status", "created_at", "base_profile_sha256", "candidate_sha256", "selected_ids", "changes", "patch_sha256", "approval", "canonical_patch_sha256"],
+  "properties": {
+    "schema_version": {"const": 1}, "kind": {"const": "website-profile-patch"},
+    "patch_id": {"type": "string", "minLength": 1}, "candidate_id": {"type": "string", "minLength": 1},
+    "project": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "target_profile": {"enum": ["product", "operator"]}, "status": {"enum": ["candidate", "approved"]},
+    "created_at": {"type": "string", "minLength": 1},
+    "base_profile_sha256": {"$ref": "#/$defs/hash"}, "candidate_sha256": {"$ref": "#/$defs/hash"},
+    "selected_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "changes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/change"}},
+    "patch_sha256": {"$ref": "#/$defs/hash"},
+    "approval": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/approval"}]},
+    "canonical_patch_sha256": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"}
+  },
+  "allOf": [
+    {"if": {"properties": {"target_profile": {"const": "product"}}}, "then": {"properties": {"changes": {"items": {"properties": {"target_field": {"enum": ["1", "2", "3", "4", "5", "6", "7", "8"]}}}}}}},
+    {"if": {"properties": {"target_profile": {"const": "operator"}}}, "then": {"properties": {"changes": {"items": {"properties": {"target_field": {"enum": ["company_name", "website", "contact_email", "target_markets", "default_languages"]}}}}}}},
+    {"if": {"properties": {"status": {"const": "candidate"}}}, "then": {"properties": {"approval": {"type": "null"}, "canonical_patch_sha256": {"const": ""}}}},
+    {"if": {"properties": {"status": {"const": "approved"}}}, "then": {"properties": {"approval": {"$ref": "#/$defs/approval"}, "canonical_patch_sha256": {"$ref": "#/$defs/hash"}}}}
+  ],
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "change": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "section", "text", "source_url", "evidence_text", "confidence", "target_field"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "section": {"enum": ["facts", "company_claims"]},
+        "text": {"type": "string", "minLength": 1}, "source_url": {"type": "string", "pattern": "^https://"},
+        "evidence_text": {"type": "string"}, "confidence": {"enum": ["low", "medium", "high"]},
+        "target_field": {"type": "string", "minLength": 1}
+      }
+    },
+    "approval": {
+      "type": "object", "additionalProperties": false,
+      "required": ["approved_by", "approved_quote", "approved_at"],
+      "properties": {
+        "approved_by": {"type": "string", "minLength": 1},
+        "approved_quote": {"type": "string", "minLength": 1},
+        "approved_at": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

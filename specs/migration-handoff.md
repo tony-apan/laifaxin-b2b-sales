@@ -31,7 +31,7 @@ audience: AI优先
 | 目录 | 内容 | 是否必备 |
 |---|---|---|
 | `.local/`（整目录） | 审批凭证 approvals.tsv、运营方档案（新版 `.local/operators/<operator_key>.md` 多公司各一份；旧版 `operator-profile.md` 兼容）等本地状态 | 必备 |
-| `runs/<运营方>/`（只备份运营方目录；**排除 `runs/_template/` 与 `runs/INDEX.md` 等仓库自带文件**） | 各产品 operation-record.md / product-profile.md / evidence.json / tmap.json / verify-* 等 | 必备 |
+| `runs/<运营方>/`（只备份运营方目录；**排除 `runs/_template/` 与 `runs/INDEX.md` 等仓库自带文件**） | 各产品 operation-record.md / product-profile.md / evidence.json / tmap.json / verify-*；如使用网站增强，还包括项目内 `website-profile/` 候选、批准补丁与影响清单 | 必备 |
 | `db/` 中**本地未跟踪文件**（`db/issues.tsv` 等运行期新增表；`db/docs.tsv`、`db/tools.tsv` 等仓库自带跟踪文件**不带**） | 本地数据表（用于审计与 runs 登记） | 可选（有就带上） |
 
 bash（macOS/Linux/Git Bash/WSL）：

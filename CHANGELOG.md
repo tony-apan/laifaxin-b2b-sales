@@ -2,6 +2,18 @@
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
 
+## [v0.5.0] - 2026-09-07
+
+新增**独立可选的网站资料增强模块**，不改变 S0-S12；没网址、用户跳过、读取失败或模块异常时，原流程照常运行：
+
+- **输入收口**：必填只有纯个人昵称 + 卖什么；卖给谁、卖到哪、用户自己的官网/产品页/目录全部选填。缺客群或市场时 AI 先给有理由的建议，不阻断、不反复追问、不冒充用户输入。
+- **网址角色隔离**：固定 `OWN_COMPANY_SITE / OWN_PRODUCT_PAGE / OWN_CATALOG / BUYER_SEED / THIRD_PARTY_REFERENCE / UNKNOWN`；用户声明是角色真源，普通网址默认 UNKNOWN，买家网址只转 S3，第三方参考只做分析。
+- **无网络模块**：`website_profile.py` 不爬站，只接收 AI 已读取公开页面后生成的 JSON；六区隔离 facts/company_claims/ai_analysis/recommendations/conflicts/unverified，硬事实必须带具体 URL 和页面原文。
+- **批准补丁链**：候选校验 → 公司/产品分开 prepare → 展示 patch id/hash → 明确批准 + ack → canonical hash/base hash/project/标准路径重验 → 正式档案单文件原子写入。冲突、未核实、第三方联系、哈希漂移、跨项目、错误副本全部 fail closed。
+- **主链零干扰**：产品补丁导入后回 draft，仍须现有 confirm；模块只生成影响建议，不修改 operation-record。S12/ACTIVE 拒绝产品更新，必须先停用。公司档案跨产品共享，已有任何项目记录后拒绝自动导入。
+- **现有档案硬化**：confirmed 必须记录 confirm_quote；declined→confirmed 升版；S12/ACTIVE 的 confirm/decline 均在写前拒绝，防止本地改档但线上旧序列继续发送。
+- README/RULES/SKILL/SOP/话术/机器索引/迁移说明同步；新增 JSON Schema、运行模板和本地回归测试。
+
 ## [v0.4.16] - 2026-09-07
 
 README 按“小白 3 秒看懂、30 秒能开始、细节按需展开”做结构级重写，并同步修复重写时发现的执行层冲突：

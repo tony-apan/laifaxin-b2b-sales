@@ -1,0 +1,17 @@
+{
+  "approval": null,
+  "base_profile_sha256": "${BASE_PROFILE_SHA256}",
+  "candidate_id": "${CANDIDATE_ID}",
+  "candidate_sha256": "${CANDIDATE_SHA256}",
+  "canonical_patch_sha256": "",
+  "changes": [],
+  "created_at": "${CREATED_AT}",
+  "kind": "website-profile-patch",
+  "patch_id": "${PATCH_ID}",
+  "patch_sha256": "${PATCH_SHA256}",
+  "project": "${OPERATOR_KEY}/${PRODUCT_KEY}",
+  "schema_version": 1,
+  "selected_ids": [],
+  "status": "candidate",
+  "target_profile": "product"
+}

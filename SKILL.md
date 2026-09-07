@@ -2,7 +2,7 @@
 name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
-version: 0.4.16
+version: 0.5.0
 created: 2026-08-30
 updated: 2026-09-07
 author: "独立审查 agent（对抗判定后落地）"
@@ -24,8 +24,12 @@ audience: AI优先
 
 ```mermaid
 flowchart TD
-    N["开局只问:纯个人昵称+一句话产品<br/>(目标市场可选)"] --> S0["S0: AI了解产品并判断适配<br/>出ABCD获客方向·用户选字母"]
-    S0 --> S0A["S0a: 分两轮主动索取<br/>公司档案+产品档案"]
+    N["开局必填:纯个人昵称+一句话产品<br/>客群/市场/自己官网均选填"] --> S0["S0: AI了解产品并判断适配<br/>缺客群/市场则AI推荐·不阻断"]
+    S0 --> W{"用户提供自己的<br/>官网/产品页/目录?"}
+    W -- "无/跳过" --> S0A["S0a: 分两轮主动索取<br/>公司档案+产品档案"]
+    W -- "有·选填" --> WP["独立网站增强模块<br/>六区候选·用户确认后才导入"]
+    WP -- "失败/跳过" --> S0A
+    WP -- "批准导入" --> S0A
     S0A --> T["首次调用平台前<br/>一键双取token+当前orgId"]
     T --> S2["S2: 推演具体客群<br/>用户选编号"]
     S2 --> S3["S3: 用户有认得的买家网址?<br/>有→填入;没有→标准路径,不追问"]
@@ -53,7 +57,8 @@ flowchart TD
 | "换机 / 换电脑 / 另一台电脑接手" | README「💻 换电脑继续干」完整指令块 + `specs/migration-handoff.md`：旧机迁移 `.local/`+`runs/`+可选本地`db/` → 新机恢复同名路径 → token重新获取 → onboard枚举项目 → 禁止从S0重跑已有项目 |
 | "更新到最新版 / 升级 / 老用户更新" | README「🔄 更新到新版本」办法 A：判断 git/ZIP → 备份 `.local/`+`runs/` → 更新原目录 → bootstrap check-only → 用输出的 `python_cmd` 跑 `onboard_check.py` → 汇报版本/变化/数据完好；冲突或旧文件残留先列出问用户，不强推不自删 |
 | "帮我找 X 产品的客户" / 开新项目 | 环境 bootstrap 全绿 → S0 昵称+一句话产品 → S0a `operator_profile.py` + `product_profile.py` 建档/确认(或declined) → 登录检查 → `gate_check.sh --product <operator_key>/<product_key>` → `flow_orchestrator.py --profile <档案路径>` |
-| "我这产品适合跑吗 / 大宗 / 长周期 / 好几年才采购" | §2 → 登录检查/闸门 → `specs/product-fit.md`（强/条件/弱三档判定表）：S0 判定 + 如实告知弱适配预期，由用户决定（不拒绝、不静默）|
+| "我有官网 / 这是我们网站 / 产品页 / 产品目录 / 帮我了解公司和产品 / 优化定位" | **可选独立模块** `specs/website-profile-sop.md` → 先确认网址角色 → AI 读取公开页并生成六区候选 → `tools/website_profile.py` 校验/准备补丁/批准/正式档案单文件原子写入；失败或跳过不阻断 S0/S0a，不修改线上网站；买家网址转 S3 |
+| "我这产品适合跑吗 / 大宗 / 长周期 / 好几年才采购" | §2 → `specs/product-fit.md`（强/条件/弱三档判定表）：S0 只读判定 + 如实告知弱适配预期，由用户决定（不拒绝、不静默）；产品适配不需要 token |
 | "这客户/这批准不准" / "临界在哪" | 状态机 S4 → `specs/threshold-method.md`（AI 反思 70% 判据）+ `tools/audit_company.py`（⚠️仅趋势初筛）|
 | "怎么才存了这么点 / 邮箱太少 / 数量对不上" | S6 数量账：`output-templates/S6-数量账.md`——四机制（max3/验真/去重/异步提取）逐项解释；**未知邮箱默认已保存**；<1.0 邮箱/家建议查锚点 |
 | "保存这批 / 前 N 条" | 状态机 S5/S6 → `tools/save_first_n.py`（★必须带 S5 的 `--approval`）|
@@ -86,7 +91,7 @@ flowchart TD
   - 🔴 **token 单点有效**：用户在其他设备/浏览器登录、或网页重新登录 → 旧 token 立即作废——"token已失效"时引导重登+一键重取，同一份反复重试无意义（check_login 会计数升级提示）
   - ℹ️ token 开头域名可能是 web.laifaxin.com 或 web.worldtradetool.com 等——均正常，勿按域名判真伪
 - **★最小必要输入（2026-09-07 对抗收口：渐进索取，禁止开局列清单）**：
-  - **对话开局只问 1 类**：**纯个人昵称 + 一句话产品**（如“Tony；我卖不锈钢保温杯，主要卖欧美”），目标市场可选。不先催 token，不因语言形式重复追问。
+  - **对话开局只问 1 类**：**纯个人昵称 + 一句话产品**（如“Tony；我卖不锈钢保温杯”）。卖给谁、卖到哪、自己的官网/产品页/目录全部选填；没给时 AI 先推荐客群/市场，不阻断、不重复追问、不冒充用户输入。
   - **首次调用来发信平台前再问第 2 类**：**token + 当前工作空间 orgId**（推荐按上方命令一键双取两行整段）。🔴 token 中段是用户 UID；企业账号 orgId 必须取 localStorage 的独立值，个人账号二者仅是恰好相同。
   - **★昵称规范（2026-09-03 用户拍板）**：昵称**只含个人称呼**（Tony / Iris 等纯人名）；发现含公司名/产品名/职位（如 "Iris | XX Textiles"、"保温杯厂-老王"）→ **一次性说明并请用户改**："昵称只放个人名字；公司信息我会存入本地产品档案用于分析，但不会进入邮件签名——您想用什么昵称？"
   - **后续节点用到现在才要**：S0 出 A/B/C/D 方案选字母；S2 出具体客群表选编号（两步分工，不重复问）；S3 用户可给一个认得的买家网址（没有就走标准路径，不追问）；S7 邮件签名只用昵称——公司/官网/邮箱（用户自己的商业资产）AI 主动要 **仅供 AI 建档/背调**，绝不写进邮件签名。
@@ -102,7 +107,7 @@ flowchart TD
 
 | 节点 | 一句话判据 |
 |------|-----------|
-| S0 INPUT_GATE | **只需昵称+一句话产品**（中英皆可）。★S0 出 A/B/C/D **获客方向方案**（含推荐与淘汰理由），用户选字母——禁止开局索要清单。★产品资料（卖什么/卖点/客群方向）：用户给官网/目录/卖点 → AI 读取并落成 `runs/<运营方>/<产品>/product-profile.md`；用户没给 → **AI 主动要一次**（给模板可跳过、不逼问）→ 拿到或按行业通用口径出档案。★**产品适配度判定（只读前置）**：出方案前先按 `specs/product-fit.md` 四问判 **强/条件/弱适配**，结论+理由随 ABCD 方案一起展示；弱适配必须如实说明预期（冷邮件回询盘以月/年计，建议小样验证），由用户决定，不静默走流程 |
+| S0 INPUT_GATE | **必填只有昵称+一句话产品**（中英皆可）；卖给谁/卖到哪/自己的网址均选填。缺客群或市场时 AI 先推荐，不阻断、不冒充用户输入。S0 出 A/B/C/D **获客方向方案**（含推荐与淘汰理由），用户选字母。用户给自己的官网/目录/产品页 → 只走独立 `website-profile-sop.md` 六区候选，批准补丁后才导入；买家网址转 S3；模块失败/跳过继续原流程。用户给卖点文字/文件 → 按用户来源提炼；没给 → 邀请补充一次、可跳过。★出方案前按 `specs/product-fit.md` 四问判 **强/条件/弱适配**，弱适配如实说明预期，由用户决定 |
 | S0a PROFILE_PENDING | 分两轮主动索取：①公司级资料→`.local/operators/<operator_key>.md`（多公司隔离/跨产品/换机复用）②产品级资料→`runs/<operator_key>/<product_key>/product-profile.md`。每轮一组、可跳过不逼问；产品档案必须 confirmed 或 declined 才能进 S1，draft 阻断；后续绑定版本/hash |
 | S1 PATH_PENDING | 有精准网址→快速路径 A；无→标准路径 B **自动选择，不追问**（用户随时可补网址切换） |
 | S2 SEGMENT_PENDING | 推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add，非 product-add，否则 generate 500；generate 后轮询 list 至非空；★客群推演**优先读 product-profile.md** 的产品线/客群/卖点，推得更准）|
@@ -157,12 +162,12 @@ flowchart TD
 
 | 类别 | 文件 |
 |------|------|
-| 规则（唯一真源） | `RULES.md` → `specs/environment-setup.md`（零Python依赖准备）/ `specs/migration-handoff.md`（换机续接）/ `specs/operator-profile-sop.md`（公司级资料主动索取/跨产品复用）/ `specs/product-profile-sop.md`（产品资料提炼/确认/版本/hash/复用）/ `specs/product-fit.md`（适配三档）/ `specs/threshold-method.md`（70%临界）/ `specs/domain-scale-sop.md`（保存）/ `specs/sequence-config.md`（模板+序列） |
+| 规则（唯一真源） | `RULES.md` → `specs/environment-setup.md`（零Python依赖准备）/ `specs/migration-handoff.md`（换机续接）/ `specs/operator-profile-sop.md`（公司级资料主动索取/跨产品复用）/ `specs/product-profile-sop.md`（产品资料提炼/确认/版本/hash/复用）/ `specs/website-profile-sop.md`（独立可选网站增强）/ `specs/product-fit.md`（适配三档）/ `specs/threshold-method.md`（70%临界）/ `specs/domain-scale-sop.md`（保存）/ `specs/sequence-config.md`（模板+序列） |
 | 流程逻辑 | `methodology/decision-trees.md`（A/B 路径图）/ `INDEX.md`（导航）|
 | 环境/迁移 SOP | `specs/environment-setup.md`（零 Python bootstrap）/ `specs/migration-handoff.md`（换机备份/恢复/续节点） |
 | 当前状态 | `runs/<operator_key>/<product_key>/operation-record.md`（流程节点）+ 同目录 `product-profile.md`（资料状态/版本/hash）；`.local/` 只存运营方档案与审批流水，不是当前节点真源 |
 | 工具（工具=规则） | `tools/bootstrap.sh`/`bootstrap.ps1`（无Python环境准备）、`onboard_check.py`（环境复查+可续接项目扫描）、`product_profile.py`/`profile_utils.py`（S0a档案状态/版本/hash+纯昵称/第三方信息闸门）、`gate_check.sh`、`check_login.py`（登录+账号状态卡）、`flow_orchestrator.py`、`approval.py`、`seed_resolve.py`（S3 id→域名）、`tag_add.py`（S5 前置建标签，同名复用）、`save_first_n.py`（内置数量账输出）、`wait_save_done.py`、`gen_templates.py`（profile+claims+签名硬闸门，自动归组）、`check_template_diff.py`、`build_sequence.py`、`contact_add.py`、`activate_sequence.py`、`resolve_schedule.py`、`verify_exclude.py`、`verify_sequence.py`、`rebuild_templates.py`、`audit_company.py`、`render_preview.py`、`check_rules.sh` |
-| 用户话术模板 | `output-templates/`（README=总索引；T-token/S0连接+画像/S0a运营方档案+产品知识档案/S2/S3/S4审计中/S5/S6数量账/S7/S8构建中/S9/S10/S11/S12/Q1-Q5 17 个话术模板+1 个总索引）|
+| 用户话术模板 | `output-templates/`（README=总索引；T-token/S0连接+画像/S0a运营方档案+网站资料确认+产品知识档案/S2/S3/S4审计中/S5/S6数量账/S7/S8构建中/S9/S10/S11/S12/Q1-Q5 18 个话术模板+1 个总索引）|
 | 档案（多公司多产品） | `runs/<运营方>/<产品>/`（operation-record/reflection/evidence/**product-profile**/verify-*）+ `runs/_template/` + 本地运行记录（不入 Git）|
 | 问题与教训 | 本地问题登记（`db/issues.tsv`，本地数据不入 Git，open 即待办）/ `lessons/lessons-learned.md`（L-01~L-54；L-44 起为脱敏抽象条目，随库分发）/ `review-cycle.md`（旁观者审查）|
 

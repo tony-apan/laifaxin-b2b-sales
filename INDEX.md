@@ -30,6 +30,7 @@ audience: 人+AI
 | **SOP-换机续接** | migration-handoff | `specs/migration-handoff.md` | ★迁移本地状态→项目枚举→从当前节点继续 | ✅ |
 | **SOP-运营方档案** | operator-profile-sop | `specs/operator-profile-sop.md` | ★公司级资料主动索取→`.local/operators/<operator_key>.md`→跨产品/换机复用；签名只读昵称 | ✅ |
 | **SOP-产品知识档案** | product-profile-sop | `specs/product-profile-sop.md` | ★产品资料主动索取→字段级来源→确认/版本/hash→S2/S4/S7/S9复用 | ✅ |
+| **SOP-网站资料增强** | website-profile-sop | `specs/website-profile-sop.md` | ★独立可选：网址角色→六区候选→批准补丁；失败不阻断主线 | ✅ |
 | **SOP-规模化** | domain-scale-sop | `specs/domain-scale-sop.md` | 域名搜/front保存(前N不翻页) | ✅ |
 | **规范-模板/序列** | sequence-config | `specs/sequence-config.md` | code变量/差异30%/冷启动/美国时间 | ✅ |
 | **规则-营销** | marketing-rules-2.0 | `specs/marketing-rules-2.0.md` | 70%默认/3邮箱/暖机/contactExcludes | ✅ |
@@ -37,7 +38,7 @@ audience: 人+AI
 | **API参考** | api-reference | `specs/api-reference.md` | 全接口参数（含front保存/验证） | ✅ |
 | **教训** | lessons-learned | `lessons/lessons-learned.md` | 问题教训(L-01~L-54) | ✅ |
 | **询盘转化** | mass-to-precision | `docs/09-mass-outreach-to-precision-follow-up.md` | 广撒网成本账→询盘背调→A/B/C/D分级→多渠道长期跟进 | ✅ |
-| **用户话术** | output-templates | `output-templates/`（总索引+17话术模板，含S0a运营方档案/产品知识档案） | S0-S12+询盘阶段给小白看的固定输出模板 | ✅ |
+| **用户话术** | output-templates | `output-templates/`（总索引+18话术模板，含S0a运营方/网站资料/产品知识档案） | S0-S12+询盘阶段给小白看的固定输出模板 | ✅ |
 | **数据结构** | data-structure | `specs/data-structure.md` | md/tsv/jsonl分工/目录规范 | ✅ |
 | **运营方档案** | operator-profile | 本地 `.local/operators/<operator_key>.md`（旧单文件兼容，不入 Git） | 多公司隔离；签名只读纯昵称；工具 `operator_profile.py` | ✅ |
 | **术语表** | glossary | `glossary/glossary.md` | 系统/业务词人话解释（新手必读） | ✅ |
@@ -87,6 +88,7 @@ runs/
 | **环境准备** | `tools/bootstrap.sh` / `bootstrap.ps1` | 无Python探测/安装/复查（PS1待Windows实机） | ✅/⚠️ |
 | **续接扫描** | `tools/onboard_check.py` | 可续接项目/status/profile扫描 | ✅ |
 | **公司/产品档案** | `tools/operator_profile.py` / `product_profile.py` / `profile_utils.py` | 分层回落、纯昵称、来源/版本/hash | ✅ |
+| **网站资料增强（可选）** | `tools/website_profile.py` / `website_profile_utils.py` | 公开页候选校验、角色隔离、用户批准后单档案原子导入；失败不阻断主线 | ✅ |
 | **审批/状态** | `tools/approval.py` / `update_run_state.py` | 实际参数hash授权 + 合法状态转换/受控恢复 | ✅ |
 | **流程向导** | `tools/flow_orchestrator.py` | 节点交互；参数不全只记pending；S12当前TTY | ⚠️prototype |
 | **登录/闸门** | `tools/check_login.py` / `gate_check.sh` / `check_rules.sh` | 登录、必读SOP、profile状态 | ✅ |
