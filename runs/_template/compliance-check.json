@@ -3,6 +3,7 @@
   "seq": "<序列id>",
   "profile_sha256": "<当前product-profile完整sha256>",
   "checked_at": "YYYY-MM-DDTHH:MM:SS",
+  "evidence_mode": "<live|simulation>",
   "market": {"status": "pending", "evidence": {"source": "<法规/平台规则URL或用户确认记录>", "checked_at": "YYYY-MM-DDTHH:MM:SS", "detail": "<适用市场与结论>"}},
   "list_source": {"status": "pending", "evidence": {"source": "<名单来源记录>", "checked_at": "YYYY-MM-DDTHH:MM:SS", "detail": "<来源与适用依据>"}},
   "sender_identity": {"status": "pending", "evidence": {"source": "<运营方档案/用户确认>", "checked_at": "YYYY-MM-DDTHH:MM:SS", "detail": "<发送主体核查；邮件签名区仍只含纯昵称>"}},

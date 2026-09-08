@@ -4,6 +4,7 @@
   "seq": "<序列id>",
   "profile_sha256": "<当前product-profile完整sha256>",
   "generated_at": "YYYY-MM-DDTHH:MM:SS",
+  "evidence_mode": "<live|simulation>",
   "evidence": {
     "sequence": {"status": "pending", "path": "verify-seq.txt", "sha256": ""},
     "exclude": {"status": "pending", "path": "verify-exclude.txt", "sha256": ""},

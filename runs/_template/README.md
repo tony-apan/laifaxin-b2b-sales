@@ -11,6 +11,7 @@
 - 每个产品一个目录：`operation-record.md` + `product-profile.md` + `audit-manifest.json`（S4审计/review绑定）+ `verification-manifest.json`（S11四证据绑定）+ `compliance-check.json`（S12五项结构化证据）+ `recovery-manifest.json`（ERROR受控恢复）+ `reflection/evidence/verify-*`
 - **product-profile 是必经档案**：用户没给资料时 AI 主动要一次；拒绝/跳过也要记录 `status: declined`，draft 不得进入 S2；后续 S2/S4/S7/S9 绑定档案 path/hash
 - **网站增强完全可选**：仅用户提供自己的官网/产品页/目录时，按 `specs/website-profile-sop.md` 在项目内 `website-profile/` 生成六区候选与批准补丁；没网址、跳过或模块失败不生成文件、不改 operation-record、不阻断主流程
+- **证据模式硬闸**：`audit-manifest.json` / `verification-manifest.json` / `compliance-check.json` 正式收口必须填 `evidence_mode: "live"`；simulation/mock/stub/离线/网络桩/占位证据只供演练，不能推进 S4/S11、签S12凭证或激活，正文/source/detail含非实时标记也会被拒绝
 - 跑完更新本地运行记录 `db/runs.tsv` 一行（product/seed/…/status/nickname/created/updated；本地数据，不入 Git）
 - 运营方信息填本地 `.local/operators/<operator_key>.md`（不入 Git）；公司名/官网/邮箱等可供 AI 建档，但邮件末尾签名区只有纯个人昵称
 - 换机/新会话：先跑 `onboard_check.py` 枚举 operation-record status，再按 `specs/migration-handoff.md` 从当前节点继续；禁止从 S0 重跑已有项目

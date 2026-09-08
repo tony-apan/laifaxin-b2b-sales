@@ -16,12 +16,11 @@
        "compliance":{"sha256":"<合规核验JSON文件sha256>"}}
   - 仅用户明确正向命令（"确认激活"/"激活序列<名称>"）才激活，禁止自行激活（RULES 铁律）; 否定句/犹豫词一律拒绝
   - --profile 必填(激活路径): 档案须过结构校验且稳定项目键与 --project 一致
-  - --compliance-file 必填: 顶层绑定project/seq/profile_sha256/checked_at；五项各为status=pass + evidence{source,checked_at,detail}
+  - --compliance-file 必填: evidence_mode须为字面量live；顶层绑定project/seq/profile_sha256/checked_at；五项各为status=pass + evidence{source,checked_at,detail}，source/detail不得含非实时证据标记
   - 激活前确认: 目标序列 id 逐字核对 + 收件人预期（空序列=只测链路不真发）
   - ★激活后必须回读 sequence-list/sequence-details 确认 status:active（防接口假 success, 2026-09-02 ISS-01 恢复实证）
   - deactivate=回滚(降风险方向): 不要求 S12 审批, 但须明确目标回读(当前状态必须回读为 active 才执行); --confirm 给了就必须过否定/犹豫过滤
 """
-import datetime
 import json, subprocess, sys, argparse, time, hashlib
 import re as _re
 from pathlib import Path
@@ -29,11 +28,10 @@ from pathlib import Path
 KB = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KB / "tools"))
 from approval import confirm_quote_ok, require_approval, stable_params_hash
+from compliance_validation import validate_compliance
 from profile_utils import ensure_same_project_paths, profile_gate
 from project_lock import acquire_project_lock
 from update_run_state import read_meta, read_status, require_state, update_frontmatter
-
-COMPLIANCE_KEYS = ("market", "list_source", "sender_identity", "unsubscribe", "suppression")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--token", required=True)
@@ -148,26 +146,20 @@ if args.deactivate:
         sys.exit(0)
     print(f"  ❌ 回读 status={st1}≠inactive——假成功!立即人工核查"); sys.exit(4)
 
-# ---- 激活模式（★禁自签发: 凭证必须预先铸造且绑定本次实际参数）----
+# ---- 激活模式（★所有本地闸门通过后才允许首次联网）----
 if not args.record:
     print("❌ 激活必须带 --record <operation-record.md>，确保回读active后本地状态同步推进S12"); sys.exit(2)
-try: require_state(args.record, ("S11", "S12")); acquire_project_lock(args.record, "activate_sequence")
-except (ValueError, RuntimeError) as exc: print(f"❌ {exc}"); sys.exit(4)
+try:
+    require_state(args.record, ("S11", "S12"))
+    acquire_project_lock(args.record, "activate_sequence")
+except (ValueError, RuntimeError) as exc:
+    print(f"❌ {exc}"); sys.exit(4)
 record_meta = read_meta(args.record)
 if record_meta.get("sequence_id", "") != args.seq:
     print(f"❌ --seq={args.seq} 与S11已验证的record.sequence_id={record_meta.get('sequence_id')!r}不一致")
     sys.exit(4)
-# 0) 激活前逐字核对序列存在 + 回读状态
-st0 = get_status()
-if st0 is None:
-    print(f"❌ 序列 {args.seq} 状态未能回读(接口偶发空——稍等重试,勿盲目激活)"); sys.exit(3)
-print(f"激活前状态: {st0}")
-if st0 not in ("inactive", "active"):
-    print(f"❌ 序列状态={st0!r}，只有明确inactive才允许激活；未知状态fail-closed")
-    sys.exit(3)
-ALREADY_ACTIVE = st0 == "active"
 
-# 1) 产品档案闸门(必填): 结构校验 + 稳定项目键一致; sha256/status/version 进入审批哈希
+# 1) 产品档案闸门: 标准同目录、结构和项目身份均在首次联网前完成。
 if not args.profile:
     print("❌ 激活必填 --profile runs/<operator_key>/<product_key>/product-profile.md(其 sha256/status/version 进入审批哈希)"); sys.exit(2)
 PROFILE_PATH = Path(args.profile)
@@ -177,6 +169,13 @@ PROFILE_STATUS, PROFILE_ISSUES, PROFILE_META, PROFILE_SHA = profile_gate(PROFILE
 if not args.project:
     print("❌ 激活必填 --project <operator_key>/<product_key>(与档案及审批凭证一致)"); sys.exit(2)
 EXPECTED_PROJECT = f"{PROFILE_META.get('operator_key', '').strip()}/{PROFILE_META.get('product_key', '').strip()}"
+EXPECTED_PROFILE_PATH = KB / "runs" / str(PROFILE_META.get("operator_key", "")).strip() / str(PROFILE_META.get("product_key", "")).strip() / "product-profile.md"
+try:
+    profile_is_standard = PROFILE_PATH.resolve() == EXPECTED_PROFILE_PATH.resolve()
+except OSError:
+    profile_is_standard = False
+if not profile_is_standard:
+    PROFILE_ISSUES.append("--profile 只允许 runs/<operator_key>/<product_key>/product-profile.md 标准路径")
 if not PROFILE_ISSUES and args.project != EXPECTED_PROJECT:
     PROFILE_ISSUES.append(f"--project={args.project!r} 与档案稳定项目键 {EXPECTED_PROJECT!r} 不一致——拒绝跨运营方/产品激活")
 if PROFILE_ISSUES:
@@ -185,74 +184,38 @@ if PROFILE_ISSUES:
         print(f"   - {_i}")
     print("   指引: 档案按 runs/_template/product-profile.md 修好后重跑(状态/hash 校验须通过)。 (exit 4)")
     sys.exit(4)
-print(f"  ✅ 档案闸门: status={PROFILE_STATUS} | sha256={PROFILE_SHA[:12]}... | 项目键={EXPECTED_PROJECT}")
 if not ensure_same_project_paths(args.record, PROFILE_PATH):
     print("❌ --record 与 --profile 不在同一项目目录——拒绝跨项目同步状态"); sys.exit(4)
-if ALREADY_ACTIVE:
-    if read_status(args.record) == "S12":
-        print("ℹ️ 序列已active且本地已是S12——不重复激活")
-        sys.exit(0)
-    update_frontmatter(args.record, {"status": "ERROR_BLOCKED", "next_state": "S11"}, expected_states=("S11",))
-    print("❌ 线上序列已active，但本地尚未完成S12合规/审批链；已标ERROR_BLOCKED。立即核查发送影响，不能自动洗成S12")
-    sys.exit(4)
+record_identity_bad = []
+for _key in ("operator_key", "product_key"):
+    if record_meta.get(_key, "") != PROFILE_META.get(_key, ""):
+        record_identity_bad.append(_key)
+if record_meta.get("project") and record_meta.get("project") != EXPECTED_PROJECT:
+    record_identity_bad.append("project")
+if record_identity_bad:
+    print("❌ record/profile项目身份不一致: " + ", ".join(record_identity_bad)); sys.exit(4)
+print(f"  ✅ 档案闸门: status={PROFILE_STATUS} | sha256={PROFILE_SHA[:12]}... | 项目键={EXPECTED_PROJECT}")
 
-# 2) 合规核验JSON(必填): 五项均 pass, 文件 sha256 进入审批哈希
+# 2) 合规、确认、审批和文件二次hash均为纯本地闸门。
 if not args.compliance_file:
-    print("❌ 激活必填 --compliance-file <合规核验JSON>——含 market/list_source/sender_identity/unsubscribe/suppression 且均pass(RULES 铁律5: 激活前核验目标市场规则/名单来源/发送主体/退订入口/拒收名单)"); sys.exit(2)
+    print("❌ 激活必填 --compliance-file <合规核验JSON>——须为live且五项正式证据均pass"); sys.exit(2)
 comp_path = Path(args.compliance_file)
-if not comp_path.is_file():
-    print(f"❌ 合规核验JSON不存在: {comp_path}"); sys.exit(2)
-try:
-    comp_doc = json.loads(comp_path.read_text(encoding="utf-8"))
-    COMP_SHA = hashlib.sha256(comp_path.read_bytes()).hexdigest()
-except (json.JSONDecodeError, UnicodeDecodeError) as e:
-    print(f"❌ 合规核验JSON解析失败: {comp_path} -> {e}"); sys.exit(2)
+if not comp_path.is_absolute():
+    comp_path = KB / comp_path
+_comp_doc, comp_issues, COMP_SHA = validate_compliance(
+    comp_path, args.project, args.seq, PROFILE_SHA
+)
+if comp_issues:
+    print("❌ 合规核验未通过——禁止激活")
+    for issue in comp_issues:
+        print(f"   - {issue}")
+    sys.exit(2)
+print(f"  ✅ 合规核验: evidence_mode=live且五项均pass | 文件sha256={COMP_SHA[:12]}...")
 
-def _pass(v):
-    if not isinstance(v, dict):
-        return False
-    s = v.get("status", v.get("result"))
-    evidence = v.get("evidence")
-    if not isinstance(evidence, dict):
-        return False
-    source = str(evidence.get("source", "")).strip()
-    checked = str(evidence.get("checked_at", "")).strip()
-    detail = str(evidence.get("detail", "")).strip()
-    passed = s is True or (isinstance(s, str) and s.strip().lower() == "pass")
-    try:
-        dt = datetime.datetime.fromisoformat(checked)
-        age = datetime.datetime.now() - dt
-        fresh = -300 <= age.total_seconds() <= 72 * 3600
-    except (ValueError, TypeError):
-        fresh = False
-    return passed and len(source) >= 4 and fresh and len(detail) >= 8
-
-if not isinstance(comp_doc, dict):
-    print("❌ 合规核验JSON须为对象"); sys.exit(2)
-identity_bad = []
-for key, expected in (("project", args.project), ("seq", args.seq), ("profile_sha256", PROFILE_SHA)):
-    if str(comp_doc.get(key, "")) != str(expected): identity_bad.append(f"{key}不匹配")
-try:
-    top_checked = datetime.datetime.fromisoformat(str(comp_doc.get("checked_at", "")))
-    top_age = datetime.datetime.now() - top_checked
-    if top_age.total_seconds() < -300 or top_age.total_seconds() > 72 * 3600: identity_bad.append("checked_at超过72小时/来自未来")
-except (ValueError, TypeError): identity_bad.append("checked_at缺失/格式错")
-if identity_bad:
-    print("❌ 合规文件未绑定当前项目/序列/profile或检查时间: " + ", ".join(identity_bad)); sys.exit(2)
-comp_bad = [(k, comp_doc.get(k, "(缺失)")) for k in COMPLIANCE_KEYS if not _pass(comp_doc.get(k))]
-if comp_bad:
-    print(f"❌ 合规核验未全部通过——禁止激活 (五项均须status=pass，且evidence含source/checked_at/detail):")
-    for k, v in comp_bad:
-        print(f"   - {k} = {v!r}")
-    print(f"   合规文件: {comp_path} (修好五项后重跑; 铁律5——平台技术能力不免除运营方合规责任)"); sys.exit(2)
-print(f"  ✅ 合规核验: 五项均 pass | 文件sha256={COMP_SHA[:12]}...")
-
-# 3) 用户确认原话核对（★否定句/犹豫词/对向指令词拦截）
 ok, why = check_confirm(args.confirm, "激活")
 if not ok:
     print(f"❌ 确认原话校验未过: {why}: {args.confirm!r}\n   仅用户明确正向'确认激活'才激活"); sys.exit(2)
 
-# 4) ★审批硬闸门: S12凭证只能由flow当前TTY节点签发，且memo须匹配本次实际参数
 binding = {
     "project": args.project,
     "org_sha256": hashlib.sha256(str(args.org).encode()).hexdigest(),
@@ -265,11 +228,28 @@ if " ".join(str(approval_row.get("user_quote", "")).split()) != " ".join(args.co
     print("❌ --confirm 必须与S12审批凭证中的用户原话逐字一致——拒绝替换确认语义")
     sys.exit(2)
 
-# 写入前最后复核：本地档案/合规文件未变，线上仍明确inactive
 from profile_utils import profile_sha256 as _profile_sha_now
 if _profile_sha_now(PROFILE_PATH) != PROFILE_SHA or hashlib.sha256(comp_path.read_bytes()).hexdigest() != COMP_SHA:
     print("❌ 审批后profile/compliance文件发生变化——拒绝激活，重新确认")
     sys.exit(4)
+
+# 3) 首次联网：只有完整本地证明链通过后才读取在线状态。
+st0 = get_status()
+if st0 is None:
+    print(f"❌ 序列 {args.seq} 状态未能回读(接口偶发空——稍等重试,勿盲目激活)"); sys.exit(3)
+print(f"激活前状态: {st0}")
+if st0 not in ("inactive", "active"):
+    print(f"❌ 序列状态={st0!r}，只有明确inactive才允许激活；未知状态fail-closed")
+    sys.exit(3)
+if st0 == "active":
+    if read_status(args.record) == "S12":
+        print("ℹ️ 序列已active且本地已是S12——不重复激活")
+        sys.exit(0)
+    update_frontmatter(args.record, {"status": "ERROR_BLOCKED", "next_state": "S11"}, expected_states=("S11",))
+    print("❌ 线上序列已active，但本地尚未完成S12合规/审批链；已标ERROR_BLOCKED。立即核查发送影响，不能自动洗成S12")
+    sys.exit(4)
+
+# 写入前在线二次回读，确认仍为inactive。
 if get_status() != "inactive":
     print("❌ 激活写入前序列不再明确inactive——fail-closed")
     sys.exit(3)

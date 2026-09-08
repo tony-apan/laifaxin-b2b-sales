@@ -47,6 +47,9 @@ _NICK_COMPANY_WORDS_ZH = (
     # 职能/公共身份词(静态红队P1): 采购部/团队/前台/行政等不是个人昵称
     "采购部", "采购", "团队", "服务", "前台", "行政", "人事", "财务", "法务",
     "工作室", "工作组", "部",
+    # 常见工厂/品类后缀：避免纯中文“人名+产品/公司”绕过
+    "包装", "食品", "保温杯", "建材", "机械", "电器", "电子", "五金", "塑料",
+    "金属", "服装", "家具", "化工", "医疗", "汽车", "物流", "器械", "材料", "厂",
 )
 _NICK_FORBIDDEN_SYMBOLS = "|/\\()[]{}<>（）【】｛｝｜／"  # 竖线/斜杠/括号等
 _NICK_MAX_LEN = 24
@@ -101,6 +104,16 @@ def validate_nickname(name):
         return False, "昵称含数字——签名只能是纯个人称呼"
     if any(ch in name for ch in _NICK_FORBIDDEN_SYMBOLS):
         return False, "昵称含竖线/斜杠/括号等符号——不允许"
+    has_latin = bool(re.search(r"[A-Za-z]", name))
+    cjk_chars = re.findall(r"[\u3400-\u4dbf\u4e00-\u9fff]", name)
+    has_cjk = bool(cjk_chars)
+    if has_latin and has_cjk:
+        return False, "昵称混合英文与中文——常见于『人名+公司/产品』拼接；请只保留一个纯个人称呼"
+    if has_cjk and not has_latin:
+        if "-" in name or "－" in name:
+            return False, "中文昵称含连字符——常见于拼接公司/产品；请只保留2-4个汉字的个人称呼"
+        if len(cjk_chars) != len(name) or not 2 <= len(cjk_chars) <= 4:
+            return False, "中文昵称须为2-4个纯汉字的个人称呼（如张伟/老王/欧阳娜娜）"
     if name == "总" or (len(name) >= 2 and name.endswith("总")):
         return False, "昵称是『X总』类头衔称呼——签名须用姓名/花名(如 张伟/老王/Tony), 不带头衔"
     low = name.lower()

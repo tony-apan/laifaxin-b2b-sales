@@ -2,7 +2,7 @@
 title: "来发信知识库·总索引（AI快速查询）"
 description: "统一的索引层：md主索引 + tsv数据库索引。标注每个文档/脚本的路径/用途/状态，供AI快速定位（换机/断会话可用）"
 created: 2026-08-29
-updated: 2026-09-04
+updated: 2026-09-09
 author: "AI + 用户对抗"
 source: "对抗完善"
 related: [RULES.md, specs/data-structure, README]
@@ -89,15 +89,15 @@ runs/
 | **续接扫描** | `tools/onboard_check.py` | 可续接项目/status/profile扫描 | ✅ |
 | **公司/产品档案** | `tools/operator_profile.py` / `product_profile.py` / `profile_utils.py` | 分层回落、纯昵称、来源/版本/hash | ✅ |
 | **网站资料增强（可选）** | `tools/website_profile.py` / `website_profile_utils.py` | 公开页候选校验、角色隔离、用户批准后单档案原子导入；失败不阻断主线 | ✅ |
-| **审批/状态** | `tools/approval.py` / `update_run_state.py` | 实际参数hash授权 + 合法状态转换/受控恢复 | ✅ |
-| **流程向导** | `tools/flow_orchestrator.py` | 节点交互；参数不全只记pending；S12当前TTY | ⚠️prototype |
+| **审批/状态/证据** | `tools/approval.py` / `update_run_state.py` / `evidence_validation.py` / `compliance_validation.py` | 参数hash授权 + 状态转换 + S4/S11/S12 live-only公共证据校验 | ✅ |
+| **流程向导** | `tools/flow_orchestrator.py` | 节点交互；S11 用 `--resume-s12` 当前TTY只签凭证，不联网/不激活 | ⚠️prototype |
 | **登录/闸门** | `tools/credential_input.py` / `check_login.py` / `gate_check.sh` / `check_rules.sh` | 聊天框两行凭据→主AI程序化stdin；严格org；urllib内存header；默认离线规则检查 | ✅ |
 | **S2/S3** | `tools/segments_infer.py` / `seed_resolve.py` | 客群生成与结果id取域名 | ✅ |
-| **S4审计** | `tools/audit_company.py` / `find_threshold.py` / `find_critical.py` / `finalize_audit.py` | 趋势初筛+语义证据放行收口 | ✅ |
+| **S4审计** | `tools/audit_company.py` / `find_threshold.py` / `find_critical.py` / `finalize_audit.py` | 趋势初筛+语义证据；仅evidence_mode=live可正式收口 | ✅ |
 | **S5/S6保存** | `tools/tag_add.py` / `save_first_n.py` / `wait_save_done.py` | 绑定参数保存、任务/标签对账 | ✅ |
 | **S7/S8模板** | `tools/gen_templates.py` / `render_preview.py` / `check_template_diff.py` / `rebuild_templates.py` | claims来源、纯昵称、差异、inactive重建 | ✅/⚠️ |
 | **S9/S10序列** | `tools/build_sequence.py` / `contact_add.py` | tmap/profile血缘、inactive双回读、views[] | ✅ |
-| **S11/S12** | `tools/verify_sequence.py` / `verify_exclude.py` / `finalize_run.py` / `activate_sequence.py` | manifest/合规证据、TTY审批、激活回读 | ✅ |
+| **S11/S12** | `tools/verify_sequence.py` / `verify_exclude.py` / `finalize_run.py` / `compliance_validation.py` / `activate_sequence.py` | live证据收口、S11 TTY续接审批、本地闸门先于联网、激活回读 | ✅ |
 | **清空产品** | `tools/delete_all_products.py` | 默认dry-run，显式确认才执行 | ✅ |
 
 > 表格列出主流程核心工具；`db/tools.tsv` 为全量工具登记（含未随库分发的 deprecated/research 条目，勿用）。

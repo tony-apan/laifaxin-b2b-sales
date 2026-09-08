@@ -3,7 +3,7 @@
 """⚠️ 流程编排器【原型/向导,非一键】——只做节点确认向导+approvals记账；保存/模板/序列/contact-add 须由人工/对应工具执行，本脚本不自动执行。例外：S2 的租户本地推演写(inference-product-add+inference-segment-generate)用于展示候选客群,客群选择仍须用户确认。
 用法:
   python3 flow_orchestrator.py --token <TOKEN> --org <orgId> --nickname <纯昵称> \
-      --product "金属粉末" --product-info "金属粉末/3D打印/增材/分销" \
+      --product metal-powder --product-info "金属粉末，用于3D打印与增材制造渠道开发" \
       --profile runs/<operator_key>/<product_key>/product-profile.md \
       [--seed <精准客户网址可选>] [--skip-preview] [--dry-run]
 规则:
@@ -21,7 +21,7 @@
       S7: {project, profile{sha256,status,version}, plan{sha256}}           (rebuild_templates 另绑定 seq/suffix, 用 grant 铸造)
       S9: {project, profile{sha256,status,version}, tmap{sha256}, rules{...}}
       S10(=contact_add.py): {project, seq, tags(sorted), task}
-      S12(=activate_sequence.py): {project, seq, profile{sha256,status,version}, compliance{sha256}}
+      S12(=activate_sequence.py): {project, org_sha256, seq, profile{sha256,status,version}, compliance{sha256}}
   - 首次运行创建 .local/operators/<operator_key>.md(公司级资料;不含token;旧单文件兼容读取)
   - 测试不激活；异常→ERROR_BLOCKED 退出非0
 """
@@ -33,21 +33,23 @@ from pathlib import Path
 KB = Path(__file__).resolve().parent.parent
 APPROVALS = KB / ".local" / "approvals.tsv"
 sys.path.insert(0, str(KB / "tools"))
-from approval import confirm_quote_ok, record as record_approval, stable_params_hash
+from compliance_validation import validate_compliance
 from profile_utils import profile_gate, read_profile, validate_nickname
-from update_run_state import require_state, update_frontmatter
+from update_run_state import read_meta, require_state, update_frontmatter
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--token", required=True, help="accesstoken 完整串（token 中段是用户UID，不是企业orgId）；获取教程: https://www.laifa.xin/share/ai/laifaxin-ai-account-connection")
+ap.add_argument("--token", default="", help="accesstoken 完整串（token 中段是用户UID，不是企业orgId）；获取教程: https://www.laifa.xin/share/ai/laifaxin-ai-account-connection")
 ap.add_argument("--org", required=True, help="当前工作空间ID=localStorage独立orgId键（企业必填；禁止拿token第2段用户UID代替）")
-ap.add_argument("--nickname", required=True, help="昵称=客户邮件落款·纯个人昵称(如 Tony/Iris;启动即校验:含公司/职位/产品/邮箱/数字/from→退出2)")
-ap.add_argument("--product", required=True, help="产品名(必填)")
-ap.add_argument("--product-info", default="", help="产品一句话(可选;档案 confirmed 时追加在档案正文之后,不覆盖档案)。★禁止填编造的 MOQ/认证/产能数字——用户没给的数字一律不写")
+ap.add_argument("--nickname", default="", help="昵称=客户邮件落款·纯个人昵称(如 Tony/Iris;启动即校验:含公司/职位/产品/邮箱/数字/from→退出2)")
+ap.add_argument("--product", default="", help="稳定product_key（必须与profile.product_key逐字一致，如 pet-food-packaging；不是中文展示名）")
+ap.add_argument("--product-info", default="", help="用户的一句话产品说明/展示名（可选，如 宠物食品包装袋；档案confirmed时只追加不覆盖）。禁止填编造的MOQ/认证/产能数字")
 ap.add_argument("--profile", required=True, help="产品档案路径(硬闸门): runs/<operator_key>/<product_key>/product-profile.md; status须confirmed/declined;draft/缺失→S0a指引+退出4")
 ap.add_argument("--seed", default="", help="精准客户网址(可选,有→快速路径A)")
 ap.add_argument("--exclude", default="CN,TW,HK,MO")
 ap.add_argument("--skip-preview", action="store_true", help="跳过模板草稿展示(用户说不要看)")
-ap.add_argument("--dry-run", action="store_true", help="只读盘点/展示，不写(签名/档案硬闸门不豁免)")
+mode = ap.add_mutually_exclusive_group()
+mode.add_argument("--dry-run", action="store_true", help="只读盘点/展示，不写(签名/档案硬闸门不豁免)")
+mode.add_argument("--resume-s12", action="store_true", help="仅从标准项目record的S11/READY_INACTIVE现场确认并签发S12激活凭证；不联网、不执行激活")
 # ★写节点实际参数载体(向导拿不到完整参数时不签发可执行凭证, 由这些参数或专门审批命令 grant 补齐绑定)
 ap.add_argument("--save-n", type=int, default=0, help="S5 实际保存条数N(与回复中 前N=xx 等效; 缺→S5只记decision_pending)")
 ap.add_argument("--plan", default="", help="S7 模板计划JSON路径(实际plan; 缺→S7只记decision_pending)")
@@ -57,6 +59,101 @@ ap.add_argument("--contact-tags", default="", help="S10 联系人标签id(逗号
 ap.add_argument("--task", default="", help="S10 保存任务id(与contact_add --task一致; 缺→S10只记decision_pending)")
 ap.add_argument("--compliance-file", default="", help="S12 合规核验JSON(market/list_source/sender_identity/unsubscribe/suppression均pass; 与activate_sequence一致)")
 args = ap.parse_args()
+
+if not args.resume_s12:
+    missing = [flag for flag, value in (("--token", args.token), ("--nickname", args.nickname), ("--product", args.product)) if not value]
+    if missing:
+        ap.error("the following arguments are required: " + ", ".join(missing))
+
+
+def _standard_profile_path(path, meta):
+    expected = KB / "runs" / str(meta.get("operator_key", "")).strip() / str(meta.get("product_key", "")).strip() / "product-profile.md"
+    try:
+        return path.resolve() == expected.resolve()
+    except OSError:
+        return False
+
+
+def resume_s12():
+    """Validate the completed local run and issue only the S12 approval credential."""
+    if not sys.stdin.isatty():
+        print("❌ --resume-s12 只能在当前交互式终端现场确认；stdin管道/自动输入拒绝且不写凭证")
+        return 2
+    if not _re.fullmatch(r"[0-9a-f]{24}", args.seq or ""):
+        print("❌ --resume-s12 必填 --seq，且须为24位小写十六进制序列id")
+        return 2
+    if not args.compliance_file:
+        print("❌ --resume-s12 必填 --compliance-file")
+        return 2
+
+    profile_path = Path(args.profile)
+    if not profile_path.is_absolute():
+        profile_path = KB / profile_path
+    profile_status, profile_issues, profile_meta, profile_sha = profile_gate(profile_path)
+    project = f"{profile_meta.get('operator_key', '').strip()}/{profile_meta.get('product_key', '').strip()}"
+    standard_path = _standard_profile_path(profile_path, profile_meta)
+    if profile_issues or not standard_path:
+        print(f"❌ 产品档案闸门/标准路径未过: {profile_path}")
+        for issue in profile_issues:
+            print(f"   - {issue}")
+        if not standard_path:
+            print("   - 只允许 runs/<operator_key>/<product_key>/product-profile.md 标准路径")
+        return 4
+
+    record_path = profile_path.parent / "operation-record.md"
+    if not record_path.is_file():
+        print(f"❌ 同项目 operation-record 不存在: {record_path}")
+        return 4
+    record_meta = read_meta(record_path)
+    if record_meta.get("status") != "S11":
+        print(f"❌ record必须严格处于S11/READY_INACTIVE，当前={record_meta.get('status') or '(缺)'}")
+        return 4
+    mismatches = []
+    for key in ("operator_key", "product_key"):
+        if record_meta.get(key, "") != profile_meta.get(key, ""):
+            mismatches.append(key)
+    if record_meta.get("project") and record_meta.get("project") != project:
+        mismatches.append("project")
+    if record_meta.get("sequence_id") and record_meta.get("sequence_id") != args.seq:
+        mismatches.append("sequence_id")
+    if mismatches:
+        print("❌ record/profile/参数不一致: " + ", ".join(mismatches))
+        return 4
+
+    comp_path = Path(args.compliance_file)
+    if not comp_path.is_absolute():
+        comp_path = KB / comp_path
+    _comp_doc, comp_issues, comp_sha = validate_compliance(
+        comp_path, project, args.seq, profile_sha
+    )
+    if comp_issues:
+        print("❌ 合规核验未通过")
+        for issue in comp_issues:
+            print(f"   - {issue}")
+        return 2
+
+    binding = {
+        "project": project,
+        "org_sha256": hashlib.sha256(str(args.org).encode()).hexdigest(),
+        "seq": args.seq,
+        "profile": {"sha256": profile_sha, "status": profile_status, "version": profile_meta.get("profile_version", "")},
+        "compliance": {"sha256": comp_sha},
+    }
+    answer = input(f"\n❓【确认节点 S12_激活】确认激活序列 {args.seq}? 本命令只签发凭证，不激活: ").strip()
+    from approval import confirm_quote_ok, record as record_approval, stable_params_hash
+    if not (confirm_quote_ok(answer) and "激活" in answer):
+        print("✅ 未签发S12可执行凭证；序列仍保持inactive，record仍为S11")
+        return 0
+    approval_id = record_approval(project, "S12_激活", "confirm", answer,
+                                  stable_params_hash(binding), "confirmed")
+    print(f"✅ S12绑定凭证已签发: {approval_id}；record仍为S11，未执行激活")
+    return 0
+
+
+if args.resume_s12:
+    raise SystemExit(resume_s12())
+
+from approval import confirm_quote_ok, record as record_approval, stable_params_hash
 
 # ---------- 签名昵称硬闸门(启动即校验,退出2) ----------
 _nick_ok, _nick_why = validate_nickname(args.nickname)
@@ -464,34 +561,24 @@ print("  ⚠️ 未激活——仅用户明确'确认激活'才 S12")
 record("S11","decision_pending","向导展示完成；实际工具/终检未证明完成",STATE["params"])
 print("  ⚠️ 本向导走到末尾不等于 S11 完成；只有各工具推进 operation-record 且终检全过后才可标 S11")
 
-# ---------- S12 ACTIVATE_PENDING (★向导不激活; 只在 seq+合规核验文件齐全时铸造绑定凭证, 否则 decision_pending) ----------
-print("●S12 ACTIVATE_PENDING: 激活由 tools/activate_sequence.py 执行(须 --profile --compliance-file --approval); 本向导只可预铸绑定凭证")
-S12_SCHEMA = '{"project":"<operator_key>/<product_key>","seq":"<序列id>","profile":{"sha256":"<64hex>","status":"confirmed|declined","version":"<v>"},"compliance":{"sha256":"<合规核验JSON文件sha256>"}}  (与activate_sequence.py绑定schema一致)'
-comp_sha = sha_file(args.compliance_file)
-s12_params = {"project": STATE["project"], "org_sha256": hashlib.sha256(str(args.org).encode()).hexdigest(), "seq": args.seq,
-              "profile": {"sha256": PROFILE_SHA, "status": PROFILE_STATUS, "version": PROFILE_META.get("profile_version", "")},
-              **({"compliance": {"sha256": comp_sha}} if comp_sha else {})}
-s12_missing = [n for n, v in (("seq", args.seq), ("compliance-file(合规核验JSON: market/list_source/sender_identity/unsubscribe/suppression均pass)", comp_sha)) if not v]
-if s12_missing:
-    record("S12_激活", "decision_pending", "向导阶段不激活(缺绑定参数)", s12_params)
-    print(f"  ⚠️ 缺实际绑定参数: {s12_missing}——只记 decision_pending, 不签发可执行凭证(激活工具已禁自签发)")
-    print("  补齐 --seq 与 --compliance-file 后，在当前交互式终端重跑 flow 到 S12，由用户现场确认；S12禁止 approval.py grant 自签")
-    print(f"  参数JSON结构: {S12_SCHEMA}")
-    print("  然后由主 AI 在内存中调用 activate_sequence.py（凭据参数不向用户展示、不写变量/文件）；其余必须绑定 seq/project/profile/compliance/同一确认原话/S12凭证")
-else:
-    if not sys.stdin.isatty():
-        record("S12_激活", "decision_pending", "S12需要当前交互式终端用户确认", s12_params)
-        print("  ❌ S12凭证只能在当前交互式终端由用户现场确认；stdin管道/自动输入不可签发")
-    else:
-        kind12, ans12 = ask("S12_激活", f"确认激活序列 {args.seq}?(本向导只铸造凭证, 不执行激活; 否=暂不激活)", terminate_on_no=False)
-        if kind12 == "confirm":
-            record("S12_激活", "confirm", ans12, s12_params)
-            print(f"  🔑 S12绑定凭证已铸造；激活工具的 --confirm 必须与该原话逐字一致")
-        elif kind12 == "modify":
-            _record_modify_once("S12_激活", ans12, s12_params)
-            print("  ⚠️ 激活意向有修改——未铸造凭证, 未激活")
-        else:
-            record("S12_激活", "decision_pending", "用户暂不激活", s12_params)
-            print("  ✅ 未激活(用户未确认)")
+# ---------- S12 ACTIVATE_PENDING (普通向导永不签发；唯一凭证出口为 --resume-s12) ----------
+print("●S12 ACTIVATE_PENDING: 普通flow只记录decision_pending，不签发S12凭证、不联网、不激活")
+S12_SCHEMA = '{"project":"<operator_key>/<product_key>","org_sha256":"<orgId的sha256>","seq":"<序列id>","profile":{"sha256":"<64hex>","status":"confirmed|declined","version":"<v>"},"compliance":{"sha256":"<合规核验JSON文件sha256>"}}  (与activate_sequence.py实际binding逐字段一致)'
+comp_sha = sha_file(args.compliance_file) if args.compliance_file else ""
+s12_params = {
+    "project": STATE["project"],
+    "org_sha256": hashlib.sha256(str(args.org).encode()).hexdigest(),
+    "seq": args.seq,
+    "profile": {
+        "sha256": PROFILE_SHA,
+        "status": PROFILE_STATUS,
+        "version": PROFILE_META.get("profile_version", ""),
+    },
+    **({"compliance": {"sha256": comp_sha}} if comp_sha else {}),
+}
+record("S12_激活", "decision_pending", "普通flow结束；须完成S11后使用--resume-s12现场确认", s12_params)
+print("  ⚠️ 无论seq/compliance/TTY是否齐全，普通flow均不签发S12凭证")
+print("  必须先由实际工具完成S11并保持READY_INACTIVE，再运行 --resume-s12 现场确认")
+print(f"  参数JSON结构: {S12_SCHEMA}")
 
 print("\n✅ 输出: 见本地运行记录（.local/ 与 runs/<运营方>/<产品>/ 档案，不入 Git）+ 本流程(不激活)\n请在对话里向用户发完整流程待确认。")

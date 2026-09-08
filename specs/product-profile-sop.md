@@ -2,7 +2,7 @@
 title: "产品知识档案 SOP（AI 提炼/主动要/回落/复用）"
 description: "产品知识档案 product-profile 的完整 SOP：何时触发、怎么从官网/目录/卖点提炼、用户不给时怎么主动要、8 字段怎么填、怎么校验、怎么与对抗审查对接、怎么落到 runs/ 并被 S2/S4/S7/S9 复用。"
 created: 2026-09-04
-updated: 2026-09-07
+updated: 2026-09-09
 author: "AI + 用户对抗完善"
 source: "保温杯/户外帐篷/皮筏艇/步进电机实操"
 related: [RULES.md, SKILL.md, specs/product-fit.md, specs/sequence-config.md]
@@ -61,7 +61,8 @@ audience: AI优先
 
 ```bash
 python3 tools/product_profile.py init --profile runs/<operator_key>/<product_key>/product-profile.md --operator-key <operator_key> --product-key <product_key>
-# AI 填写 8 字段及每项 source/confidence，用户核对后：
+# AI 填写 8 字段及每项 source/confidence 后，直接用 confirm 做写入前结构/来源校验并重算 sources_status/sources_present；
+# 不要在 partial draft 阶段先单独跑 validate（frontmatter 尚未重算，会产生预期的来源状态不一致提示）。用户核对后：
 python3 tools/product_profile.py confirm --profile <路径> --by <纯昵称> --quote '<用户确认原话>' --summary '<本次变更摘要>'
 python3 tools/product_profile.py validate --profile <路径> --require-confirmed
 ```

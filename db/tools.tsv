@@ -4,7 +4,10 @@ tools/bootstrap.sh	环境准备(bash)	零Python探测/自动安装/复查(macOS/
 tools/bootstrap.ps1	环境准备(PowerShell)	零Python探测/winget安装Python+Git/复查(Windows;待实机动态验)	partial
 tools/operator_profile.py	运营方档案	公司级资料init/update/validate/status;签名只读nickname	verified
 tools/product_profile.py	产品知识档案	init/confirm/validate/status;状态/版本/hash/operation-record推进	verified
+tools/evidence_validation.py	非实时证据标记单一真源	S4/S11/S12共用simulation/mock/stub/离线网络桩占位识别	foundation
+tools/compliance_validation.py	S12合规证据公共校验	live-only;五项72h真实source/detail;模拟离线桩占位fail-closed;flow/activate共用	foundation
 tools/credential_input.py	凭据解析单一真源	严格解析聊天框两行凭据;LF/CRLF/CR;缺org/重复/控制符/超限fail-closed	foundation
+tools/project_lock.py	项目级并发写锁	同项目高风险写操作互斥;活PID阻断;死PID陈旧锁清理	foundation
 tools/profile_utils.py	档案/签名公共闸门	纯昵称/第三方信息/source值域/profile哈希/事实字段解析	foundation
 tools/update_run_state.py	运行状态更新器	安全更新operation-record并按合法转换图/恢复证据防跳步	foundation
 tools/finalize_audit.py	S4审计收口	70%临界证据+独立放行review后推进S4	verified

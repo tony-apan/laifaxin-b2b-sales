@@ -2,6 +2,19 @@
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
 
+## [v0.5.3] - 2026-09-09
+
+用“宠物食品包装袋”在隔离副本做 S0-S12 全流程离线模拟，真实运行本地工具/状态机/审批/模板/manifest，平台写操作使用明确网络桩且不冒充线上成功。模拟发现并修复四类主链断点：
+
+- **昵称闸门绕过**：`Tony-包装厂` 原先能通过公共昵称校验并一路 dry-run 到 S12。现在英文+中文混合昵称一律拒绝（常见“人名+公司/产品”拼接），保留 Tony / Jean-Pierre / 老王 / 张伟等纯昵称；新增回归测试。
+- **flow 参数契约误导**：`--product` help 原写“产品名”，实际必须与 `profile.product_key` 逐字一致，传中文展示名会被判跨产品。现明确 `--product=<稳定product_key>`，用户产品说明/展示名走 `--product-info`；SKILL/node-playbook 同步。
+- **产品档案 partial draft 假失败**：部分字段填入后先跑独立 validate 会因 frontmatter 来源状态尚未重算而报错。SOP 改为直接由 `confirm` 做写入前结构/来源校验并重算，再 `validate --require-confirmed` 终检。
+- **S4/S11 模拟证据洗白 P0**：原 finalizer 只看关键词+hash，证据正文明确写“离线网络桩、不代表线上”仍能推进 S4/S11。现在 audit/verification manifest 顶层强制 `evidence_mode:"live"`，simulation/mock/stub/离线/网络桩/占位/未实际等 mode 或正文标记一律拒绝，record bytes+mtime 不变；模板、RULES、SKILL、话术同步。
+- **S11→S12 合法审批出口断路**：原 flow 从 S11 续接仍会重跑 S2/S3 并因状态不符退出，标准工具链无法合法签发 S12。新增 `flow_orchestrator --resume-s12`：仅标准 profile + record严格S11 + seq + live合规文件 + 72h + 当前真实TTY 才签绑定凭证；不联网、不激活、不重跑S0-S10，record保持S11；通用 `approval.py grant` 仍禁止S12。
+- **S12 合规模拟洗白与联网顺序 P0**：新增 `compliance_validation.py`，flow/activate 共用 `evidence_mode=live` + 五项72h真实 source/detail 校验；模拟/离线/桩/占位拒签和拒激活。activate 重排为 record/profile/compliance/确认/审批/二次hash 全部本地过闸后才首次联网，失败输入不再先碰平台。
+- **模拟结论严格分层**：离线模拟可验证安装菜单、选填输入、网站旁路、档案状态、S0-S12向导、审批参数hash、S7真实模板预览、tmap网格和拒绝闸门；不能证明真实登录、名单质量、保存、线上模板/序列、联系人加入、live合规或激活。simulation只能出报告，禁止正式收口。
+- **仍公开的主链缺口**：S3 还没有独立 finalize 工具；S5 防重复保存仍只在规则/人工检查，`save_first_n.py` 未自动查询历史任务。这两项不在本次模拟中伪装为已闭环。
+
 ## [v0.5.2] - 2026-09-08
 
 强化凭据交付：用户在浏览器一键复制后，**只需把 `accesstoken=` + `orgId=` 两行整段直接粘贴到当前受信任主 AI 聊天框**，不再设置变量、创建 `.env`、执行工具命令或拆参数。

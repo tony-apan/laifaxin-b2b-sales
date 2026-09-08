@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from evidence_validation import find_non_live_marker
 from profile_utils import ensure_same_project_paths, parse_frontmatter, profile_gate
 from update_run_state import record_matches_project, update_frontmatter
 
@@ -21,6 +22,9 @@ def evidence_ok(path, keywords):
     if not p.is_file() or p.stat().st_size == 0:
         return False, "文件缺失或为空"
     text = p.read_text(encoding="utf-8", errors="replace")
+    marker = find_non_live_marker(text)
+    if marker:
+        return False, f"文件含非实时证据标记『{marker}』"
     if re.search(r"(?:不通过|未通过|并未通过|尚未核实|未核实|不合格)", text):
         return False, "文件含否定结论"
     if "❌" in text or re.search(r"(?im)^\s*(?:FAIL(?:ED)?\b(?!\s*=\s*0)|ERROR_BLOCKED\b)", text):
@@ -57,6 +61,9 @@ def main():
         manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
     except Exception as exc:
         print(f"❌ manifest无效: {exc}"); return 2
+    if manifest.get("evidence_mode") != "live":
+        print("❌ verification manifest evidence_mode须为字面量live；模拟/占位证据禁止正式收口")
+        return 2
     if manifest.get("project") != args.project or manifest.get("seq") != args.seq or manifest.get("profile_sha256") != sha or manifest.get("org_sha256") != hashlib.sha256(str(args.org).encode()).hexdigest():
         print("❌ manifest未绑定当前project/org/seq/profile_sha256"); return 4
     try:

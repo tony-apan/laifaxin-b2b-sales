@@ -2,7 +2,7 @@
 title: "工具目录（Tools）"
 description: "知识库配套核心工具脚本：闸门/登录/编排/保存/模板/序列/验证，含固化规则说明"
 created: 2026-08-21
-updated: 2026-09-04
+updated: 2026-09-09
 author: "AI Agent + 运营方"
 source: "实战沉淀"
 related: [lessons/fixation, specs/api-reference, docs/08-workflow-ops]
@@ -21,6 +21,8 @@ audience: AI优先（人可参考）
 
 | 工具 | 用途 | 固化规则 |
 |------|------|---------|
+| `evidence_validation.py` | S4/S11/S12 非实时证据标记单一真源 | ✅ simulation/mock/stub/离线/网络桩/占位统一识别 |
+| `compliance_validation.py` | S12 合规证据公共校验 | ✅ live-only；五项72h真实证据；模拟/离线/桩/占位拒绝 |
 | `credential_input.py` | 聊天框两行凭据严格解析单一真源 | ✅ LF/CRLF/CR；缺org/重复/null/控制符/超限fail-closed |
 | `gate_check.sh` | 流程开始前强制闸门（token 有效 + 必读文档 + 规则命中） | ✅ 未通过禁止写操作 |
 | `check_login.py` | 首次平台操作前·登录检查（只读，三分类引导；不是对话开局第一句） | ✅ 一键双取 token + 当前工作空间 orgId |
@@ -29,10 +31,11 @@ audience: AI优先（人可参考）
 | `operator_profile.py` | 公司级资料档案（跨产品/换机复用） | ✅ 签名只读纯昵称；不含 token/第三方资料 |
 | `product_profile.py` / `profile_utils.py` | 产品档案 init/confirm/validate/status + 版本/hash/昵称/第三方信息闸门 | ✅ draft阻断；confirmed/declined分流 |
 | `website_profile.py` / `website_profile_utils.py` | 独立可选网站增强：角色分类→六区候选→批准补丁→正式档案单文件原子写入 | ✅ 无网络；失败不改主状态；未批准不导入 |
+| `project_lock.py` | 项目级并发写锁 | ✅ 同项目高风险写互斥；死PID陈旧锁清理 |
 | `update_run_state.py` | operation-record 状态推进（换机续接真源） | ✅ 节点成功后更新 status/next_state/profile版本hash |
-| `finalize_audit.py` | S4审计收口（70%临界证据+独立放行review） | ✅ 证据过审才推进S4，之后才可保存 |
-| `finalize_run.py` | S11终检收口（verification-manifest绑定4证据hash/project/seq/profile） | ✅ 当前S10且证据全过才推进S11 |
-| `flow_orchestrator.py` | S0-S12 节点确认向导（原型，写操作须人工执行） | ✅ 登录子检查走stdin、API用urllib内存header；自身内部参数兼容保留S12 TTY确认 |
+| `finalize_audit.py` | S4审计收口（70%临界证据+独立放行review） | ✅ evidence_mode=live；非实时证据拒绝 |
+| `finalize_run.py` | S11终检收口（verification-manifest绑定4证据hash/project/seq/profile） | ✅ evidence_mode=live；simulation不能推进S11 |
+| `flow_orchestrator.py` | S0-S12 节点确认向导；S11可用 `--resume-s12` 当前TTY只签凭证 | ✅ resume不联网/不激活/不重跑；登录stdin/API urllib |
 | `approval.py` | 审批凭证模块（`require_approval` 硬闸门 + `record` 记账） | ✅ 凭证在 `.local/approvals.tsv`（不入 Git）|
 | `save_first_n.py` | 保存前 N 条（front + exclude4区 + max3） | ✅ 默认 exclude CN,TW,HK,MO |
 | `wait_save_done.py` | 时序守卫（等保存 finished + 标签联系人>0） | ✅ 双闸，否则禁 contact-add |

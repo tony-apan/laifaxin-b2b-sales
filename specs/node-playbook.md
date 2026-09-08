@@ -40,7 +40,7 @@ audience: 人+AI
 - **AI 内部凭据占位约定**：本文件后续命令中的 `<TOKEN_IN_MEMORY>` / `<ORG_IN_MEMORY>` 只表示主 AI 从聊天框两行中在内存解析出的纯值，不是让用户设置环境变量或执行命令。用户始终只负责浏览器一键复制后直接粘贴到当前聊天框；入口登录/闸门优先走程序化 stdin。
 - **签名与正文边界**：邮件末尾签名区**只能是纯个人昵称**；公司身份/官网/联系邮箱不进入签名。`product-profile.md` 中经用户确认且有字段级来源的认证、产能、MOQ、交期、价格带可用于正文卖点；无来源或仅为推断的具体事实不得写进正文。
 - **通过条件**：①环境 bootstrap check 全绿 ②昵称通过 `profile_utils.validate_nickname` ③token 登录检查 + gate_check 通过 ④项目目录 `runs/<operator_key>/<product_key>/` 已固定 ⑤product-profile 存在且状态为 `confirmed` 或 `declined`（draft 禁止进入 S2）；confirmed 记录 path+content hash，declined 仅允许通用无具体事实文案。
-- **脚本顺序**：无 Python 时先 bootstrap → onboard → 建立并确认 product-profile → 首次平台调用前引导用户浏览器一键复制并直接粘贴两行到聊天框 → 主 AI 用宿主程序化 stdin 依次运行 `check_login.py --credentials-stdin` 与 `gate_check.sh --credentials-stdin --product <项目键>` → `flow_orchestrator.py`。凭据不进文件、`.env`、持久环境变量、日志或子代理；后续内部工具所需纯值由主 AI 在内存解析，不把拆分工作交给用户。
+- **脚本顺序**：无 Python 时先 bootstrap → onboard → 建立并确认 product-profile → 首次平台调用前引导用户浏览器一键复制并直接粘贴两行到聊天框 → 主 AI 用宿主程序化 stdin 依次运行登录检查与 gate → 调用 `flow_orchestrator.py --product <product_key> --product-info <用户产品说明/展示名> --profile <档案>`。`--product` 必须与 `profile.product_key` 逐字一致，不是中文展示名。凭据不进文件、`.env`、持久环境变量、日志或子代理；后续内部工具所需纯值由主 AI 在内存解析，不把拆分工作交给用户。
 - **产出记录**：`.local/operators/<operator_key>.md`（nickname/operator_key，不含 token）；`runs/<operator_key>/<product_key>/product-profile.md`（状态/版本/hash/字段级来源/变更记录）；`.local/approvals.tsv`（S0 gate_ok + profile hash）。
 
 ### S1 PATH_PENDING（路径分支）
@@ -80,7 +80,7 @@ audience: 人+AI
   - `python3 tools/find_threshold.py --query <种子> --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --match-words "..." --start 100 --end 500 --threshold 70`
   - `python3 tools/find_critical.py --query <种子> --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --match-words "..." --start 1 --end 1000 --threshold 70 --step 50`
   - ★核心判定（AI 反思逐条读描述）无脚本——由 AI 本体/独立 subagent 逐条推理 + 人工读，两两印证（L-26）。
-- **产出记录**：审计证据 + 独立 review 均落项目目录；`audit-manifest.json` 绑定 project/profile_sha256/seed/generated_at 与两文件path+sha256+pass；运行 `finalize_audit.py --record ... --profile ... --project <key> --manifest .../audit-manifest.json` 推进S4。
+- **产出记录**：审计证据 + 独立 review 均落项目目录；`audit-manifest.json` 必须声明 `evidence_mode:"live"`，绑定 project/profile_sha256/seed/generated_at 与两文件 path+sha256+pass。simulation/mock/stub/离线/网络桩/占位证据只能演练，`finalize_audit.py` 必须拒绝推进 S4；证据正文含非实时标记也拒。
 
 ### S5 SAVE_PENDING（保存参数确认）
 - **标签准备**：先 `tag_add.py --list` 只读查重；创建时须 `--profile .../product-profile.md --project <operator_key>/<product_key>`，用 `approval.py grant` 按 `{project,profile,tag{name,type}}` 实际参数签发绑定凭证。
@@ -131,7 +131,7 @@ audience: 人+AI
 
 ### S11 READY_INACTIVE（终检 + 待确认）
 - **判据（来源）**：`../RULES.md` L35「输出完整流程和参数；测试保持inactive，等待用户确认」；`../RULES.md` L129 **测试不激活（★用户强制）**：流程跑完→发完整流程待确认，**不激活序列**；`../RULES.md` L54 完成输出标准（完整流程/task id/实际数量/模板序列映射和问题）。
-- **通过条件**：verification-manifest绑定project/org_sha256/seq/profile_sha256/72小时内generated_at及4份不同的项目内证据path+sha256+pass；`finalize_run.py --record ... --profile ... --project <key> --org <ORG_IN_MEMORY> --seq <id> --manifest ...` 推进S11。
+- **通过条件**：verification-manifest 必须声明 `evidence_mode:"live"`，并绑定 project/org_sha256/seq/profile_sha256/72小时内 generated_at 及4份不同项目内证据 path+sha256+pass。simulation/mock/stub/离线/网络桩/占位只能生成演练报告，`finalize_run.py` 拒绝推进 S11；证据正文含非实时标记也拒。
 - **API**：`POST /api/sequences/sequence-details {"id":<seqId>}`——API L259；`POST /api/sequences/sequence-count`——API L258；`POST /api/sequences/sequence-list`——API L257。
 - **脚本**：
   - `python3 tools/verify_sequence.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --seq <序列id>`（激活前硬闸门，断言 12 步+24hex+步长，失败 exit 1）
@@ -141,9 +141,9 @@ audience: 人+AI
 
 ### S12 ACTIVE（仅用户明确确认 + 技术可用性与运营合规核验）
 - **判据（来源）**：`../RULES.md` L36「仅明确确认激活才激活；平台负责发送技术与退订呈现，运营方仍核验目标市场规则、名单来源、发送主体、实际退订入口、拒收名单与数据处理要求」+ 铁律5 L65。激活前逐字核对目标序列 id，并验证 notSentTags/上限/步骤。
-- **通过条件**：verify_sequence已过；compliance-check顶层绑定project/seq/profile/checked_at，五项均status=pass且evidence含source/checked_at/detail；补齐flow的seq/compliance参数，在当前TTY由用户现场确认签发S12凭证。S12禁止approval.py grant，历史/backfilled/工具自签无效。
+- **通过条件**：verify_sequence 已用真实线上状态通过；compliance-check 顶层必须 `evidence_mode:"live"` 并绑定 project/seq/profile/checked_at，五项均 status=pass 且 evidence 含真实 source/checked_at/detail；simulation/mock/stub/离线/网络桩/占位/未实际标记一律拒绝。项目已在 S11 时，使用 `flow_orchestrator.py --resume-s12 --org <ORG_IN_MEMORY> --profile <标准档案> --seq <序列id> --compliance-file <文件>`，仅在当前真实TTY由用户现场确认签发凭证；该入口不联网、不激活、不重跑S0-S10，record保持S11。S12禁止approval.py grant，历史/backfilled/工具自签无效。
 - **API**：`POST /api/sequences/sequence-active {"id":<seqId>,"active":true}`；工具必须回读 active 防假成功。
-- **脚本**：`activate_sequence.py --seq <id> --project <key> --profile <product-profile> --compliance-file <compliance-check.json> --record <operation-record> --confirm '<与凭证一致的用户原话>' --approval <S12凭证>`。
+- **脚本**：先用上行 `--resume-s12` 获取与当前参数绑定的 S12 凭证，再由主 AI 内部调用 `activate_sequence.py --seq <id> --project <key> --profile <product-profile> --compliance-file <compliance-check.json> --record <operation-record> --confirm '<与凭证一致的用户原话>' --approval <S12凭证>`；凭据参数不向用户展示。
 - **产出记录**：`.local/approvals.tsv`（激活确认行）；本地运行记录 status→active（不入 Git）。
 
 ### ERROR_BLOCKED（异常兜底）

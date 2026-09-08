@@ -56,6 +56,11 @@ output-templates/S0a-运营方档案.md	模板	运营方档案主动索取话术
 output-templates/S0a-网站资料确认.md	模板	网站资料增强确认话术	模板	网址角色,六区候选,批准补丁
 output-templates/S0-产品知识档案.md	模板	产品知识档案确认话术	模板	产品资料,来源,版本,确认
 tests/test_credential_input.py	测试	凭据stdin与隐私回归测试	现行	LF,CRLF,企业org,TTY,脱敏,不落原文
+tests/test_compliance_evidence_mode.py	测试	S12合规真实证据与联网顺序回归测试	现行	live,simulation拒绝,本地闸门先于联网
+tests/test_evidence_mode.py	测试	S4/S11真实证据模式回归测试	现行	live,simulation拒绝,marker,hash,mtime
+tests/test_full_flow_simulation.py	测试	S0-S12永久离线全流程集成测试	现行	fake平台,审批,保存,120模板,12步,views空,禁激活
 tests/test_flow_credential_transport.py	测试	flow凭据传输回归测试	现行	stdin,urllib,禁curl argv
 tests/test_website_profile.py	测试	网站资料增强回归测试	现行	角色,来源,补丁,锁,原子写,兼容
+tests/test_nickname_hardening.py	测试	昵称混合后缀硬化回归测试	现行	纯昵称,中英混合,公司产品后缀
+tests/test_s12_resume.py	测试	S11续接S12凭证出口回归测试	现行	TTY,S11,合规绑定,禁联网,不激活
 tests/test_product_profile_hardening.py	测试	产品档案确认硬化回归测试	现行	confirm_quote,升版,S12

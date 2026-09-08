@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from evidence_validation import find_non_live_marker
 from profile_utils import ensure_same_project_paths, profile_gate
 from update_run_state import read_meta, record_matches_project, require_state, update_frontmatter
 
@@ -19,6 +20,8 @@ def check_file(path, label, required):
     if not p.is_file() or p.stat().st_size == 0:
         return f"{label}缺失/为空: {p}"
     text = p.read_text(encoding="utf-8", errors="replace")
+    marker = find_non_live_marker(text)
+    if marker: return f"{label}含非实时证据标记『{marker}』: {p}"
     if re.search(r"(?:不放行|未放行|拒绝放行|尚未通过|并未通过)", text): return f"{label}含否定结论: {p}"
     if "❌" in text or re.search(r"(?im)^\s*(?:FAIL(?:ED)?\b(?!\s*=\s*0)|P[01]\b(?!\s*[:=]\s*0\b))", text):
         return f"{label}含失败/P0/P1标记: {p}"
@@ -51,6 +54,9 @@ def main():
         manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
     except Exception as exc:
         print(f"❌ audit manifest无效: {exc}"); return 2
+    if manifest.get("evidence_mode") != "live":
+        print("❌ audit manifest evidence_mode须为字面量live；模拟/占位证据禁止正式收口")
+        return 2
     if manifest.get("project") != args.project or manifest.get("profile_sha256") != sha or manifest.get("seed") != rec.get("seed"):
         print("❌ audit manifest未绑定当前project/profile/seed"); return 4
     try:

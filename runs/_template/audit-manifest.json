@@ -3,6 +3,7 @@
   "profile_sha256": "<当前product-profile完整sha256>",
   "seed": "<本轮种子域名/关键词>",
   "generated_at": "YYYY-MM-DDTHH:MM:SS",
+  "evidence_mode": "<live|simulation>",
   "evidence": {
     "audit": {"status": "pending", "path": "s4-audit.md", "sha256": ""},
     "review": {"status": "pending", "path": "s4-review.md", "sha256": ""}
