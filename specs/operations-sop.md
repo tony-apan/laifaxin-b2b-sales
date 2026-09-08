@@ -28,7 +28,7 @@ audience: 人+AI
 |------|-------------|
 | 公司名称 / 官网 / 用户自己的联系邮箱 / 默认市场语言 | `.local/operators/<operator_key>.md`；跨产品复用，换机随 `.local/` 迁移 |
 | 产品线 / 卖点 / 认证 / 产能 / MOQ / 交期 / 价格带 | `runs/<operator_key>/<product_key>/product-profile.md`；逐字段 source/confidence，确认后版本/hash锁定 |
-| 来发信 token / orgId | **只在当前会话命令/环境变量中使用，不落任何文件；换机重新获取** |
+| 来发信 token / orgId | 用户在浏览器一键复制后，把带字段名的两行整段直接粘贴到当前主 AI 聊天框；仓库工具不主动回显或落盘原始凭据，不写 `.env`/持久环境变量/工具日志，不向子代理扩散；主 AI 通过程序化 stdin 检查。聊天服务留存取决于宿主隐私政策 |
 | 潜在买家/联系人资料 | 由平台搜索/保存流程产生，不要求用户提供，不写入 operator/product profile |
 | 点数预算 | S5 确认材料/operation-record，决定保存规模 |
 

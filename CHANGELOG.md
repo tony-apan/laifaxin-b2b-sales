@@ -2,6 +2,19 @@
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
 
+## [v0.5.2] - 2026-09-08
+
+强化凭据交付：用户在浏览器一键复制后，**只需把 `accesstoken=` + `orgId=` 两行整段直接粘贴到当前受信任主 AI 聊天框**，不再设置变量、创建 `.env`、执行工具命令或拆参数。
+
+- 新增 `credential_input.py` 严格解析单一真源：LF/CRLF/CR、重复别名、未知行、null/空值、控制符、非法 UTF-8、8KB 上限、token 三段和 orgId 必填统一 fail closed；彻底删除 token 中段回退。
+- `check_login.py --credentials-stdin` 成为默认 AI 入口；无显式 flag 不偷读 stdin，TTY 快速拒绝不挂起。网络改为 urllib 内存 header，token 不再进入 curl 子进程 argv；401/403 JSON 正确分流为凭据失效，网络/空响应保持独立。
+- `gate_check.sh` 与 `check_rules.sh` 复用同一登录入口并原样透传 stdin；Shell 不拆凭据。`check_rules.sh` 无凭据时明确只做离线检查，不虚报登录有效。
+- 输出不回显原始 token，账号 UID/orgId 只显示掩码；失效计数文件仅存 token 短哈希/次数/时间，采用原子替换和 0600 权限。
+- 用户话术统一为“浏览器复制→当前聊天框直贴”；禁止文件、`.env`、持久环境变量、日志和子代理扩散。聊天服务是否保存对话取决于宿主隐私政策，不作虚假零留存承诺。
+- 清理三项 P0：旧 data-structure 降为历史并删除 token 落盘设计；审查子代理只收主 AI 提供的脱敏线上证据；只发 token 缺 orgId 时一律停止，不再默认个人空间。
+- 活跃 INDEX/SKILL/RULES/SOP/FAQ/工具索引和历史教程警示同步。后续业务工具的 `<TOKEN_IN_MEMORY>/<ORG_IN_MEMORY>` 仅为主 AI 内部兼容占位，不得让用户处理；全工具 stdin 化作为后续独立迁移，不在本版夸大。
+- `flow_orchestrator` 的二次登录检查改经 stdin，平台请求改 urllib，避免再把 token 复制到 curl/子检查 argv；其自身交互入口保留内部参数兼容，以维护 S12 当前 TTY 确认边界。
+
 ## [v0.5.1] - 2026-09-07
 
 修复 README 极速开始把“安装 Skill”和“开始新获客项目”混在同一代码块的问题：

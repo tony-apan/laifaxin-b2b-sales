@@ -2,9 +2,9 @@
 name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
-version: 0.5.1
+version: 0.5.2
 created: 2026-08-30
-updated: 2026-09-07
+updated: 2026-09-08
 author: "独立审查 agent（对抗判定后落地）"
 related: [RULES.md, INDEX.md, methodology/decision-trees.md]
 tags: [skill入口, 触发路由, 状态机, 入驻, 获客]
@@ -65,8 +65,8 @@ flowchart TD
 | "怎么才存了这么点 / 邮箱太少 / 数量对不上" | S6 数量账：`output-templates/S6-数量账.md`——四机制（max3/验真/去重/异步提取）逐项解释；**未知邮箱默认已保存**；<1.0 邮箱/家建议查锚点 |
 | "保存这批 / 前 N 条" | 状态机 S5/S6 → `tools/save_first_n.py`（★必须带 S5 的 `--approval`）|
 | "写开发信 / 模板 / 预览" | 状态机 S7 → `tools/gen_templates.py --preview`；S8 生成后必跑 `tools/check_template_diff.py`（模板**自动归入同名分组**，禁散落"未指定目录"）|
-| "建序列 / 跟进计划" | `build_sequence.py --token <T> --org <org> --name <序列名> --tmap runs/<operator_key>/<product_key>/tmap.json --profile .../product-profile.md --record .../operation-record.md --from-name <纯昵称> --project <operator_key>/<product_key> --approval <S9凭证>` |
-| "加联系人 / 进序列" | `contact_add.py --token <T> --org <org> --seq <id> --tags <标签id> --task <任务id> --record .../operation-record.md --project <operator_key>/<product_key> --approval <S10凭证>`；查询失败/active/状态不符均fail-closed，views固定[] |
+| "建序列 / 跟进计划" | 主 AI 内部调用 `build_sequence.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> ...`；内存占位不得让用户设置变量或执行命令。其余参数：序列名、tmap、profile、record、纯昵称、项目键、S9审批 |
+| "加联系人 / 进序列" | 主 AI 内部调用 `contact_add.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> ...`；内存占位不得让用户处理。查询失败/active/状态不符均fail-closed，views固定[] |
 | "激活 / 发信" | S12：项目 `compliance-check.json` 绑定project/seq/profile且五项pass+结构化evidence → 用带完整参数的 `flow_orchestrator` 在当前TTY让用户现场确认并签发S12凭证（S12禁止approval grant）→ `activate_sequence.py --profile ... --compliance-file ... --record ... --confirm '<同一原话>' --approval <凭证>` |
 | "验证这批对不对" | `tools/verify_exclude.py`（排除4区）/ `tools/verify_sequence.py`（12步）/ `tools/check_template_diff.py`（差异≥30%）|
 | "模板重建 / 换模板" | `tools/rebuild_templates.py`（⚠️半自动，顺序铁律见 L-43，需人工分步）|
@@ -74,18 +74,17 @@ flowchart TD
 | "出问题了 / 记教训" | 本地问题登记（`db/issues.tsv`，本地数据不入 Git）+ `lessons/lessons-learned.md` |
 | **"对抗审查 / 这个准不准 / 审一下"** | **RULES.md「🛡 操作对抗审查」（★用户强制：决策/产出必经空白子代理对抗）→ 按四类固定清单/执行前反思矩阵审 → 产出 `dialogue/reviews/rev-<日期>-<时分>-<操作>.md`（只放行/整改P0P1P2）→ 写操作三凭证：用户确认(approvals)+对抗审查(reviews)+操作流水(ops-log)** |
 | "值得跑吗 / 多少钱 / 399 / 15天SVIP / 没询盘怎么办 / 48小时几个询盘算合格" | `docs/09`「算一笔账+验证裁决」：零成本先领 15 天 SVIP（联系客服）→ 399/年 SVIP 正式一波 → **48 小时数有效询盘：≥3 合格扩大（询盘网址=新种子），<3 诊断漏斗（送达→打开→回复）换角度再试，连续两轮不达标止损** |
-| "账号什么等级 / 配额多少 / 点数够不够 / SVIP" | 连接检查即显示：`tools/check_login.py`（vip=2 显示 SVIP；今日/本月配额+剩余；充值次数/自动充值）→ 话术 [S0-连接成功](output-templates/S0-连接成功.md)；接口无余额/到期字段，禁止编造 |
+| "账号什么等级 / 配额多少 / 点数够不够 / SVIP" | 连接检查显示：账号等级、今日/本月配额；接口同时返回有效字段时再显示充值次数/自动充值 → 话术 [S0-连接成功](output-templates/S0-连接成功.md)。接口无余额/到期字段，禁止编造 |
 | "查当前数据 / 最近跑批" | 本地运行记录（`db/runs.tsv`，本地数据不入 Git）+ 本地状态（`.local/`）|
 | **"询盘来了 / 回复后不回 / 怎么背调 / WhatsApp / LinkedIn / 电话跟进"** | `docs/09-mass-outreach-to-precision-follow-up.md`：先打账号固定标签「询盘」停自动群发 → 公司/联系人背调 → A/B/C/D 分级 → 邮件为主；仅在已有明确许可并满足目标市场规则后使用 WhatsApp/商务社媒/电话；明确拒绝→「不发」停邮件，并人工登记全渠道停止。群发找信号，精准跟进做转化 |
 
 ## 2️⃣ 新获客项目的必备前置（用户明确选择后才执行，缺一停）
 
-- **★首次调用来发信平台前必过=登录检查**（不是对话开局第一句；先收昵称+一句话产品并完成产品了解/适配判断）：`python3 tools/check_login.py --token '<T>' --org '<orgId>'`（只读；🔴企业账号 orgId 必填）。到此节点仍无 token/已失效 → **再引导用户**按官方教程获取后发来：https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
-  - 方法一(小白)：登录 web.laifaxin.com → 右键"检查"→"应用程序"→本地存储→web.laifaxin.com→分别复制 `accesstoken` 和 `orgId` 的"值"
-  - 方法二(⭐推荐，一条命令两样全拿)：检查→控制台→粘贴这一行并回车：
+- **★首次调用来发信平台前必过=登录检查**（不是安装或对话开局第一句）：到此节点仍无凭据/已失效，才按官方教程引导用户**在浏览器一键复制后，把 `accesstoken=` + `orgId=` 两行整段直接粘贴到当前聊天框**：https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
+  - **⭐用户唯一操作（一条命令两样全拿）**：登录并切换到要操作的来发信工作空间 → 页面右键“检查”→“控制台”→粘贴这一行并回车：
     `var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！回到对话框 Ctrl+V（Mac按⌘V）粘贴发送给 AI"):(location.host.indexOf("laifaxin")<0&&location.host.indexOf("worldtradetool")<0?"❌ 你现在打开的网页（"+location.host+"）不是来发信——新开标签页访问 web.laifaxin.com 并登录，再按 F12 打开控制台重新粘贴本命令":"❌ 来发信页面上没取到登录凭证——先看右上角有没有你的账号头像：没有=先登录；有=按 F5 刷新后再运行一次（不用退出重登）");`
-    →成功回显 ✅ 已复制；❌ 自动区分两种原因并给出对应下一步（**网页开错** vs **已登录需刷新**），无 undefined 尾巴；剪贴板两行字段名与存储键一致（accesstoken=/orgId=）；**用户整段发给 AI 后原样传给 --token，工具自动拆分（兼容旧 TOKEN=/ORG= 格式）**
-  - 🔴 **orgId=工作空间ID，与 token 中段（用户ID）是两回事**：个人账号二者恰好相同；**企业账号 orgId 是独立数字ID（如 1804106008），必须从 localStorage 单独复制**——网页右上角头像可"切换账号"（个人↔企业），切换后 orgId 变、token 不变，两样都重新复制发给 AI
+    →成功回显 ✅ 后，用户只需回到**当前聊天框直接粘贴并发送**。禁止让用户拆分、设置 TOKEN/ORG 变量、创建 `.env` 或执行 Python/Shell 命令。**主 AI** 不回显/不落盘/不写日志/不传子代理；用宿主程序化 stdin 将整段交给 `check_login.py --credentials-stdin`，禁止 heredoc、`printf |` 或把凭据拼进工具调用文本。
+  - 🔴 **orgId=工作空间ID，与 token 中段（用户ID）是两回事**：个人账号二者只是恰好相同；企业账号 orgId 是独立值，必须从 localStorage 一键双取。缺 orgId 时所有账号一律停止，禁止回退 token 中段或默认个人空间
   - ★请用 Chrome 或 Edge 打开 web.laifaxin.com（其他浏览器界面可能不同）
   - 粘贴时浏览器可能提示 "Don't paste code"（防骗保护，正常现象）——核对命令一致后按提示输入 allow pasting 再粘贴
   - 安全边界：token 等同登录凭证，只发给你信任的 AI（本流程仅用于你会话、不写文件）；不要发群聊/工单/公开文档
@@ -94,15 +93,15 @@ flowchart TD
   - ℹ️ token 开头域名可能是 web.laifaxin.com 或 web.worldtradetool.com 等——均正常，勿按域名判真伪
 - **★最小必要输入（2026-09-07 对抗收口：渐进索取，禁止开局列清单）**：
   - **对话开局只问 1 类**：**纯个人昵称 + 一句话产品**（如“Tony；我卖不锈钢保温杯”）。卖给谁、卖到哪、自己的官网/产品页/目录全部选填；没给时 AI 先推荐客群/市场，不阻断、不重复追问、不冒充用户输入。
-  - **首次调用来发信平台前再问第 2 类**：**token + 当前工作空间 orgId**（推荐按上方命令一键双取两行整段）。🔴 token 中段是用户 UID；企业账号 orgId 必须取 localStorage 的独立值，个人账号二者仅是恰好相同。
+  - **首次调用来发信平台前再问第 2 类**：用户在浏览器一键复制 `accesstoken=` + `orgId=` 两行后，直接粘贴到当前聊天框。AI 经 stdin 做只读检查；缺任一字段必须停止，不回退、不要求用户拆参数
   - **★昵称规范（2026-09-03 用户拍板）**：昵称**只含个人称呼**（Tony / Iris 等纯人名）；发现含公司名/产品名/职位（如 "Iris | XX Textiles"、"保温杯厂-老王"）→ **一次性说明并请用户改**："昵称只放个人名字；公司信息我会存入本地产品档案用于分析，但不会进入邮件签名——您想用什么昵称？"
   - **后续节点用到现在才要**：S0 出 A/B/C/D 方案选字母；S2 出具体客群表选编号（两步分工，不重复问）；S3 用户可给一个认得的买家网址（没有就走标准路径，不追问）；S7 邮件签名只用昵称——公司/官网/邮箱（用户自己的商业资产）AI 主动要 **仅供 AI 建档/背调**，绝不写进邮件签名。
   - **★产品资料=获客必需素材，用户不给AI也主动要**：公司级资料按 `operator-profile-sop.md` 回落 `.local/operators/<operator_key>.md`；产品级资料按 `product-profile-sop.md` 回落 `runs/<operator_key>/<product_key>/product-profile.md`。每次单独问一组，给填空模板、可跳过、不逼问。★**邮件边界**：邮件末尾签名区永远只有纯个人昵称；公司名/官网/联系邮箱不进入签名；经用户确认且有字段级来源的认证/产能/MOQ/交期/价格带可用于正文卖点；推断或无来源的具体事实禁止写入。★潜在买家/客户/联系人第三方联系方式不索要、不写入上述档案。S2/S4/S7/S9 必须绑定当前 profile path/version/hash；零上下文续接先读两类档案。
   - **公司级/产品级资料都可主动要**（每次单独问一组，给模板可跳过）：公司名/官网/联系邮箱/默认市场→operator-profile；产品线/认证/产能/MOQ/交期/价格带→product-profile。签名区只含昵称；confirmed 且有来源的产品事实可进正文卖点；没有事实时只用无具体承诺的通用表达。
   - 每次**只问当前节点必需的一件事**，给默认建议，用户回复"确认/否/要改"即可推进。
-- **闸门硬条件**：`bash tools/gate_check.sh --token '<一键双取两行整段>' --product <项目键>`（或纯 token + 显式 `--org <当前工作空间ID>`）全部通过 = 平台流程的**唯一通行证**；未通过**禁止任何保存/模板/序列/contact-add**。🔴 token 中段是用户 UID，不得当企业 orgId。
+- **闸门硬条件**：主 AI 将聊天框收到的两行整段通过程序化 stdin 交给 `gate_check.sh --credentials-stdin --product <项目键>`；全部通过才是平台流程通行证。未通过禁止任何保存/模板/序列/contact-add。旧 `--token/--org` 只作 AI 内部兼容，不得向用户展示
 - 缺开局的昵称/产品 → **只问缺项，不猜不代填**；到首次平台调用仍缺 token/orgId → 再引导一键双取并停在连接闸门。
-- token 只放命令/环境变量，**绝不写入任何文件**。
+- 原始凭据只允许由当前受信任主 AI 临时处理；仓库工具**禁止文件、`.env`、持久环境变量、工具日志、完整回显和子代理扩散**（失效计数仅存短哈希/次数）。聊天服务是否保存对话取决于宿主隐私政策。后续仍需纯 token/org 参数的内部工具，由主 AI 在内存中解析并调用；不得把拆分工作交给用户，也不得误把两行整段传给只接受纯值的工具。
 - 本地运营方档案（`.local/operators/<operator_key>.md`，旧单文件兼容）：昵称为必需；公司名/官网/邮箱可主动要、跨产品/换机复用；签名区只昵称，客户第三方资料不写入。
 
 ## 3️⃣ 状态机 S0-S12（每节点一句话判据，细节见 RULES.md）

@@ -8,7 +8,8 @@
 
 用法：
   python3 audit_company.py --query "..." --pages 500,700,800,900,950,980,990,999,1000 \
-      --token "$TOKEN" --org <orgId> --mode strict --product "猫粮"
+      --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product "猫粮"
+  （TOKEN/ORG_IN_MEMORY 仅为主 AI 内存占位，不是让用户设置变量或执行命令）
 
 判定标准（写死在规则表里，不再主观漂移）：
   MATCH    = 客户业务是「会采购本产品的买家」（本产品：猫粮/宠物食品）

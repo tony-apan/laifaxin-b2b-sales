@@ -16,9 +16,12 @@ audience: AI优先（人可参考）
 ## 📁 随库核心工具
 
 > ★ 全量历史工具登记（含 deprecated/research 未随库分发条目）= `../db/tools.tsv`；本表仅列随库脚本。
+>
+> **凭据约定**：用户永远只在浏览器一键复制后，把 `accesstoken=` + `orgId=` 两行整段直接粘贴到当前聊天框。登录/闸门由主 AI 经程序化 stdin 执行；下方 `<TOKEN_IN_MEMORY>/<ORG_IN_MEMORY>` 仅为主 AI 内部纯值占位，不是环境变量，禁止让用户设置、拆分或执行命令。
 
 | 工具 | 用途 | 固化规则 |
 |------|------|---------|
+| `credential_input.py` | 聊天框两行凭据严格解析单一真源 | ✅ LF/CRLF/CR；缺org/重复/null/控制符/超限fail-closed |
 | `gate_check.sh` | 流程开始前强制闸门（token 有效 + 必读文档 + 规则命中） | ✅ 未通过禁止写操作 |
 | `check_login.py` | 首次平台操作前·登录检查（只读，三分类引导；不是对话开局第一句） | ✅ 一键双取 token + 当前工作空间 orgId |
 | `bootstrap.sh` / `bootstrap.ps1` | 无 Python 前提的跨平台环境探测/自动安装/复查 | ✅ 环境入口；详见 environment-setup |
@@ -29,7 +32,7 @@ audience: AI优先（人可参考）
 | `update_run_state.py` | operation-record 状态推进（换机续接真源） | ✅ 节点成功后更新 status/next_state/profile版本hash |
 | `finalize_audit.py` | S4审计收口（70%临界证据+独立放行review） | ✅ 证据过审才推进S4，之后才可保存 |
 | `finalize_run.py` | S11终检收口（verification-manifest绑定4证据hash/project/seq/profile） | ✅ 当前S10且证据全过才推进S11 |
-| `flow_orchestrator.py` | S0-S12 节点确认向导（原型，写操作须人工执行） | ✅ 必传profile；稳定项目键+hash入审批参数 |
+| `flow_orchestrator.py` | S0-S12 节点确认向导（原型，写操作须人工执行） | ✅ 登录子检查走stdin、API用urllib内存header；自身内部参数兼容保留S12 TTY确认 |
 | `approval.py` | 审批凭证模块（`require_approval` 硬闸门 + `record` 记账） | ✅ 凭证在 `.local/approvals.tsv`（不入 Git）|
 | `save_first_n.py` | 保存前 N 条（front + exclude4区 + max3） | ✅ 默认 exclude CN,TW,HK,MO |
 | `wait_save_done.py` | 时序守卫（等保存 finished + 标签联系人>0） | ✅ 双闸，否则禁 contact-add |
@@ -88,19 +91,19 @@ bash bootstrap.sh --install
 python3 operator_profile.py init --operator-key <operator_key> --nickname <纯昵称>
 python3 product_profile.py init --profile ../runs/<operator_key>/<product_key>/product-profile.md --operator-key <operator_key> --product-key <product_key>
 
-# 登录检查（产品了解/适配完成、首次平台调用前；一键双取整段优先）
-python3 check_login.py --token $'accesstoken=<完整串>\norgId=<当前工作空间ID>'
+# 登录检查（AI 内部：用户已在聊天框粘贴两行，宿主用程序化 stdin 传入；禁止 heredoc/变量）
+python3 check_login.py --credentials-stdin
 
-# 流程闸门（未通过禁止写操作；也可纯token + 显式--org）
-bash gate_check.sh --token $'accesstoken=<完整串>\norgId=<当前工作空间ID>' --product <operator_key>/<product_key>
+# 流程闸门（AI 内部：同一两行整段继续经 stdin；未通过禁止写操作）
+bash gate_check.sh --credentials-stdin --product <operator_key>/<product_key>
 
-# 保存前N（★--approval 硬闸门）
-python3 save_first_n.py --token $TOKEN --org <orgId> --keyword <种子> --n <前N条数> \
+# 保存前N（★--approval 硬闸门；TOKEN/ORG_IN_MEMORY 由主AI在内存解析，禁止让用户设置变量）
+python3 save_first_n.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --keyword <种子> --n <前N条数> \
   --company-tag <tagId> --contact-tag <tagId> --profile ../runs/<operator_key>/<product_key>/product-profile.md \
   --record ../runs/<operator_key>/<product_key>/operation-record.md --approval <绑定凭证> --project <operator_key>/<product_key>
 
-# 建模板（profile/plan/稳定项目键为硬闸门）
-python3 gen_templates.py --token <T> --org <orgId> --product <产品> \
+# 建模板（profile/plan/稳定项目键为硬闸门；凭据仅主AI内存占位）
+python3 gen_templates.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --product <产品> \
   --profile ../runs/<operator_key>/<product_key>/product-profile.md --plan <plan.json> \
   --prefix "英-<产品>-" --name <纯昵称> --project <operator_key>/<product_key> --preview
 ```

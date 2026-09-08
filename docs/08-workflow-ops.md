@@ -57,10 +57,12 @@ POST /api/profile/inference-segment-list {"product_id":"..."}
 
 **核心心法**：搜客户的产品词/业务描述词（金主），不搜自己服务词（同行）
 
-## 第三步：审计找 70% 临界点（用工具不靠主观）
+## 第三步：审计找 70% 临界点（历史命令示例）
+
+> ⚠️ 下方 `<TOKEN_IN_MEMORY>` 是旧版 AI 内部占位，不是让用户设置变量；本文保存方式也已过时。现行凭据交付与保存流程一律以 README/RULES/SKILL 和 `specs/domain-scale-sop.md` 为准。
 
 ```bash
-python3 audit_company.py --query "英文描述句" --pages 1,500,990,995,1000 --token $TOKEN --org <orgId> --mode strict --product "猫粮"
+python3 audit_company.py --query "英文描述句" --pages 1,500,990,995,1000 --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product "猫粮"
 ```
 
 - 逐页看"本页"精准度，找到降到 70% 以下的临界页

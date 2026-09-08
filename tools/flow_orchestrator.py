@@ -26,6 +26,7 @@
   - 测试不激活；异常→ERROR_BLOCKED 退出非0
 """
 import json, subprocess, time, sys, argparse, hashlib, os
+from urllib import parse as _urlparse, request as _urlrequest
 import re as _re
 from pathlib import Path
 
@@ -134,10 +135,20 @@ def ensure_operator_profile():
     print(f"  ✅ 已初始化 {op.relative_to(KB)} (nickname={args.nickname}; 公司资料待按 operator-profile-sop 渐进补充)")
 
 def api(path, p, t=60):
-    cmd=["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}","-H","Content-Type: application/json","-H",f"accesstoken: {args.token}","-d",json.dumps(p)]
-    r=subprocess.run(cmd,capture_output=True,text=True,timeout=t)
-    try: return json.loads(r.stdout)
-    except: return {}
+    """平台请求：凭据只驻当前进程内存，不创建携带 token 的 curl 子进程 argv。"""
+    url = "https://web.laifaxin.com/api/{}?{}".format(path, _urlparse.urlencode({"uid": args.org}))
+    req = _urlrequest.Request(
+        url,
+        data=json.dumps(p).encode("utf-8"),
+        headers={"Content-Type": "application/json", "accesstoken": args.token},
+        method="POST",
+    )
+    try:
+        with _urlrequest.urlopen(req, timeout=t) as response:
+            value = json.loads(response.read().decode("utf-8"))
+        return value if isinstance(value, dict) else {}
+    except Exception:
+        return {}
 
 LOGIN_GUIDE_URL = "https://www.laifa.xin/share/ai/laifaxin-ai-account-connection"
 
@@ -145,9 +156,12 @@ def check_login_first():
     """AI-2: 平台流程第一步=登录检查——复用 tools/check_login.py 的硬化三分类(exit 0/1/2/3), 不内联复写(terra 4-③)。"""
     if args.dry_run:
         print("●平台连接前·登录检查: (dry-run 跳过线上校验)"); return
+    credentials_blob = f"accesstoken={args.token}\norgId={args.org}\n"
     try:
-        r = subprocess.run([sys.executable, str(KB/"tools"/"check_login.py"), "--token", args.token, "--org", args.org],
-                           capture_output=True, text=True, timeout=60)
+        r = subprocess.run(
+            [sys.executable, str(KB/"tools"/"check_login.py"), "--credentials-stdin"],
+            input=credentials_blob, capture_output=True, text=True, timeout=60,
+        )
     except subprocess.TimeoutExpired:
         print("●平台连接前·登录检查: ❌ 超时——稍等重试（这不是 token 问题）。"); sys.exit(1)
     print("●平台连接前·登录检查:")
@@ -463,7 +477,7 @@ if s12_missing:
     print(f"  ⚠️ 缺实际绑定参数: {s12_missing}——只记 decision_pending, 不签发可执行凭证(激活工具已禁自签发)")
     print("  补齐 --seq 与 --compliance-file 后，在当前交互式终端重跑 flow 到 S12，由用户现场确认；S12禁止 approval.py grant 自签")
     print(f"  参数JSON结构: {S12_SCHEMA}")
-    print("  然后: python3 tools/activate_sequence.py --token <T> --org <orgId> --seq <id> --project <项目键> --profile <档案> --compliance-file <合规JSON> --confirm \"<用户确认激活原话>\" --approval <凭证id>")
+    print("  然后由主 AI 在内存中调用 activate_sequence.py（凭据参数不向用户展示、不写变量/文件）；其余必须绑定 seq/project/profile/compliance/同一确认原话/S12凭证")
 else:
     if not sys.stdin.isatty():
         record("S12_激活", "decision_pending", "S12需要当前交互式终端用户确认", s12_params)

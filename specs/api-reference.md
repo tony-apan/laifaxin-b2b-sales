@@ -17,8 +17,8 @@ audience: AI优先（人可参考）
 
 ## 0. 认证与账户
 
-> ★**token 获取（完成产品了解/适配、首次调用平台前）**：官方教程 https://www.laifa.xin/share/ai/laifaxin-ai-account-connection —— 登录 web.laifaxin.com 后按教程一键双取 `accesstoken` 与 localStorage 独立 `orgId` 两行整段；不要在对话开局催 token。
-> 🔴 **org 机制勘误（2026-09-06 用户双截图实测，推翻旧口径"orgId 从 token 中段提取"）**：token 格式 `web.laifaxin.com&<用户UID>&<hash>`——**中段是用户ID不是 orgId**；真正的工作空间ID 在 localStorage 独立的 `orgId` 键：个人账号 orgId==用户UID（旧口径碰巧成立）；**企业账号 orgId 是独立数字ID（如 1804106008），切换"账号"（个人↔企业）后 orgId 变、token 不变**——API 的 `?uid=` 一律用 localStorage 的 orgId。企业账号必须 `--org <orgId>` 显式传入；切换账号/企业后 token+orgId 两样重新复制。
+> ★**凭据获取与交付（完成产品了解/适配、首次调用平台前）**：用户按官方教程 https://www.laifa.xin/share/ai/laifaxin-ai-account-connection 在浏览器一键复制 `accesstoken=` + `orgId=` 两行，然后直接粘贴到当前受信任主 AI 聊天框。用户不拆分、不设置变量、不创建 `.env`、不执行工具命令；主 AI 经程序化 stdin 交 `check_login.py --credentials-stdin`。
+> 🔴 **org 机制勘误（2026-09-06 用户双截图实测，推翻旧口径“orgId 从 token 中段提取”）**：token 格式 `web.laifaxin.com&<用户UID>&<hash>`——中段是用户ID，不是 orgId；真正的工作空间ID 在 localStorage 独立 `orgId` 键。个人账号二者只是恰好相同，企业账号是独立值。缺 orgId 时必须停止，禁止默认个人空间或从 token 中段回退。
 
 | 接口 | 用途 | 备注 |
 |------|------|------|

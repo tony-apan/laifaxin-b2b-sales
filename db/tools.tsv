@@ -4,13 +4,14 @@ tools/bootstrap.sh	环境准备(bash)	零Python探测/自动安装/复查(macOS/
 tools/bootstrap.ps1	环境准备(PowerShell)	零Python探测/winget安装Python+Git/复查(Windows;待实机动态验)	partial
 tools/operator_profile.py	运营方档案	公司级资料init/update/validate/status;签名只读nickname	verified
 tools/product_profile.py	产品知识档案	init/confirm/validate/status;状态/版本/hash/operation-record推进	verified
+tools/credential_input.py	凭据解析单一真源	严格解析聊天框两行凭据;LF/CRLF/CR;缺org/重复/控制符/超限fail-closed	foundation
 tools/profile_utils.py	档案/签名公共闸门	纯昵称/第三方信息/source值域/profile哈希/事实字段解析	foundation
 tools/update_run_state.py	运行状态更新器	安全更新operation-record并按合法转换图/恢复证据防跳步	foundation
 tools/finalize_audit.py	S4审计收口	70%临界证据+独立放行review后推进S4	verified
 tools/finalize_run.py	S11终检收口	聚合序列/排除/差异证据与核实面板;仅S10可推进S11	verified
 tools/flow_orchestrator.py	流程编排(向导)	⚠️原型:仅节点确认向导+approvals记账(输出approval_id);写操作须人工执行	prototype
 tools/approval.py	审批凭证模块(审批闸门(工具级))	写工具require_approval硬闸门;.local/approvals.tsv id列+gen_id/record	foundation
-tools/gate_check.sh	流程闸门	bash tools/gate_check.sh --token <TOKEN>;未通过禁止操作	verified
+tools/gate_check.sh	流程闸门	主AI经程序化stdin运行--credentials-stdin;缺token/orgId阻断;legacy参数仅内部兼容	verified
 tools/onboard_check.py	会话引导	Python就绪后环境复查+可续接项目/status/profile扫描;敏感字段不输出	verified
 tools/gen_templates.py	模板生成器	必须plan+profile;纯昵称签名;profile hash;claims字段/source/evidence_text;--out含meta	verified
 tools/verify_sequence.py	序列终检	断言12步+template_ids 24hex+wait(30分/5/15/30天)	verified
@@ -24,7 +25,7 @@ tools/delete_all_contacts.py	清空联系人	私有高危工具，未随公开�
 tools/delete_all_products.py	清空产品档案	product-list+product-delete id	verified
 tools/delete_all_templates.py	清空模板	私有高危工具，未随公开仓分发	private-not-distributed
 tools/purge_all_contacts.py	清空联系人(旧)	历史版本,引用filter旧参	deprecated
-tools/check_rules.sh	AI自查	规则/问题/token检查	verified
+tools/check_rules.sh	AI自查	默认离线检查规则/项目/问题;在线登录校验由主AI经--credentials-stdin传两行凭据	verified
 tools/audit_company.py	搜索页审计	词匹配初筛(⚠️仅趋势,临界须AI反思)	verified
 tools/find_threshold.py	找临界	二分找70%临界(词匹配,参考)	verified
 tools/find_critical.py	找临界细化	三页平均(词匹配,参考)	verified
@@ -79,7 +80,7 @@ tools/create_en_printer_templates.py	写真机模板旧	旧脚本	deprecated
 tools/create_es_templates.py	西语模板旧	旧脚本	deprecated
 tools/cap_varlist.py	试错抓包脚本	Playwright/curl实验用,勿生产引用	research
 tools/resolve_schedule.py	时区计划时间解析	schedule-list按--tz/--name解析schedule_id(--list列全部);★schedule_id各账号不同,禁止硬编码,建序列前必跑	verified
-tools/check_login.py	第一步登录检查(只读)	benefits/refine-data验证token;org自动从token提取;无/失效打印官方教程引导(https://www.laifa.xin/share/ai/laifaxin-ai-account-connection)	verified
+tools/check_login.py	平台连接检查(只读)	用户聊天框直贴两行;主AI经--credentials-stdin;orgId独立必填不回退;urllib内存header;失效给教程	verified
 tools/build_sequence.py	S9建序列(一条龙)	校验纯昵称+profile+tmap.meta hash/status+稳定项目键;运行时解析tz/notSentTags;12步	verified
 tools/contact_add.py	S10加联系人(一条龙)	时序守卫(finished+标签>0)+contact-add views:[]铁律+add数核对;--approval S10闸门;--dry-run	verified
 tools/tag_add.py	S5前置·建标签(一条龙缺口#3)	contacts/tags-add建标签+同名查重复用+铁律7中文提醒;--list免审批;--approval S2/S5闸门	verified

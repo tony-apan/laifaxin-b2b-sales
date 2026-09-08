@@ -138,19 +138,21 @@ monthlyLimit: 10000 次/月
 
 > 审计工具支持 `--match-words` 扩展产品词（中英文），但**最终判定以语义为准**。
 
-## 四、执行要点
+## 四、执行要点（AI 内部示意，不给用户执行）
+
+> 凭据由用户在浏览器一键复制后直接粘贴到当前聊天框；主 AI 经 stdin 完成登录检查，再在内存中调用下游工具。下方 `<TOKEN_IN_MEMORY>` 仅表示 AI 内存中的纯 token，不是环境变量，不得要求用户设置、拆分或执行命令。
 
 ```bash
 # 1. 审计（用域名搜的结果）
 python3 audit_company.py --query "<seed-domain>" --pages 1,500,950,990,1000 \
-  --token $TOKEN --org <orgId> --mode strict --product "电动自行车" \
+  --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product "电动自行车" \
   --match-words "e-bike,ebike,electric bike,电动自行车,电助力,自行车,cycle"
 
 # 2. 查配额
 curl -X POST /api/benefits/refine-data
 
 # 3. 规模化保存（★现行=save_first_n.py front保存；旧版批量脚本已 deprecated 未随库分发——operator:"not"无效+翻页收集id=封号风险）
-python3 tools/save_first_n.py --token $TOKEN --org <orgId> --keyword <种子> --n <前N> --company-tag <id> --contact-tag <id> --profile runs/<operator_key>/<product_key>/product-profile.md --record runs/<operator_key>/<product_key>/operation-record.md --approval <绑定凭证> --project <operator_key>/<product_key>
+python3 tools/save_first_n.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --keyword <种子> --n <前N> --company-tag <id> --contact-tag <id> --profile runs/<operator_key>/<product_key>/product-profile.md --record runs/<operator_key>/<product_key>/operation-record.md --approval <绑定凭证> --project <operator_key>/<product_key>
 ```
 
 ## 五、实操结果（2026-08-21 电动自行车，纯 API）

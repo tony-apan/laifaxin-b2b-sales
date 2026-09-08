@@ -2,16 +2,16 @@
 title: "数据结构规范（Data Structure Standard）"
 description: "代运营数据存储：md vs tsv vs jsonl 对抗分析 + 目录结构 + 索引规范 + 每文件格式"
 created: 2026-08-21
-updated: 2026-08-21
+updated: 2026-09-08
 author: "AI Agent + 运营方"
 source: "对抗分析（代运营场景）"
 related: [specs/operations-sop, docs/08-workflow-ops]
 tags: [数据结构, 格式对抗, 目录规范, 索引]
-status: verified
+status: historical
 audience: 人+AI
 ---
 
-> ⚠️ **布局注记（2026-08-30）**：档案/存储布局以 `runs/<运营方>/<产品>/` + 本地运营方档案（`.local/operators/<operator_key>.md`，不入 Git）为准（RULES「多公司/多产品」）；本文下文的 laifaxin-ops/clients 等目录为**设计参考/未实施**，勿按此建目录。
+> 🔴 **历史设计，不作为当前操作说明（2026-09-08）**：本文下文的 `laifaxin-ops/clients` 目录从未实施，现行布局以 `runs/<运营方>/<产品>/` + `.local/operators/<operator_key>.md` 为准。本文只保留 md/tsv/jsonl 格式比较；禁止照下文创建目录或凭据表。**token/orgId 永不写入 company-profile、accounts.tsv、`.env` 或任何文件。**
 
 # 📦 数据结构规范（Data Structure Standard）
 
@@ -54,8 +54,8 @@ laifaxin-ops/                              # 代运营总根目录
 ├── clients/                               # 客户公司层
 │   └── {company-name}/                    # ⚠️ 一家公司一个文件夹（如 laifaxin-demo）
 │       ├── index.md                       # ★ 公司索引（导航：产品/账号/进度/询盘）
-│       ├── company-profile.md             # 公司档案（网址/产品/联系人/职位/邮箱/账号token）
-│       ├── accounts.tsv                   # 平台账号（来发信token/orgId/点数余额）
+│       ├── company-profile.md             # 历史示意：公司公开资料（严禁 token/orgId）
+│       ├── accounts.tsv                   # 历史占位：不得创建或保存凭据
 │       ├── products/                      # 产品层（一家公司多产品）
 │       │   └── {product-key}/             # ⚠️ 一个产品一个子文件夹（如 cat-food）
 │       │       ├── index.md               # ★ 产品索引（客群/搜索词/种子/序列/模板/询盘）
@@ -92,7 +92,7 @@ laifaxin-ops/                              # 代运营总根目录
 | `template-analysis.md` | MD | 每周分析 | 各模板打开/回复/效果对比 |
 | `inquiries.tsv` | TSV | 收到询盘时 | ★询盘单独记录（时间/邮箱/内容/状态/跟进） |
 | `daily-logs/*.tsv` | TSV | 每天结束 | 当天所有操作（搜了什么/存了什么/发了什么） |
-| `accounts.tsv` | TSV | 配置时 | token/orgId/点数（⚠️注意脱敏） |
+| `accounts.tsv` | — | **禁止创建** | 历史设计已废弃；token/orgId 只能由用户在当前聊天临时提供给受信任主 AI，禁止落盘 |
 
 ## 三、索引规范（每个文件夹一个 index.md）
 

@@ -20,7 +20,7 @@ audience: AI优先
 ## 0. 边界（先读，安全红线）
 
 - `.local/`（含审批凭证）与 `runs/<运营方>/` 含账号活动痕迹与运营数据：**只在本机/用户指定移动盘之间复制**；不上传网盘/网站/聊天工具，不打包进任何要发布的东西（README 隐私与脱敏节同款要求）。
-- **token 永不迁移、永不落盘**：token 只存在于对话命令/环境变量；新机一律重取（旧机 token 可能已失效，且传递 token 本身就是风险）。
+- **token 永不迁移、原始凭据永不落盘**：新机需要连接平台时，用户重新在浏览器一键复制，并把 `accesstoken=` + `orgId=` 两行整段直接粘贴到当前主 AI 聊天框。仓库工具不主动写 `.env`、文件、持久环境变量或工具日志，也不向子代理扩散；聊天服务留存取决于宿主隐私政策。旧机 token 可能已失效。
 - **审批凭证迁移后必须技术降级**：恢复 `.local/approvals.tsv` 后立即执行 `python_cmd tools/approval.py demote-migrated --confirm MIGRATION-DEMOTE`，把所有旧 `confirmed` 改为 `backfilled`；backfilled 只审计、工具不会授权。未执行写节点与S12在新机当前对话重新确认。
 - 恢复操作只写数据目录（`.local/`、`runs/<运营方>/`、`db/` 中新机未跟踪文件），**不覆盖新装的规则/工具/模板文件**（RULES/SKILL/specs/tools 与 `runs/_template/`、`db/docs.tsv`、`db/tools.tsv` 等以新机仓库版本为准）；恢复一律先解到临时目录、按白名单复制，禁止把备份整包解压覆盖到仓库根。
 

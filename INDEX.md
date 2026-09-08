@@ -39,7 +39,7 @@ audience: 人+AI
 | **教训** | lessons-learned | `lessons/lessons-learned.md` | 问题教训(L-01~L-54) | ✅ |
 | **询盘转化** | mass-to-precision | `docs/09-mass-outreach-to-precision-follow-up.md` | 广撒网成本账→询盘背调→A/B/C/D分级→多渠道长期跟进 | ✅ |
 | **用户话术** | output-templates | `output-templates/`（总索引+18话术模板，含S0a运营方/网站资料/产品知识档案） | S0-S12+询盘阶段给小白看的固定输出模板 | ✅ |
-| **数据结构** | data-structure | `specs/data-structure.md` | md/tsv/jsonl分工/目录规范 | ✅ |
+| **数据结构（历史参考）** | data-structure | `specs/data-structure.md` | 仅参考 md/tsv/jsonl 格式比较；旧目录未实施，严禁按其保存 token/orgId | 历史 |
 | **运营方档案** | operator-profile | 本地 `.local/operators/<operator_key>.md`（旧单文件兼容，不入 Git） | 多公司隔离；签名只读纯昵称；工具 `operator_profile.py` | ✅ |
 | **术语表** | glossary | `glossary/glossary.md` | 系统/业务词人话解释（新手必读） | ✅ |
 | **人类教程** | wiki | `wiki/faq.md` + `wiki/guided-tour.md` | 配额/接口空/None 等 FAQ + 界面背景 | 参考 |
@@ -64,13 +64,13 @@ runs/
 ## ⚠️ 问题登记（AI 检查点）
 - **问题表**：本地问题登记 `db/issues.tsv`（本地数据，不入 Git；AI 用 awk/pandas 查 `$7=="open"`）
 - **每次操作后**：检查本地问题登记 + 本地运行记录，更新状态
-- **AI 自查**：`bash tools/check_rules.sh`（检查 token/规则/问题）
+- **AI 自查**：`bash tools/check_rules.sh` 默认只做离线规则/项目检查；需要登录校验时，由主 AI 将聊天框收到的两行凭据通过程序化 stdin 交给 `check_rules.sh --credentials-stdin`
 
 ## 🔄 AI 快速检查（post-op）
 ```
 1. awk -F'\t' '$7=="open"' db/issues.tsv   # 本地问题登记（不入 Git）
 2. tail db/runs.tsv                            # 本地运行记录（不入 Git）
-3. bash tools/check_rules.sh --token <TOKEN>   # token/规则校验
+3. bash tools/check_rules.sh                 # 默认离线检查；不需要凭据
 ```
 
 ## 📝 会话回落 + 旁观者审查（★用户强制）
@@ -91,7 +91,7 @@ runs/
 | **网站资料增强（可选）** | `tools/website_profile.py` / `website_profile_utils.py` | 公开页候选校验、角色隔离、用户批准后单档案原子导入；失败不阻断主线 | ✅ |
 | **审批/状态** | `tools/approval.py` / `update_run_state.py` | 实际参数hash授权 + 合法状态转换/受控恢复 | ✅ |
 | **流程向导** | `tools/flow_orchestrator.py` | 节点交互；参数不全只记pending；S12当前TTY | ⚠️prototype |
-| **登录/闸门** | `tools/check_login.py` / `gate_check.sh` / `check_rules.sh` | 登录、必读SOP、profile状态 | ✅ |
+| **登录/闸门** | `tools/credential_input.py` / `check_login.py` / `gate_check.sh` / `check_rules.sh` | 聊天框两行凭据→主AI程序化stdin；严格org；urllib内存header；默认离线规则检查 | ✅ |
 | **S2/S3** | `tools/segments_infer.py` / `seed_resolve.py` | 客群生成与结果id取域名 | ✅ |
 | **S4审计** | `tools/audit_company.py` / `find_threshold.py` / `find_critical.py` / `finalize_audit.py` | 趋势初筛+语义证据放行收口 | ✅ |
 | **S5/S6保存** | `tools/tag_add.py` / `save_first_n.py` / `wait_save_done.py` | 绑定参数保存、任务/标签对账 | ✅ |

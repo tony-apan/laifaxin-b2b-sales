@@ -17,8 +17,10 @@ audience: 人+AI
 > **本文件是唯一真源**，所有子规则从这里引用。换电脑/新会话：先读本仓库对应文件。
 > **★ 安装/学习入口与业务入口必须分开**：用户让 AI 安装、更新或学习本 Skill 时，只执行下载/更新、环境准备、通读规则、`onboard_check.py` 自检和旧项目扫描；完成后汇报并只问“你现在想做什么？”。**安装阶段禁止索取产品、市场、官网、昵称、token 或其他业务资料，也不得默认启动新项目。** 用户明确选择“新获客项目”后，才进入 S0；选择适配判断/网站提炼/续接/更新/了解流程时，分别走对应路由。
 > **★ 新获客项目入口总线**：用户明确选择开始新项目 → 先收昵称+一句话产品并完成 S0/S0a 产品了解与适配判断 → **首次调用来发信平台前，必须运行 `check_login.py`（无 token 才引导用户按[官方教程](https://www.laifa.xin/share/ai/laifaxin-ai-account-connection)获取）** → `gate_check.sh`（闸门，未通过**禁止任何保存/模板/序列/contact-add**）→ `flow_orchestrator.py`（向导）。登录检查是平台操作前第一步，不是安装或对话开局第一句；闸门=写操作的唯一通行证。
-> **★ token 中途失效 SOP**：立即停止写操作 → 引导用户重取 → check_login复验 → 从当前operation-record节点继续，勿从S0重跑。
+> **★ 凭据唯一交付路径**：需要连接平台时，用户只在浏览器执行一键双取，然后把 `accesstoken=` + `orgId=` 两行整段直接粘贴到当前受信任、正在本机操作的主 AI 聊天框。AI **禁止要求用户**设置 TOKEN/ORG 环境变量、创建 `.env`、执行 Python/Shell 命令、拆分或改写参数。仓库工具不主动回显或落盘**原始凭据**，不写 `.env`/日志/持久环境变量、不传子代理；主 AI 通过宿主程序化 stdin 把两行原样交 `check_login.py --credentials-stdin`。失效重试只允许在 `.local/token-fail.json` 保存 token 短哈希、次数和时间，不保存原文。宿主不支持程序化 stdin 时，也不得把内部操作甩给用户；可由主 AI 使用内部兼容调用，并如实遵循宿主审计边界。聊天服务是否保存对话取决于其隐私政策。缺任一字段必须停止，禁止从 token 中段回退 orgId。
 > **审批信任边界**：本仓工具防呆，不提供密码学真人证明。它能阻断误操作、参数漂移、旧凭证、非TTY管道和错误状态；无法阻止恶意进程伪造TTY、直接改源码或本地审批/证据文件。S12 必须在受信任AI会话中由用户现场确认，主机级身份签名应由宿主产品提供。
+> **审批信任边界**：本仓工具防呆，不提供密码学真人证明。它能阻断误操作、参数漂移、旧凭证、非TTY管道和错误状态；无法阻止恶意进程伪造TTY、直接改源码或本地审批/证据文件。S12 必须在受信任AI会话中由用户现场确认，主机级身份签名应由宿主产品提供。
+> **★ token 中途失效 SOP**：立即停止写操作 → 引导用户在浏览器重新一键双取并把两行整段直接粘贴到当前聊天框 → 主 AI 经 stdin 交 check_login 复验 → 从当前 operation-record 节点继续，勿从 S0 重跑。
 
 ## 🚨 新获客项目的强制流程与状态机（用户明确选择后才进入，禁止安装后自动启动）
 ```
@@ -106,7 +108,7 @@ ERROR_BLOCKED: 异常/参数变/对账不一致时只读检查；恢复须项目
 
 留痕方式：反思结论一行写入确认材料或 ops-log detail（"对抗反思:过/发现的坑"），未过不得触发动作。
 
-**审查代理权限**：读仓库文件 + **只读线上抽验**（给只读 token，抽 1-2 条核数据真实性——防被本地假记录骗）。
+**审查代理权限**：只读仓库文件 + 主代理提供的**脱敏线上抽验结果**（请求参数哈希、响应必要字段、数量/状态与证据截图或摘要）。**平台 token 没有“只读 token”这种权限级别，完整 accesstoken/orgId 只留在当前受信任主 AI 内存，严禁传给子代理。**需要线上抽验时由主代理执行，再把脱敏结果交审查代理。
 **产出**：本地对抗审查记录（`rev-<日期>-<时分>-<操作>.md`，不入 Git），结论只有 **放行 / 整改清单(P0/P1/P2)**；P0=操作不得执行或须回滚；整改后重审。
 **凭证链**：review 文件与 approvals.tsv 并列；写操作三凭证齐备才合规：用户确认(approvals) + 对抗审查(reviews) + 操作流水(ops-log)。
 
@@ -141,7 +143,7 @@ runs/INDEX.md          运营方×产品导航卡（生成物，源自 runs.tsv+
 | **删除**（contactsDelete，delete返回 backendId）| `operation/backend-progress` `{"id":<backendId>}` | data.backendId（delete返回）| status/total/finished/**progress** |
 | **template/序列** | 直接查对应 list 接口 | - | - |
 > ⚠️ backend-task-status 查删除=只返回id无进度（L-36 误判教训）；保存任务用 task-status（有contactSaveCount），删除用 backend-progress。
-> ⚠️ **token 来源**：首次平台调用前由用户一键双取 `accesstoken` + localStorage 独立 `orgId`，只写在命令/环境。token 格式三段中第 2 段是用户 UID，不是企业工作空间 orgId；`gate_check.sh` 用两行整段或纯 token + 显式 `--org`。
+> ⚠️ **token 来源**：首次平台调用前，用户在浏览器一键双取 `accesstoken=` + `orgId=` 两行并直接粘贴到当前主 AI 聊天框；主 AI 经程序化 stdin 检查并在内存中解析。token 第 2 段是用户 UID，不是企业工作空间 orgId；缺 orgId 一律停止。旧 `--token/--org` 仅为主 AI 内部不安全兼容入口，不面向用户。
 
 ## ★ 模板变量（★字段清单=记录；实际使用=策略，勿滥用）
 - **格式**：`<code class="lfxFieldVeriable" contenteditable="false">{联系人:名称}</code>`（{联系人:<title>}/{公司:<title>}，title=字段中文标题）

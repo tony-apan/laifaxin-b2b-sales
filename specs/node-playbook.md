@@ -21,7 +21,7 @@ audience: 人+AI
 
 | 规则 | 内容 | 来源 |
 |------|------|------|
-| **流程闸门** | 首次平台调用前必须 `bash tools/gate_check.sh --token '<一键双取两行整段>' --product <项目键>`（或纯 token + 显式 `--org <当前工作空间ID>`）全绿；token 中段是用户 UID，不得当企业 orgId；未通过禁止任何保存/模板/序列/contact-add 操作 | `../RULES.md` L18；脚本 `../tools/gate_check.sh` |
+| **流程闸门** | 首次平台调用前，用户在浏览器一键双取并把两行直接粘贴到当前聊天框；主 AI 通过程序化 stdin 运行 `gate_check.sh --credentials-stdin --product <项目键>`。缺 token/orgId 一律阻断，不回退；禁止让用户设置变量、`.env` 或执行命令 | `../RULES.md` L18；脚本 `../tools/gate_check.sh` |
 | **节点确认** | 高影响节点必须收到**本节点明确确认**；确认原话、参数 JSON/hash、时间写入 `.local/approvals.tsv`（★审批流水：每账号/每 clone 一份，不入 Git） | `../RULES.md` L40 |
 | **审批硬闸门（工具级）** | 新项目稳定键=`<operator_key>/<product_key>`，确认参数同时绑定当前 product-profile path/version/hash；legacy 项目可暂用旧产品名但不得跨运营方复用。写工具无有效 approval 或项目键不符直接 exit 1；换机历史 approvals 只作审计，未执行写节点与 S12 必须当前对话重新确认 | `../RULES.md` 状态转换与确认；`../tools/approval.py` |
 | **参数变化回退** | 产品、种子、临界N、标签、模板、配额任一变化 → 原确认失效 → 回到对应状态重新确认 | `../RULES.md` L42 |
@@ -37,9 +37,10 @@ audience: 人+AI
 
 ### S0 INPUT_GATE + S0a PRODUCT_PROFILE（闸门 + 必填输入 + 产品知识档案）
 - **判据（来源）**：`../RULES.md` S0「开跑只需纯个人昵称 + 一句话产品；禁止开局催 token 或列清单」。卖给谁、卖到哪、自己的官网/产品页/目录全部选填；缺失时 AI 先推荐，不阻断、不冒充用户输入。进入 S0a 后，用户给自己的网址就走独立 `website-profile-sop.md`，先确认角色、生成六区候选、批准补丁后才导入；失败/跳过继续原流程。公司名/官网/邮箱/认证/产能/MOQ/交期/价格带等**用户自己的商业资产可以邀请补充**；潜在买家/客户/联系人联系方式等第三方信息不索要。产品了解与适配完成、首次调用平台前再获取 token + 当前工作空间 orgId。
+- **AI 内部凭据占位约定**：本文件后续命令中的 `<TOKEN_IN_MEMORY>` / `<ORG_IN_MEMORY>` 只表示主 AI 从聊天框两行中在内存解析出的纯值，不是让用户设置环境变量或执行命令。用户始终只负责浏览器一键复制后直接粘贴到当前聊天框；入口登录/闸门优先走程序化 stdin。
 - **签名与正文边界**：邮件末尾签名区**只能是纯个人昵称**；公司身份/官网/联系邮箱不进入签名。`product-profile.md` 中经用户确认且有字段级来源的认证、产能、MOQ、交期、价格带可用于正文卖点；无来源或仅为推断的具体事实不得写进正文。
 - **通过条件**：①环境 bootstrap check 全绿 ②昵称通过 `profile_utils.validate_nickname` ③token 登录检查 + gate_check 通过 ④项目目录 `runs/<operator_key>/<product_key>/` 已固定 ⑤product-profile 存在且状态为 `confirmed` 或 `declined`（draft 禁止进入 S2）；confirmed 记录 path+content hash，declined 仅允许通用无具体事实文案。
-- **脚本顺序**：无 Python 时先 `bash tools/bootstrap.sh --install`（macOS/Linux/Git Bash/WSL）或 `powershell -ExecutionPolicy Bypass -File tools/bootstrap.ps1 -Install`（Windows PowerShell）→ `python3|py tools/onboard_check.py` → `python3|py tools/product_profile.py init ...` → AI 按模板/SOP 填档 → `python3|py tools/product_profile.py confirm --profile ... --by <纯昵称> --quote '<用户确认原话>'` → 首次平台调用前一键双取 → `python3|py tools/check_login.py --token '<两行整段>'` → `bash tools/gate_check.sh --token '<两行整段>' --product <项目键>`（或两命令均用纯 token + 显式 `--org <当前工作空间ID>`）→ `python3|py tools/flow_orchestrator.py --profile <档案路径> ...`。
+- **脚本顺序**：无 Python 时先 bootstrap → onboard → 建立并确认 product-profile → 首次平台调用前引导用户浏览器一键复制并直接粘贴两行到聊天框 → 主 AI 用宿主程序化 stdin 依次运行 `check_login.py --credentials-stdin` 与 `gate_check.sh --credentials-stdin --product <项目键>` → `flow_orchestrator.py`。凭据不进文件、`.env`、持久环境变量、日志或子代理；后续内部工具所需纯值由主 AI 在内存解析，不把拆分工作交给用户。
 - **产出记录**：`.local/operators/<operator_key>.md`（nickname/operator_key，不含 token）；`runs/<operator_key>/<product_key>/product-profile.md`（状态/版本/hash/字段级来源/变更记录）；`.local/approvals.tsv`（S0 gate_ok + profile hash）。
 
 ### S1 PATH_PENDING（路径分支）
@@ -75,15 +76,15 @@ audience: 人+AI
 - **通过条件**：得出临界页 N（=从前往后最后一张≥70%的页；AI 反思 + 人工读两两印证一致）；保存范围 = 前N页 = N×10 条。审计未完成**不能保存**。
 - **API**：`POST /api/refine/company-list {"keyword":<种子>,"current":<页>,"pageSize":10,"filters":[],"logic":"and"}`——API L54。
 - **脚本**（⚠️全部是词匹配初筛，**只做趋势参考，不可信**，结论必须 AI/人工语义判断，`specs/threshold-method.md` L81-86）：
-  - `python3 tools/audit_company.py --query <种子> --pages 1,50,100,...,1000 --token $TOKEN --org <orgId> --mode strict --product <产品> --match-words "<产品词,中英文>"`
-  - `python3 tools/find_threshold.py --query <种子> --token $TOKEN --org <orgId> --match-words "..." --start 100 --end 500 --threshold 70`
-  - `python3 tools/find_critical.py --query <种子> --token $TOKEN --org <orgId> --match-words "..." --start 1 --end 1000 --threshold 70 --step 50`
+  - `python3 tools/audit_company.py --query <种子> --pages 1,50,100,...,1000 --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product <产品> --match-words "<产品词,中英文>"`
+  - `python3 tools/find_threshold.py --query <种子> --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --match-words "..." --start 100 --end 500 --threshold 70`
+  - `python3 tools/find_critical.py --query <种子> --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --match-words "..." --start 1 --end 1000 --threshold 70 --step 50`
   - ★核心判定（AI 反思逐条读描述）无脚本——由 AI 本体/独立 subagent 逐条推理 + 人工读，两两印证（L-26）。
 - **产出记录**：审计证据 + 独立 review 均落项目目录；`audit-manifest.json` 绑定 project/profile_sha256/seed/generated_at 与两文件path+sha256+pass；运行 `finalize_audit.py --record ... --profile ... --project <key> --manifest .../audit-manifest.json` 推进S4。
 
 ### S5 SAVE_PENDING（保存参数确认）
 - **标签准备**：先 `tag_add.py --list` 只读查重；创建时须 `--profile .../product-profile.md --project <operator_key>/<product_key>`，用 `approval.py grant` 按 `{project,profile,tag{name,type}}` 实际参数签发绑定凭证。
-- **点数余额**：`check_login.py --token <T>`（只读）。
+- **点数余额**：主 AI 用程序化 stdin 运行 `check_login.py --credentials-stdin`（只读），不让用户执行命令。
 - **通过条件**：展示临界N/前N/公司与联系人标签id(名称)/排除4区/max/点数 → 用户当前对话明确确认；flow只记录pending，标签和保存实际参数齐后分别grant。
 - **保存脚本**：`save_first_n.py --keyword <种子> --n <N> --company-tag <id> --contact-tag <id> --max 3 --profile runs/<operator_key>/<product_key>/product-profile.md --record .../operation-record.md --approval <绑定凭证> --project <operator_key>/<product_key>`；工具按完整实际参数重算hash，成功推进S5。
 - **⚠️ 缺口**：防重复保存检查**无脚本落地**（RULES 有规则、save_first_n 无已存检查，防重复保存缺口 open）→ 执行前人工查 `company-save-list`/最近成功 task 判断是否已存过。
@@ -100,7 +101,7 @@ audience: 人+AI
 - **判据（来源）**：`../RULES.md` S7 + `product-profile-sop.md`：只生成本地草稿；展示3-8个跨轮模板的渲染后收件人视图+理由；用户确认后才批量创建。邮件末尾签名区只含纯个人昵称。正文具体事实必须来自当前已确认 product-profile 的字段级来源；declined 档案只允许不含数字/认证/交期/价格承诺的通用表达。
 - **通过条件**：3-8 个**跨轮代表**模板以【渲染后收件人视图】展示 + 每模板理由 → 用户确认。（用户说"不用看"可豁免展示，**不豁免确认**，`../RULES.md` L43。）
 - **API**（本节点不创建，只取详情）：`POST /api/mailbox/template-info {"id":<id>}`——API L190。
-- **脚本**：`gen_templates.py --token <T> --org <org> --product <产品> --profile .../product-profile.md --plan <计划JSON> --prefix "英-<产品>-" --suffix -RT --name <纯昵称> --record .../operation-record.md --project <operator_key>/<product_key> --preview`；预览成功推进S7但不写平台。
+- **脚本**：`gen_templates.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --product <产品> --profile .../product-profile.md --plan <计划JSON> --prefix "英-<产品>-" --suffix -RT --name <纯昵称> --record .../operation-record.md --project <operator_key>/<product_key> --preview`；预览成功推进S7但不写平台。
 - **产出记录**：`.local/approvals.tsv`（S7_模板预览行）；草稿在对话展示。
 
 ### S8 TEMPLATE_BUILD（批量创建 + 差异实测）
@@ -108,15 +109,15 @@ audience: 人+AI
 - **通过条件**：120 模板全部创建成功 + 每个 id 为完整 24hex（断言失败 exit 1）+ `check_template_diff.py` 实测两两相似度≤0.70 + name→id 映射落盘；任一失败 → 回 S7。
 - **API**：`POST /api/mailbox/template-add {"name":...,"foid":"0","subject":...,"html":...}`——API L191、L201-205；`POST /api/mailbox/templates-list`（注意：list 项**不含 html**，只有 subject——取正文必须再调 template-info）——API L189；`POST /api/mailbox/template-info`——API L190；`POST /api/mailbox/template-delete {"id":<id>}`（单删；`templates-delete` 批量 500 勿用）——API L193。
 - **脚本**：
-  - `python3|py tools/gen_templates.py --token <T> --org <orgId> --product <产品> --profile runs/<operator_key>/<product_key>/product-profile.md --plan <计划JSON> --prefix "英-<产品>-" --suffix -RT --name <纯昵称> --out runs/<operator_key>/<product_key>/tmap.json --record runs/<operator_key>/<product_key>/operation-record.md --approval <ap-id> --project <项目键>`（全部成功后自动推进S8；签名/profile/claims/id硬校验）
-  - `python3 tools/check_template_diff.py --token <T> --org <orgId> --prefix "英-<产品>-" --limit 120`（逐模板 template-info 取真实 html 算 Jaccard，>0.70 列违例对 exit 1）
+  - `python3|py tools/gen_templates.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --product <产品> --profile runs/<operator_key>/<product_key>/product-profile.md --plan <计划JSON> --prefix "英-<产品>-" --suffix -RT --name <纯昵称> --out runs/<operator_key>/<product_key>/tmap.json --record runs/<operator_key>/<product_key>/operation-record.md --approval <ap-id> --project <项目键>`（全部成功后自动推进S8；签名/profile/claims/id硬校验）
+  - `python3 tools/check_template_diff.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --prefix "英-<产品>-" --limit 120`（逐模板 template-info 取真实 html 算 Jaccard，>0.70 列违例对 exit 1）
   - 重建场景：按 `rebuild_templates.py` docstring 分别铸造“建新模板”与“重建序列步骤”两份绑定凭证，命令必带 `--profile --plan --record --gen-approval --approval --project <operator_key>/<product_key>`；仅inactive序列可重建，12步回读全指向新模板后才删旧模板。
 - **产出记录**：name→id 映射（`--out`，建议 `runs/<运营方>/<产品>/tmap.json`）；差异实测 `verify-diff.txt`；`.local/approvals.tsv`（S7/S8 行）。
 
 ### S9 SEQUENCE_PENDING（序列配置确认）
 - **判据（来源）**：`../RULES.md` L32「展示12步(30分/5/15/30天)、时区(★默认纽约)、单日30000/单家5、notSentTags=[询盘,不发]；用户确认后建序列」；`specs/sequence-config.md`：12轮方向每轮不同（L22-40）、步长 step1=minute/30、step2=day/5、step3=day/15、step4-12=day/30（L46-49）、★纽约 schedule_id **运行时解析**（`tools/resolve_schedule.py --tz "America/New_York"`；各账号不同,勿硬编码——L43-44）、max_emails_per_day:30000 / domain_emails_per_day:5 / notSentTags=[<tagId>(询盘), <tagId>(不发)]（L50-53）、命名 `[产品]-[语言]-[轮数]轮[每轮封数]封-[策略]`（L55-56）、每步 10 个**互不相同**模板（L38-40）。
 - **通过条件**：用户确认序列配置（12步+纽约+30000/5+notSentTags+每步10个不同模板 id）。
-- **脚本**：`python3|py tools/build_sequence.py --token <T> --org <orgId> --name <序列名> --tmap runs/<operator_key>/<product_key>/tmap.json --profile .../product-profile.md --record .../operation-record.md --from-name <纯昵称> --tz "America/New_York" --approval <S9凭证> --project <operator_key>/<product_key>`。
+- **脚本**：`python3|py tools/build_sequence.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --name <序列名> --tmap runs/<operator_key>/<product_key>/tmap.json --profile .../product-profile.md --record .../operation-record.md --from-name <纯昵称> --tz "America/New_York" --approval <S9凭证> --project <operator_key>/<product_key>`。
 - **API**（§10 全部实测）：`POST /api/sequences/sequence-create {"name":...,"channel":"system"}`——API L260；`POST /api/sequences/step-create {"seqId":<id>,"step":<n>,"template_ids":[...],"wait_mode":...,"wait_time":...,"senders":[...]}`——API L273、L279-289；`POST /api/sequences/sequence-save {id,name,schedule_id,others,rules}`——API L261、L291-303；`POST /api/settings/sequence/schedule-list`——API L267；`POST /api/settings/sequence/schedule-default {"id":<schedule_id>}`——API L399（id 运行时解析,勿硬编码）。
 - **脚本入口唯一**：使用上一行带 `--profile`、tmap.meta 校验与稳定项目键的 `build_sequence.py`；缺任一项即拒绝，禁止用旧命令绕过档案绑定。
 - **产出记录**：`.local/approvals.tsv`（S9_序列配置行）；`runs/<运营方>/<产品>/seq-config.json`；序列 id 记 `operation-record.md`。
@@ -130,11 +131,11 @@ audience: 人+AI
 
 ### S11 READY_INACTIVE（终检 + 待确认）
 - **判据（来源）**：`../RULES.md` L35「输出完整流程和参数；测试保持inactive，等待用户确认」；`../RULES.md` L129 **测试不激活（★用户强制）**：流程跑完→发完整流程待确认，**不激活序列**；`../RULES.md` L54 完成输出标准（完整流程/task id/实际数量/模板序列映射和问题）。
-- **通过条件**：verification-manifest绑定project/org_sha256/seq/profile_sha256/72小时内generated_at及4份不同的项目内证据path+sha256+pass；`finalize_run.py --record ... --profile ... --project <key> --org <org> --seq <id> --manifest ...` 推进S11。
+- **通过条件**：verification-manifest绑定project/org_sha256/seq/profile_sha256/72小时内generated_at及4份不同的项目内证据path+sha256+pass；`finalize_run.py --record ... --profile ... --project <key> --org <ORG_IN_MEMORY> --seq <id> --manifest ...` 推进S11。
 - **API**：`POST /api/sequences/sequence-details {"id":<seqId>}`——API L259；`POST /api/sequences/sequence-count`——API L258；`POST /api/sequences/sequence-list`——API L257。
 - **脚本**：
-  - `python3 tools/verify_sequence.py --token <T> --org <orgId> --seq <序列id>`（激活前硬闸门，断言 12 步+24hex+步长，失败 exit 1）
-  - `python3 tools/verify_exclude.py --token <T> --org <orgId> --keyword <种子> --pages 1,2,3,50,100,200`（4区抽验；⚠️proxy=company-list 非保存结果，见 docstring）
+  - `python3 tools/verify_sequence.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --seq <序列id>`（激活前硬闸门，断言 12 步+24hex+步长，失败 exit 1）
+  - `python3 tools/verify_exclude.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --keyword <种子> --pages 1,2,3,50,100,200`（4区抽验；⚠️proxy=company-list 非保存结果，见 docstring）
   - ✅ **测试不激活工具闸门**：activate_sequence.py 必须当前 S12 confirm/confirmed绑定凭证 + profile + 五项合规文件，并禁止自签；直接手工 curl 绕过属于恶意操作，审批机制防呆不防恶。
 - **产出记录**：项目目录 `evidence.json + verify-seq.txt + verify-exclude.txt + verify-diff.txt + verification-panel.md + verification-manifest.json`；manifest逐文件hash绑定后 `finalize_run.py` 才推进S11。
 
@@ -147,7 +148,7 @@ audience: 人+AI
 
 ### ERROR_BLOCKED（异常兜底）
 - **判据（来源）**：`../RULES.md` L37「异常、参数变化、对账不一致或规则冲突时，只读检查，禁止自动写操作」；参数变化回退 `../RULES.md` L42。
-- **脚本**：`bash tools/check_rules.sh --token <TOKEN>`（AI 自查 token/规则/问题）。
+- **脚本**：`bash tools/check_rules.sh` 默认离线自查规则/项目/问题；需要登录校验时主 AI 经程序化 stdin 运行 `check_rules.sh --credentials-stdin`。
 - **产出记录**：本地问题登记（不入 Git）；修复后重跑 `gate_check.sh`。
 
 ---

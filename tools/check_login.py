@@ -1,173 +1,239 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""★平台连接前第一步·登录检查（只读）：验证来发信 accesstoken 是否有效（benefits/refine-data 只读，不搜客/不保存/不扣点/不发信）。
-无 token / 失效时打印官方教程引导，让用户获取后交给 AI。
-用法:
-  python3 check_login.py --token $'accesstoken=<完整串>\norgId=<当前工作空间ID>'  # 推荐：控制台一键双取整段
-  python3 check_login.py --token '<完整串>' --org <当前工作空间ID>            # 也可分开传；企业空间 orgId 必填
-官方教程: https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
-"""
-import json, subprocess, argparse, sys, re, time, hashlib
+"""Read-only LAIFAXIN login check with credentials supplied explicitly."""
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import tempfile
+import time
+from urllib import error, parse, request
+
+from credential_input import Invalid, parse_credentials
+
 
 GUIDE_URL = "https://www.laifa.xin/share/ai/laifaxin-ai-account-connection"
+TOKEN_SHAPE = re.compile(r"[^\s&]+&[^\s&]+&[^\s&]+")
+DEFAULT_FAIL_FILE = Path(__file__).resolve().parent.parent / ".local" / "token-fail.json"
 
-def guide(reason):
-    print(f"❌ {reason}")
-    print(f"""
-📖 获取 token 官方教程: {GUIDE_URL}
-  方法一（小白，不敲代码）: 登录 web.laifaxin.com → 页面右键"检查" → 顶部"应用程序"(Application) →
-      左侧 存储→本地存储→https://web.laifaxin.com → 分别复制 accesstoken 和 orgId 两项的"值"
-  方法二（⭐推荐，一条命令两样全拿）: 页面右键"检查" → 顶部"控制台"(Console) → 粘贴这一行并回车:
-      var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！回到对话框 Ctrl+V（Mac按⌘V）粘贴发送给 AI"):(location.host.indexOf("laifaxin")<0&&location.host.indexOf("worldtradetool")<0?"❌ 你现在打开的网页（"+location.host+"）不是来发信——新开标签页访问 web.laifaxin.com 并登录，再按 F12 打开控制台重新粘贴本命令":"❌ 来发信页面上没取到登录凭证——先看右上角有没有你的账号头像：没有=先登录；有=按 F5 刷新后再运行一次（不用退出重登）");
-      控制台会直接回显 ✅ 或 ❌ 提示文案（没有 undefined 尾巴）；❌ 时按它说的做即可——两种原因命令会自动区分：网页开错 / 已登录但需刷新；复制出来是两行：accesstoken=... 和 orgId=...（字段名与页面存储一致），整段发给 AI 即可
-  ⚠️ 粘贴代码时浏览器可能提示 "Don't paste code"——输入 allow pasting 再粘
-  🔴 企业账号/多组织：右上角头像"切换账号"后 orgId 会变、token 不变——切换后必须重新执行上面的命令
-  🔴 token 单点有效：在其他设备/浏览器登录，或网页重新登录 → 旧 token 立即作废（贴同一份没用，必须重取）
-  ℹ️ token 开头域名可能是 web.laifaxin.com 或 web.worldtradetool.com 等——都是正常的，不影响使用
-  ❓ ORG=null = 未登录/页面不对 → 确认已登录，刷新重试
-拿到后把剪贴板整段发给 AI——首次连接只做本只读检查，不搜客/不保存/不发信。""")
 
-ap = argparse.ArgumentParser()
-ap.add_argument("--token", default="", help="accesstoken 完整串（用户按教程复制）")
-ap.add_argument("--org", default="", help="工作空间ID=localStorage orgId（🔴企业账号必填！个人账号可省略=token中段）")
-args = ap.parse_args()
+class PlatformResponseError(Exception):
+    """The platform returned an HTTP body that is not a JSON object."""
 
-if not args.token:
-    guide("未传 token")
-    sys.exit(1)
 
-# ★token 形状校验（B1-4/AI-6: 复制不全是高频错误——提前用人话拦截,不触网）
-tok = args.token.strip()
-if tok != args.token:
-    print("⚠️ token 首尾带空格/换行——已自动去除（下次复制时注意别带上）")
-args.token = tok
+def redact(value, token=""):
+    text = str(value or "")
+    if token:
+        text = text.replace(token, "[REDACTED]")
+    return TOKEN_SHAPE.sub("[REDACTED]", text)
 
-# ★一键双取格式自动拆分（2026-09-06：用户用一条 copy 命令同时复制 token+orgId，
-#   AI 可把剪贴板整段原样传给 --token，本工具自动拆出 TOKEN=/ORG= 两行——防 AI 转述出错）
-if ("accesstoken=" in tok or "TOKEN=" in tok) and ("orgId=" in tok or "ORG=" in tok):
-    m_tok = re.search(r"(?:accesstoken|TOKEN)=([^\s]+)", tok)
-    m_org = re.search(r"(?:orgId|ORG)=([^\s]+)", tok)
-    if m_tok and m_org:
-        parsed_tok, parsed_org = m_tok.group(1), m_org.group(1)
-        if parsed_tok.lower() == "null" or parsed_org.lower() == "null":
-            print("❌ 复制内容含 null——多半是控制台开在了别的网页，或来发信页面还没登录。先确认浏览器地址栏是 web.laifaxin.com 且右上角有你的账号头像；已登录就按 F5 刷新后重新执行复制命令（不用退出重登）。")
-            sys.exit(2)
-        if not args.org:
-            args.org = parsed_org
-        args.token = parsed_tok
-        tok = parsed_tok
-        print("# 检测到一键双取格式（accesstoken/orgId）——已自动拆分")
-    else:
-        print("⚠️ 看起来是一键双取格式但解析失败——请回到网页控制台重新执行复制命令")
 
-segs = tok.split("&")
-uid_from_token = segs[1] if len(segs) >= 3 else ""
-if args.org:
-    org = args.org
-    if uid_from_token and org == uid_from_token:
-        print(f"# 当前工作空间: {org}（个人账号：orgId==用户ID）")
-    else:
-        print(f"# 当前工作空间: {org}（企业org，操作用户={uid_from_token or '?'}）")
-elif len(segs) >= 3:
-    org = segs[1]
-    print(f"# 当前工作空间: {org}（⚠️回退=token中段用户ID——个人账号成立；🔴企业账号必须显式传 --org <localStorage的orgId>）")
-    print("   🔴 多org提醒：网页右上角头像可'切换账号'（个人↔企业）——切换后 orgId 会变，token 中段不变；")
-    print("      请在控制台执行 copy(localStorage.getItem(\"orgId\")) 取当前工作空间ID，随 --org 传入，否则会操作错空间！")
-else:
-    print("❌ token 格式不对（应有 3 段: web.laifaxin.com&<用户UID>&<长串>，你给的只有 %d 段）——大概率是没复制完整。" % len(segs))
-    print("   ★建议改用方法二一键复制（控制台 copy 命令），或对照教程重新复制整串；也可显式传 --org <orgId>。")
-    sys.exit(2)
+def mask_identifier(value):
+    text = str(value)
+    if len(text) <= 4:
+        return "*" * len(text)
+    return "*" * (len(text) - 4) + text[-4:]
 
-cmd = ["curl","-sSL","-m","30","-X","POST",f"https://web.laifaxin.com/api/benefits/refine-data?uid={org}",
-       "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}","-d","{}"]
 
-# ★接口抽风内置重试（2026-09-06 用户实测：平台时段性持续返回 None，AI 各自放弃改法=乱）：空返回自动重试×3（间隔5s）
-r = None
-d = {}
-for attempt in range(3):
+def guide(reason, gate_mode=False):
+    if gate_mode:
+        print("登录校验失败：凭据无效或未登录。")
+        return
+    print(f"登录校验失败：{reason}")
+    print(f"获取凭据教程：{GUIDE_URL}")
+    print("请把 accesstoken 和 orgId 两行整段直接粘贴到当前聊天框，由 AI 通过程序化 stdin 传入。")
+
+
+def _decode_response(body):
+    if not body.strip():
+        return None
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
-        d = json.loads(r.stdout) if r.stdout.strip() else {}
-    except Exception:
-        d = {}
-    if d:
-        break
-    if attempt < 2:
-        print(f"  ⏳ 接口返回空（平台间歇抽风·已知）——5 秒后自动重试（{attempt+1}/3）...")
-        time.sleep(5)
+        value = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
 
-# ★B7-1/terra 3-①: 三分类——curl层失败(rc!=0)=网络; 空/非JSON=平台接口间歇空(已知)(轻文案); success=false=token
-if r is not None and r.returncode != 0:
-    print("❌ 网络不通/超时（curl 层失败, rc={}）：这不是 token 问题，不用重新登录！".format(r.returncode))
-    print("   下一步：检查网络（公司网/VPN/代理）或等几分钟后重跑本命令。")
-    sys.exit(3)
-if r is not None and r.returncode == 0 and not d:
-    body = (r.stdout or "").strip()
-    if not body:
-        print("ℹ️ 已连通但返回为空——已知问题 平台接口间歇空(已知)（接口偶发抽风）：等 5-10 分钟重跑本命令即可，无需重登、无需重取 token。")
-    else:
-        print("ℹ️ 返回了非 JSON 内容（可能是网关错误页, 前 60 字: {}）——等几分钟重跑；反复出现再查网络。".format(body[:60]))
-    print("   教程备查: " + GUIDE_URL)
-    sys.exit(3)
-if not d and r is None:
-    print("❌ 请求未完成（超时/异常）——稍等重跑；这不是 token 问题。")
-    sys.exit(3)
 
-if d.get("success") is True:
-    data = d.get("data", {}) or {}
-    vip = data.get("vip")
-    vip_label = "SVIP" if vip == 2 else f"VIP {vip}"  # vip2=SVIP（平台等级映射,2026-09-03 用户确认）
-    dl, du = data.get('dailyLimit') or 0, data.get('dailyUsed') or 0
-    ml, mu = data.get('monthlyLimit') or 0, data.get('monthlyUsed') or 0
-    duptext = "已用尽" if data.get('dailyUsedUp') else f"剩 {max(dl-du,0)}"
-    muptext = "已用尽" if data.get('monthlyUsedUp') else f"剩 {max(ml-mu,0)}"
-    print("✅ 连接成功！您的来发信账号状态：")
-    print(f"   操作用户：{uid_from_token or '?'} ｜ 工作空间(orgId)：{org}" + ("  ← 企业org" if org != uid_from_token else ""))
-    print(f"   账号等级：{vip_label}")
-    print(f"   今日查看配额：{dl} 条，已用 {du} 条（{duptext}）")
-    print(f"   本月查看配额：{ml} 条，已用 {mu} 条（{muptext}）")
-    if data.get('monthlyChargeCount') is not None or data.get('monthlyAutoCharge') is not None:
-        auto = "已开启" if data.get('monthlyAutoCharge') else "未开启"
-        print(f"   本月充值：{data.get('monthlyChargeCount') or 0} 次（自动充值：{auto}）")
-    print("   本次只做了连接检查——没搜索、没保存、不扣点。")
-    if data.get('dailyUsedUp'):
-        print("   ⚠️ 今日搜索配额已用尽：次日恢复；保存邮箱和发信不受影响（见 wiki/faq）")
-    print("   下一步(AI): 按 output-templates/S0-连接成功.md 展示 → 请用户提供 昵称(+一句话产品) → gate_check → RULES 状态机")
-    # 启动时自动检查新版本（静默失败，绝不阻塞主流程）
+def request_once(token, org):
+    query = parse.urlencode({"uid": org})
+    req = request.Request(
+        f"https://web.laifaxin.com/api/benefits/refine-data?{query}",
+        data=b"{}",
+        headers={"Content-Type": "application/json", "accesstoken": token},
+        method="POST",
+    )
     try:
-        sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
-        from version_check import print_notice_if_newer
-        print_notice_if_newer()
-    except Exception:
-        pass
-    sys.exit(0)
-else:
-    msg = d.get("message") or (r.stdout[:80] if isinstance(r.stdout, str) else "")
-    # ★失效计数器（2026-09-06 用户实测：同一份 token 贴四次都"已失效"，AI 各自放弃）——
-    #   token 单点有效：在别处登录/重登 → 旧 token 立即作废。同一份连续失效≥2 次，重试没有意义，必须重取。
-    if "失效" in msg:
-        import pathlib as _pl
-        tok_hash = hashlib.sha256(args.token.encode()).hexdigest()[:12]
-        fail_file = __import__('pathlib').Path(__file__).resolve().parent.parent / ".local" / "token-fail.json"
+        with request.urlopen(req, timeout=40) as response:
+            body = response.read()
+    except error.HTTPError as exc:
+        body = exc.read()
+        value = _decode_response(body)
+        if value is not None:
+            return value
+        raise PlatformResponseError("HTTP response was not a JSON object") from exc
+    return _decode_response(body)
+
+
+def _parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--credentials-stdin", action="store_true", help="从 stdin 读取两行凭据")
+    parser.add_argument("--gate-mode", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--token", default="", help="DEPRECATED/不安全：AI内部兼容；值会进入 argv，禁止面向用户")
+    parser.add_argument("--org", default="", help="DEPRECATED/不安全：AI内部兼容；值会进入 argv，禁止面向用户")
+    return parser
+
+
+def _load_credentials(args, stdin):
+    using_legacy = bool(args.token or args.org)
+    if args.credentials_stdin and using_legacy:
+        raise Invalid("stdin credentials cannot be mixed with legacy arguments")
+    if args.credentials_stdin:
+        if stdin.isatty():
+            raise Invalid("--credentials-stdin requires non-interactive stdin")
+        return parse_credentials(stdin.buffer.read(8193), max_bytes=8192)
+    if using_legacy:
+        if not args.token or not args.org:
+            raise Invalid("legacy --token and --org must both be provided")
+        blob = f"accesstoken={args.token}\norgId={args.org}".encode("utf-8")
+        return parse_credentials(blob, max_bytes=8192)
+    raise Invalid("no credentials supplied")
+
+
+def _record_failure(token, fail_file, now):
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()[:12]
+    count = 1
+    try:
+        current = json.loads(fail_file.read_text(encoding="utf-8")) if fail_file.is_file() else {}
+        if current.get("token_hash") == token_hash:
+            count = int(current.get("count", 0)) + 1
+    except (OSError, ValueError, TypeError):
         count = 1
+
+    record = json.dumps({"token_hash": token_hash, "count": count, "last": now()})
+    fail_file.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{fail_file.name}.", suffix=".tmp", dir=str(fail_file.parent)
+    )
+    try:
         try:
-            hist = json.loads(fail_file.read_text(encoding="utf-8")) if fail_file.is_file() else {}
-            if hist.get("token_hash") == tok_hash:
-                count = int(hist.get("count", 0)) + 1
-        except Exception:
+            os.fchmod(descriptor, 0o600)
+        except OSError:
+            pass
+        with os.fdopen(descriptor, "w", encoding="utf-8") as temporary:
+            temporary.write(record)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        try:
+            os.chmod(temporary_name, 0o600)
+        except OSError:
+            pass
+        os.replace(temporary_name, fail_file)
+        try:
+            os.chmod(fail_file, 0o600)
+        except OSError:
+            pass
+    finally:
+        try:
+            os.unlink(temporary_name)
+        except FileNotFoundError:
+            pass
+    return count
+
+
+def main(argv=None, *, stdin=None, request=request_once, sleep=time.sleep,
+         fail_file=DEFAULT_FAIL_FILE, now=None):
+    args = _parser().parse_args(argv)
+    stdin = stdin or sys.stdin
+    now = now or (lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
+    try:
+        token, org = _load_credentials(args, stdin)
+    except (Invalid, UnicodeError) as exc:
+        reason = "未提供凭据" if not args.credentials_stdin and not (args.token or args.org) else redact(exc)
+        if not args.credentials_stdin and not (args.token or args.org):
+            guide(reason, args.gate_mode)
+        else:
+            print(f"凭据格式错误：{reason}", file=sys.stderr)
+        return 2
+
+    data = None
+    last_error = None
+    for attempt in range(3):
+        try:
+            data = request(token, org)
+            last_error = None
+        except Exception as exc:
+            last_error = exc
+            data = None
+        if data is not None:
+            break
+        if attempt < 2:
+            if not args.gate_mode:
+                print(f"接口返回为空，5 秒后自动重试（{attempt + 1}/3）...")
+            sleep(5)
+
+    if data is None:
+        if isinstance(last_error, PlatformResponseError):
+            print("平台返回错误页/非JSON，请稍后重试。", file=sys.stderr)
+        elif last_error is not None:
+            print("网络不通或请求超时；这不是凭据格式问题。", file=sys.stderr)
+        else:
+            print("平台连续三次返回空或非 JSON 内容，请稍后重试。", file=sys.stderr)
+        return 3
+
+    if data.get("success") is not True:
+        message = redact(data.get("message") or "接口拒绝登录", token)
+        try:
+            count = _record_failure(token, Path(fail_file), now)
+        except OSError:
             count = 1
-        fail_file.parent.mkdir(parents=True, exist_ok=True)
-        fail_file.write_text(json.dumps({"token_hash": tok_hash, "count": count,
-                                         "last": time.strftime("%Y-%m-%dT%H:%M:%S")}), encoding="utf-8")
-        if count >= 2:
-            print(f"🔴 这份 token 已连续 {count} 次失效——**同一份重试没有意义**，不要再贴它。")
-            print("   原因只有两种：")
-            print("   ① 你在别处登录过（其他设备/浏览器/网页重新登录）——来发信 token 单点有效，旧 token 立即作废；")
-            print("   ② token 长期未使用已过期。")
-            print("   ✅ 三步解决（约 1 分钟）：")
-            print("      1) 网页退出登录 → 重新登录（之后只在这一处使用，不要多端同时登录）")
-            print("      2) 控制台粘贴一键复制命令（两条 copy 中的第一条，见上方针引），重新拿 token+orgId")
-            print("      3) 把剪贴板整段发给 AI——新 token 立即生效")
-            sys.exit(1)
-    guide(f"token 无效或未登录（接口返回: {msg}）")
-    sys.exit(1)
+        if args.gate_mode:
+            print("登录校验失败：凭据无效或未登录。", file=sys.stderr)
+        else:
+            guide(f"凭据无效或未登录（接口返回：{message}）")
+            if count >= 2:
+                print(f"这份凭据已连续 {count} 次失效，同一份重试没有意义，请重新获取。")
+        return 1
+
+    if args.gate_mode:
+        print("登录校验通过。")
+        return 0
+
+    details = data.get("data") if isinstance(data.get("data"), dict) else {}
+
+    def response_int(name, default=0):
+        value = details.get(name)
+        return value if isinstance(value, int) and not isinstance(value, bool) else default
+
+    vip = response_int("vip", None)
+    vip_label = "SVIP" if vip == 2 else (f"VIP {vip}" if vip is not None else "未知")
+    daily_limit = response_int("dailyLimit")
+    daily_used = response_int("dailyUsed")
+    monthly_limit = response_int("monthlyLimit")
+    monthly_used = response_int("monthlyUsed")
+    monthly_charge_count = details.get("monthlyChargeCount")
+    monthly_auto_charge = details.get("monthlyAutoCharge")
+    show_monthly_charge = (
+        isinstance(monthly_charge_count, int)
+        and not isinstance(monthly_charge_count, bool)
+        and isinstance(monthly_auto_charge, bool)
+    )
+    print("连接成功，来发信账号状态：")
+    print(
+        f"   操作用户：{mask_identifier(token.split('&')[1])} | "
+        f"工作空间(orgId)：{mask_identifier(org)}"
+    )
+    print(f"   账号等级：{vip_label}")
+    print(f"   今日查看配额：{daily_limit} 条，已用 {daily_used} 条")
+    print(f"   本月查看配额：{monthly_limit} 条，已用 {monthly_used} 条")
+    if show_monthly_charge:
+        auto_label = "已开启" if monthly_auto_charge else "未开启"
+        print(f"   本月充值：{monthly_charge_count} 次（自动充值：{auto_label}）")
+    print("   本次只做连接检查，没有搜索、保存、扣点或发信。")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -3,7 +3,7 @@
 """
 自动化找70%临界点（三页滑动平均 + 50页跳 + 逐页精确 + 跌破往前）
 用法:
-  python3 find_critical.py --query <seed-domain> --token $TOKEN --org <orgId> \
+  python3 find_critical.py --query <seed-domain> --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> \
     --match-words "水上/户外/..." [--exclude-words "摩托/服装/..."] \
     --start 1 --end 1000 --threshold 70 --step 50
 

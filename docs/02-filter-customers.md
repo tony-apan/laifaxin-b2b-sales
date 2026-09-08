@@ -83,16 +83,18 @@ audience: 人+AI
 
 > 💡 补充：AI 评分有 **4 种入口**（AI 数据库批量 / 单家洞察 / 列表悬停 / LinkedIn）+ **6 大评分维度** + **省点数 4 招**，详见官方「AI 评分使用指南」。
 
-## 🔧 实战审计工具（本项目沉淀）
+## 🔧 历史审计示例（不要直接复制）
+
+> ⚠️ 下方命令中的 `<TOKEN_IN_MEMORY>` 是旧版 AI 内部占位写法，不是让用户设置环境变量。现行用户只需在浏览器一键复制凭据两行并直接粘贴到当前聊天框；AI 按 RULES 使用 stdin 检查后在内存中调用工具。
 
 `audit_company.py`：把判定标准写成规则表，逐条输出"判定+命中词+理由"，按页统计精准度，找 70% 临界页。
 
 ```bash
 # 关键词搜审计（提纯搜）
-python3 audit_company.py --query "英文描述句" --pages 1,500,1000 --token $TOKEN --org <orgId> --mode strict --product "猫粮"
+python3 audit_company.py --query "英文描述句" --pages 1,500,1000 --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product "猫粮"
 
 # 域名找相似审计
-python3 audit_company.py --query "cat food" --pages 1 --domains "<seed-domain>,<seed-domain>" --token $TOKEN --org <orgId> --mode strict --product "猫粮"
+python3 audit_company.py --query "cat food" --pages 1 --domains "<seed-domain>,<seed-domain>" --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product "猫粮"
 ```
 
 判定标准（写死在规则表里，不主观漂移）：

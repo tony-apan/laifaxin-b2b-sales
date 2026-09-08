@@ -3,7 +3,7 @@
 """
 找 70% 临界点工具（★从前往后精确找"最后一张≥70%的页"）
 用法:
-  python3 find_threshold.py --query <seed-domain> --token $TOKEN --org <orgId> \
+  python3 find_threshold.py --query <seed-domain> --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> \
     --match-words "raft,inflatable,kayak,..." --start 100 --end 500 --threshold 70
 
 逻辑（对抗审查完善）:

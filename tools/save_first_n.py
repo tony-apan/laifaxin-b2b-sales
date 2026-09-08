@@ -4,7 +4,7 @@
 通用：保存"前 N 条"（★正确API，实测 selectKeys空+selectTotal=前N）
 ★审批硬闸门: --profile + 稳定 --project 必填；审批参数JSON必须绑定 project/profile{sha,status,version}/keyword/n/company_tag/contact_tag/max/exclude/verify_status。
 用法:
-  python3 save_first_n.py --token $TOKEN --org <orgId> --keyword <seed-domain> --n 8000 \
+  python3 save_first_n.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --keyword <seed-domain> --n 8000 \
     --company-tag <tagId> --contact-tag <tagId> --max 3 --profile runs/<operator_key>/<product_key>/product-profile.md \
     --record runs/<operator_key>/<product_key>/operation-record.md --approval ap-xxxx --project <operator_key>/<product_key>
 """
