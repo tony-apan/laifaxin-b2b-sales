@@ -2,7 +2,7 @@
 name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
-version: 0.5.5
+version: 0.5.6
 created: 2026-08-30
 updated: 2026-09-09
 author: "独立审查 agent（对抗判定后落地）"
@@ -112,7 +112,7 @@ flowchart TD
 | S0 INPUT_GATE | **必填只有昵称+一句话产品**（中英皆可）；卖给谁/卖到哪/自己的网址均选填。缺客群或市场时 AI 先推荐，不阻断、不冒充用户输入。S0 出 A/B/C/D **获客方向方案**（含推荐与淘汰理由），用户选字母。用户给自己的官网/目录/产品页 → 只走独立 `website-profile-sop.md` 六区候选，批准补丁后才导入；买家网址转 S3；模块失败/跳过继续原流程。用户给卖点文字/文件 → 按用户来源提炼；没给 → 邀请补充一次、可跳过。★出方案前按 `specs/product-fit.md` 四问判 **强/条件/弱适配**，弱适配如实说明预期，由用户决定 |
 | S0a PROFILE_PENDING | 分两轮主动索取：①公司级资料→`.local/operators/<operator_key>.md`（多公司隔离/跨产品/换机复用）②产品级资料→`runs/<operator_key>/<product_key>/product-profile.md`。每轮一组、可跳过不逼问；产品档案必须 confirmed 或 declined 才能进 S1，draft 阻断；后续绑定版本/hash |
 | S1 PATH_PENDING | **连接平台为独立前置**：档案确认后先按 `T-token引导.md` 引导一键双取→check_login+workspace_guard+gate 全过，才进选起点。有精准网址→快速路径 A；无→标准路径 B **自动选择，不追问**（用户随时可补网址切换） |
-| S2 SEGMENT_PENDING | **两条路径都推演**（方案B：有种子时并入种子描述），推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add，非 product-add，否则 generate 500；generate 后轮询 list 至非空；★客群推演**优先读 product-profile.md** 的产品线/客群/卖点，推得更准）|
+| S2 SEGMENT_PENDING | **两条路径都推演**（方案B：有种子时并入种子描述）；★**多客群分批**（铁律7d）：可选多个但每个客群独立标签/模板/序列，选中≥2个必须提示分开做并告知 K×120 模板+K 序列，一个客群走完 S3→S10 再做下一个；推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add，非 product-add，否则 generate 500；generate 后轮询 list 至非空；★客群推演**优先读 product-profile.md** 的产品线/客群/卖点，推得更准）|
 | S3 SEED_PENDING | ★入口二选一：有起点网址→确认并判定其客群；没有→从已推演客群挑精准买家。**起点必须关联客群**。AI 数据库搜索链三步：①query_en 搜第一页（25字段/条，含 id、无 domain）②代表买家 id→`domain/base-info` 取域名 ③域名作 keyword 走主搜扩量（禁 similar-list）→用户确认锚点；随后 S4 审计、S5/S6 按审计关键词保存（域名/长文本均实测✅） |
 | S4 AUDIT_RUNNING | 只读+AI 语义反思找 70% 临界；按三条客户线留痕。正式收口须 `evidence_mode=live` 并绑定真实线上审计+独立review hash；模拟/离线/网络桩/占位只能出演练报告，禁止推进S4或保存 |
 | S5 SAVE_PENDING | 展示临界 N/标签/排除4区/max/点数，用户确认后才保存（→输出 approval_id）|

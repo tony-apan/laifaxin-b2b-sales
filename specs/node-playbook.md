@@ -53,6 +53,7 @@ audience: 人+AI
 
 ### S2 SEGMENT_PENDING（客群推演·两条路径都走）
 
+> ★**多客群分批（铁律 7d，2026-09-09 用户拍板）**：用户可选多个客群，但**执行必须分批**——每个客群独立标签/独立 120 模板/独立序列，一个客群走完 S3→S10 再做下一个。S2 选中 ≥2 个时必须提示"建议分开做"并给"先做 1 个 / 都做（分 K 批）"，如实告知 K×120 模板 + K 条序列。选中客群必须落档 record + `segments/<ID>-<客群名>.md`。详见 `operations-sop.md` §3.1。
 > ★2026-09-09 用户拍板（方案B）：**快速路径也推演**。有种子时把种子公司名/角色/中英摘要（只读 `domain/base-info`）并进推演输入，保证 `segments/` 不空、客群标签可用。理由：S4 匹配率以客群客户线为分子、直采/OEM/拓品分线计数、标签命名、模板痛点加权都依赖客群标签。推演失败**不终止**向导（如实告警继续）；已完成 S3+ 的项目不重复推演。
 - **判据（来源）**：`../RULES.md` S2「**两条路径都推演**（方案B：有种子时并入种子描述）；推演默认4个；打印全部，判断是否精准潜在客户，给成交周期/询盘速度/量级/邮箱/竞争度/推荐；用户确认或要求更多；推演失败告警继续；已完成 S3+ 不重复推演」；`../RULES.md` L51 输出标准：每个客群必须写「精准潜在客户：是/否/条件成立时是」+ 六维度；`specs/operations-sop.md`「三、AI 推演固化」（选最直接买家客群，Path B 流通与代理优先）。
 - **通过条件**：≥1 个客群被用户确认选用（默认4个，要更多 → 再 `inference-segment-generate` 扩到8个重新展示）。
@@ -95,6 +96,7 @@ audience: 人+AI
 - **⚠️ 缺口**：防重复保存检查**无脚本落地**（RULES 有规则、save_first_n 无已存检查，防重复保存缺口 open）→ 执行前人工查 `company-save-list`/最近成功 task 判断是否已存过。
 - **产出记录**：`.local/approvals.tsv`（S5_保存行）；保存返回的 task id 记 `operation-record.md`（供 S6 轮询）。
 
+- **★每批独立保存（铁律 7d）**：确认卡标题写「<客群名>（第 i/K 批）」；标签只属于本客群，禁止多客群合并进同一标签。
 ### S6 SAVE_RUNNING（保存执行 + 时序等待）
 - **判据（来源）**：`../RULES.md` L29「front保存；等任务finished；用标签结果对账」；`../RULES.md` L76-82 任务类型对照（保存=查 `operation/backend-task-status` `{"type":"cluesSave","id":<task id>}`，**不是** company-save-list）；邮箱提取异步（`specs/domain-scale-sop.md` L163-167 / L-16）；对账口径=**标签联系人数**，非 contactSaveCount（对账口径差异）。
 - **通过条件**：backend-task-status `status:"finished"` + 记录 contactSaveCount/companySaveCount + 标签联系人>0（对账一致）。
@@ -109,6 +111,7 @@ audience: 人+AI
 - **脚本**：`gen_templates.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --product <产品> --profile .../product-profile.md --plan <计划JSON> --prefix "英-<产品>-" --suffix -RT --name <纯昵称> --record .../operation-record.md --project <operator_key>/<product_key> --preview`；预览成功推进S7但不写平台。
 - **产出记录**：`.local/approvals.tsv`（S7_模板预览行）；草稿在对话展示。
 
+- **★每批一套模板（铁律 7d）**：N 客群 = N 套 120 模板，前缀带客群标识；确认卡标题写「<客群名>（第 i/K 批）」。
 ### S8 TEMPLATE_BUILD（批量创建 + 差异实测）
 - **判据（来源）**：`../RULES.md` L31「创建后断言变量样式、标题、正文差异、轮次绑定；失败回S7」；`specs/sequence-config.md` L76-79 ★诚实口径：**"差异≥30%"不得声称达标**——12轮方向互异是硬保证，但同轮变体必须生成后跑 `check_template_diff.py` 实测（Jaccard>0.70=违例）；重建顺序铁律与引用锁（L-43：名称唯一/被序列引用不可删/至少保留1步/step 非空模板）。
 - **通过条件**：120 模板全部创建成功 + 每个 id 为完整 24hex（断言失败 exit 1）+ `check_template_diff.py` 实测两两相似度≤0.70 + name→id 映射落盘；任一失败 → 回 S7。
@@ -127,6 +130,7 @@ audience: 人+AI
 - **脚本入口唯一**：使用上一行带 `--profile`、tmap.meta 校验与稳定项目键的 `build_sequence.py`；缺任一项即拒绝，禁止用旧命令绕过档案绑定。
 - **产出记录**：`.local/approvals.tsv`（S9_序列配置行）；`runs/<运营方>/<产品>/seq-config.json`；序列 id 记 `operation-record.md`。
 
+- **★每批一条序列（铁律 7d）**：N 客群 = N 条序列，各绑本客群模板与本客群联系人标签；序列名带客群档位后缀。
 ### S10 CONTACT_PENDING（时序守卫 + contact-add）
 - **判据（来源）**：`../RULES.md` L34「保存finished、标签联系人>0、序列inactive、人数对账且用户确认后才contact-add」；铁律⑥ `../RULES.md` L66（等 finished+标签联系人>0，否则 add 0）；L-01：`views` 必须传**空数组 `[]`**（传 `["all"]` 会把全部 139 万联系人加入）。
 - **通过条件**：`wait_save_done.py` 双校验通过（finished + 标签联系人>0）+ 序列 inactive + 人数对账一致 + 用户确认。
