@@ -145,6 +145,7 @@ runs/INDEX.md          运营方×产品导航卡（生成物，源自 runs.tsv+
 | **template/序列** | 直接查对应 list 接口 | - | - |
 > ⚠️ backend-task-status 查删除=只返回id无进度（L-36 误判教训）；保存任务用 task-status（有contactSaveCount），删除用 backend-progress。
 > ⚠️ **token 来源**：首次平台调用前，用户在浏览器一键双取 `accesstoken=` + `orgId=` 两行并直接粘贴到当前主 AI 聊天框；主 AI 经程序化 stdin 检查并在内存中解析。token 第 2 段是用户 UID，不是企业工作空间 orgId；缺 orgId 一律停止。旧 `--token/--org` 仅为主 AI 内部不安全兼容入口，不面向用户。
+> 🔴 **工作空间落点必须显式校验（2026-09-09 用户实测事故后立规）**：`?uid=<orgId>` 只是请求参数，**不是信任边界**——当 token 所属账号对该 org 无权限时，平台会**静默把请求落回 token 自己的空间**，同时仍返回 `success:true`、参数回显也一致。因此"接口返回成功 + 参数一致"**不能**证明数据落进了目标空间；曾发生"给了企业 orgId，客户/模板/序列全部建进个人账号"。规则：①任何写操作前必须先跑 `tools/workspace_guard.py`（只读 `benefits/refine-data` 的 `isOrg`，比对"声明的 orgId"与"token 中段用户UID"）；②命中"声明企业但平台判个人"或"判企业却 orgId==用户UID"→ **阻断，禁止写**；③平台未返回 `isOrg` → 记"未校验"，**不得声称已核对空间**；④六个写入工具（`gen_templates`/`tag_add`/`save_first_n`/`contact_add`/`build_sequence`/`activate_sequence`）已内置该预检，`gate_check.sh` 的 `[2b]` 也强制校验；⑤汇报时只能写"落点校验通过"或"未校验"，禁止用"参数回显一致"冒充空间正确。
 
 ## ★ 模板变量（★字段清单=记录；实际使用=策略，勿滥用）
 - **格式**：`<code class="lfxFieldVeriable" contenteditable="false">{联系人:名称}</code>`（{联系人:<title>}/{公司:<title>}，title=字段中文标题）

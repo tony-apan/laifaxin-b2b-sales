@@ -32,6 +32,7 @@ from compliance_validation import validate_compliance
 from profile_utils import ensure_same_project_paths, profile_gate
 from project_lock import acquire_project_lock
 from update_run_state import read_meta, read_status, require_state, update_frontmatter
+from workspace_guard import preflight
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--token", required=True)
@@ -234,6 +235,8 @@ if _profile_sha_now(PROFILE_PATH) != PROFILE_SHA or hashlib.sha256(comp_path.rea
     sys.exit(4)
 
 # 3) 首次联网：只有完整本地证明链通过后才读取在线状态。
+# ★先校验工作空间落点(仍只读)：激活=真发信，落点错=用错账号发信——必须在任何写之前阻断。
+preflight(args.token, args.org, dry_run=getattr(args, "dry_run", False), what="激活序列")
 st0 = get_status()
 if st0 is None:
     print(f"❌ 序列 {args.seq} 状态未能回读(接口偶发空——稍等重试,勿盲目激活)"); sys.exit(3)

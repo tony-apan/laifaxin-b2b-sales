@@ -2,7 +2,7 @@
 name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
-version: 0.5.3
+version: 0.5.4
 created: 2026-08-30
 updated: 2026-09-09
 author: "独立审查 agent（对抗判定后落地）"
@@ -85,6 +85,7 @@ flowchart TD
     `var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！回到对话框 Ctrl+V（Mac按⌘V）粘贴发送给 AI"):(location.host.indexOf("laifaxin")<0&&location.host.indexOf("worldtradetool")<0?"❌ 你现在打开的网页（"+location.host+"）不是来发信——新开标签页访问 web.laifaxin.com 并登录，再按 F12 打开控制台重新粘贴本命令":"❌ 来发信页面上没取到登录凭证——先看右上角有没有你的账号头像：没有=先登录；有=按 F5 刷新后再运行一次（不用退出重登）");`
     →成功回显 ✅ 后，用户只需回到**当前聊天框直接粘贴并发送**。禁止让用户拆分、设置 TOKEN/ORG 变量、创建 `.env` 或执行 Python/Shell 命令。**主 AI** 不回显/不落盘/不写日志/不传子代理；用宿主程序化 stdin 将整段交给 `check_login.py --credentials-stdin`，禁止 heredoc、`printf |` 或把凭据拼进工具调用文本。
   - 🔴 **orgId=工作空间ID，与 token 中段（用户ID）是两回事**：个人账号二者只是恰好相同；企业账号 orgId 是独立值，必须从 localStorage 一键双取。缺 orgId 时所有账号一律停止，禁止回退 token 中段或默认个人空间
+  - 🔴 **拿到凭据后必须做"落点校验"，不能只看接口成功**：`?uid=` 只是请求参数，token 对该 org 无权限时平台会**静默落回 token 自己的空间**且仍返回成功——所以"接口成功 + 参数回显一致"证明不了空间对。登录检查后立刻跑 `python3 tools/workspace_guard.py --credentials-stdin --require-verified`（`gate_check.sh` 的 `[2b]` 也会跑）；命中"声明企业却判个人"或"判企业却 orgId==用户UID"必须停止，让用户切到目标空间重新一键双取。汇报只能说"落点校验通过"或"未校验"，禁止用参数一致冒充空间正确。
   - ★请用 Chrome 或 Edge 打开 web.laifaxin.com（其他浏览器界面可能不同）
   - 粘贴时浏览器可能提示 "Don't paste code"（防骗保护，正常现象）——核对命令一致后按提示输入 allow pasting 再粘贴
   - 安全边界：token 等同登录凭证，只发给你信任的 AI（本流程仅用于你会话、不写文件）；不要发群聊/工单/公开文档

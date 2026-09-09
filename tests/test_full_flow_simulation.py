@@ -17,7 +17,7 @@ PROJECT = "tony/pet-food-packaging"
 PRODUCT = "pet-food-packaging"
 OPERATOR = "tony"
 NICKNAME = "Tony"
-TOKEN = "fake-token-for-offline-test"
+TOKEN = "web.laifaxin.com&fake-user-uid&fake-token-for-offline-test"
 ORG = "fake-org-for-offline-test"
 SEED = "pet-packaging.example"
 TASK = "fake-save-task"
@@ -62,6 +62,7 @@ known = {
     "/api/sequences/step-create", "/api/sequences/contact-add",
     "/api/sequences/step-list", "/api/mailbox/templates-list",
     "/api/mailbox/template-info", "/api/refine/company-list",
+    "/api/benefits/refine-data",
 }
 entry = {"path": path, "payload": payload}
 if path not in known:
@@ -125,6 +126,10 @@ elif path == "/api/mailbox/template-info":
     out = {"success": True, "data": {"subject": item.get("subject", ""), "html": item.get("html", "")}}
 elif path == "/api/refine/company-list":
     out = {"success": True, "data": {"list": [{"company_name": "Example Buyer", "country_code": "US"}]}}
+elif path == "/api/benefits/refine-data":
+    # 工作空间落点探测：token 中段=fake-user-uid ≠ ORG=fake-org-for-offline-test → 企业空间自洽
+    out = {"success": True, "data": {"isOrg": True, "vip": 2, "dailyLimit": 500,
+                                     "monthlyLimit": 10000, "dailyUsed": 1, "monthlyUsed": 2}}
 else:
     raise AssertionError(path)
 print(json.dumps(out, ensure_ascii=False))
@@ -284,12 +289,16 @@ class FullFlowSimulationTest(unittest.TestCase):
         directions = []
         for i, word in enumerate(("orbit", "harbor", "cedar", "quartz", "maple", "signal", "velvet", "anchor", "cobalt", "meadow", "summit", "willow"), 1):
             angle = " ".join(word + suffix for suffix in ("lane", "crest", "field", "point", "mark", "path", "view", "work", "craft", "scope"))
-            directions.append([f"R{i:02d}", f"方向{i}", f"{word} packaging discussion", angle])
+            # 轮次句含加粗产品词+实体优势（四要素：整封 2-4 处加粗、优势具体化；不用数字避免触发事实闸门）
+            directions.append([f"R{i:02d}", f"方向{i}", f"{word} packaging discussion",
+                               f"Are your <b>packaging</b> SKUs locked in? We build <b>seam</b> construction. {angle}"])
         variants = []
         claims = []
         for word in ("amber", "birch", "coral", "delta", "ember", "frost", "grove", "heath", "ivory", "juniper"):
             detail = " ".join(word + suffix for suffix in ("tone", "shape", "blend", "frame", "line", "note", "mode", "route", "choice", "brief"))
-            sentence = f"{detail} MOQ; reply \"<b>{word}</b>\" for <b>details</b>"
+            # 四要素+视觉扫读：独立 CTA 段 + 加粗回复关键词 + 加粗实体优势(MOQ)；detail 提供变体间差异化
+            sentence = (f"Worth a look? Reply \"<b>{word.upper()}</b>\" and I will send our <b>MOQ</b> sheet "
+                        f"covering {detail} — no commitment.")
             variants.append(sentence)
             claims.append({"exact_text": sentence, "source": "用户", "profile_field": "⑧", "evidence_text": "MOQ options available"})
         plan = self.project_dir / "plan.json"

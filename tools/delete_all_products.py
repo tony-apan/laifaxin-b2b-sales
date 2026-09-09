@@ -7,6 +7,7 @@ import hashlib, json, subprocess, time, argparse, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from approval import require_approval, stable_params_hash
+from workspace_guard import preflight
 
 CONFIRM_PHRASE = "DELETE-ALL"
 ap = argparse.ArgumentParser()
@@ -59,6 +60,8 @@ if executing:
     row=require_approval(args.approval,project,("SX_DELETE_PRODUCTS",),what="清空全部产品档案",expected_hash=stable_params_hash(binding))
     if " ".join(str(row.get("user_quote","")).split()) != " ".join(args.user_quote.split()):
         print("❌ --user-quote须与审批凭证原话一致"); raise SystemExit(2)
+    # ★工作空间落点校验(删除前): 防"给了企业 orgId 却删掉个人空间的档案"
+    preflight(args.token, args.org, what="清空全部产品档案")
 
 print(f"产品档案: {len(allp)}")
 if not allp:

@@ -21,6 +21,7 @@ from approval import require_approval, stable_params_hash
 from profile_utils import ensure_same_project_paths, profile_gate, validate_nickname
 from project_lock import acquire_project_lock
 from update_run_state import require_state, update_frontmatter
+from workspace_guard import preflight
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--token", required=True, help="accesstoken 完整串（token中段是用户UID）")
@@ -105,6 +106,8 @@ binding = {"project": args.project, "org_sha256": _org_sha, "name": args.name, "
            "profile": {"sha256": profile_sha, "status": profile_status, "version": profile_meta.get("profile_version", "")},
            "tmap": {"sha256": tmeta.get("tmap_sha256")}, "rules": S9_RULES_BINDING}
 require_approval(args.approval, args.project, ("S9",), what="建序列", expected_hash=stable_params_hash(binding))
+# ★工作空间落点校验(写之前): 防"给了企业 orgId 却落进个人空间"
+preflight(args.token, args.org, dry_run=args.dry_run, what="建序列")
 
 def api(path, p, t=60, exit_on_fail=True):
     cmd = ["curl","-sSL","-m","55","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}",

@@ -24,6 +24,7 @@ from pathlib import Path
 KB = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KB / "tools"))
 from approval import require_approval, stable_params_hash
+from workspace_guard import preflight
 from profile_utils import ensure_same_project_paths, profile_gate
 from project_lock import acquire_project_lock
 from update_run_state import read_status, update_frontmatter
@@ -166,6 +167,8 @@ if args.dry_run:
 # ★审批硬闸门+参数绑定: 按本次实际参数(seq/profile/plan/suffix)重算哈希, 凭证memo须逐字一致
 require_approval(args.approval, args.project, ("S7", "S8"), what="重建模板+序列步骤",
                  expected_hash=stable_params_hash(binding))
+# ★工作空间落点校验(写之前): 防"给了企业 orgId 却改/删了个人空间的模板与序列步骤"
+preflight(args.token, args.org, dry_run=args.dry_run, what="重建模板+序列步骤")
 
 # ★前置回读: 序列必须 inactive(失败/未命中/非inactive 退出)
 readback_seq_inactive(enforce=True)

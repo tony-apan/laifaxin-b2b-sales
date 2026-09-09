@@ -22,6 +22,7 @@ from approval import require_approval, stable_params_hash
 from profile_utils import ensure_same_project_paths, profile_field_facts, profile_gate, validate_nickname
 from project_lock import acquire_project_lock
 from update_run_state import require_state, update_frontmatter
+from workspace_guard import preflight
 
 KB = Path(__file__).resolve().parent.parent
 
@@ -298,6 +299,38 @@ _ADVANTAGE_RE = re.compile(
     r"MOQ|warranty|guarantee|repair[- ]friendly|drop[- ]?stitch|hypalon|pvc|seam|load|psi|denier|"
     r"food[- ]grade|lead time|质保|保修|交期|修复|食品级|起订",
     re.IGNORECASE)
+# CTA 回复关键词：引导对方回一个短词。只认"低门槛可回复"的短词形式：
+#   Reply "CATALOG" / Reply CATALOG / Just reply YES / 回复「目录」  → 命中
+#   Reply with your target sizes / reply here and I will send...   → 不命中（开放式要求，买家不知道回什么）
+_CTA_KW_QUOTED_RE = re.compile(
+    r'(?:reply|respond|回复|回个)\s*(?:just\s+)?[到]?\s*["\'「『]([^"\'」』]{1,20})["\'」』]',
+    re.IGNORECASE)
+_CTA_KW_BARE_RE = re.compile(
+    r'(?:just\s+)?(?:reply|respond|回复|回个)\s*(?:just\s+)?(?:with\s+)?["\']?([A-Za-z][A-Za-z0-9-]{0,19})["\']?'
+    r'(?=\s*(?:[,.;!?]|and\b|to\b|here\b|now\b|$))',
+    re.IGNORECASE)
+# 这些词不是"回复关键词"，而是开放式要求的引导语——命中即视为未给出短词。
+# 注意：yes/no 是合法短词（Reply YES），不在此列。
+_CTA_KW_STOPWORDS = {
+    "with", "to", "here", "and", "now", "me", "us", "this", "the", "a", "an", "your", "you",
+    "back", "again", "then", "if", "or", "ok", "okay",
+}
+# 合法的"是非问"CTA：sequence-config 正例 `— yes or no is enough`。它不含短词关键词，
+# 但买家明确知道回什么（回 yes/no），因此豁免"必须有短词"的要求。
+_YESNO_CTA_RE = re.compile(r"yes\s+or\s+no|yes/no|回\s*(?:是|否|yes|no)", re.IGNORECASE)
+
+def _cta_keyword(plain):
+    """从变体句提取 CTA 回复关键词（1-2 个单词的短词）；未给出短词返回空串。
+    注意 yes/no 作为"是非问"是合法 CTA 但不是短词关键词——这里只在显式 Reply YES 形态下认它。"""
+    for rx in (_CTA_KW_QUOTED_RE, _CTA_KW_BARE_RE):
+        for m in rx.finditer(plain or ""):
+            candidate = m.group(1).strip().strip("\"'「」『』").strip()
+            if not candidate:
+                continue
+            if candidate.lower() in _CTA_KW_STOPWORDS:
+                continue
+            return candidate
+    return ""
 
 def check_four_elements():
     """四要素+视觉扫读铁律（sequence-config）：①变体句含CTA（具体可回复）②优势具体化
@@ -311,8 +344,9 @@ def check_four_elements():
         samples.append((f"V{vi:02d}", "", body))
     for loc, subj, text in samples:
         bolds = len(re.findall(r"<b>", text))
-        if bolds and (bolds < 2 or bolds > 4):
-            issues.append(f"[{loc}] <b>加粗数量={bolds}（要求2-4处）")
+        # ★0 处加粗必须报错（旧逻辑 `if bolds and ...` 让 0 处静默放行——真实产物曾整批零加粗）
+        if bolds < 2 or bolds > 4:
+            issues.append(f"[{loc}] <b>加粗数量={bolds}（要求2-4处；0 处=买家扫不到卖点）")
         # CTA 铁律只校验【变体句】——变体=每封邮件的收尾主体，CTA 是嵌入元素（sequence-config §42）；
         # 轮次句是铺陈（钩子/优势），不强制每句带 CTA
         is_variant = loc.startswith("V")
@@ -323,16 +357,19 @@ def check_four_elements():
                 issues.append(f"[{loc}] 泛CTA违例（feel free/look forward——没说清回什么）")
             if not _ADVANTAGE_RE.search(text):
                 issues.append(f"[{loc}] 缺具体化优势——须带数字/实体（质保年数/交期天数/材料工艺），裸能力陈述=违例")
-            # 视觉扫读：CTA 回复关键词必须加粗（Reply "<b>X</b>" 或 <b>"X"</b>）
+            # 视觉扫读：CTA 回复关键词必须存在且加粗（Reply "<b>CATALOG</b>"）——买家的低门槛回复动作
             plain = re.sub(r"<[^>]+>", "", text)
-            # 提取回复关键词：优先带引号形式 Reply "X"；否则 Reply X（到标点/句尾）
-            m = (re.search(r'(?:reply|respond)\s+["\']([A-Za-z0-9 ]{1,20})["\']', plain, re.IGNORECASE)
-                 or re.search(r'(?:reply|respond)\s+to?\s*["\']?([A-Za-z][A-Za-z0-9 ]{1,20})["\']?(?=[,.;!?]|$)', plain, re.IGNORECASE))
-            if m:
-                kw = m.group(1).split()[0]
+            kw = _cta_keyword(plain)
+            if not kw and not _YESNO_CTA_RE.search(plain):
+                issues.append(f"[{loc}] 缺 CTA 回复关键词——须引导对方回一个 1-2 个单词的短词（如 Reply \"CATALOG\"）"
+                              "或一个明确的是非问题（yes or no is enough）；"
+                              "仅\"回复告诉我尺寸/地址\"这类开放式要求=违例（买家不知道回什么）")
+            elif kw:
                 bolded = re.search(r'<b>[^<]*' + re.escape(kw) + r'[^<]*</b>', text, re.IGNORECASE)
                 if not bolded:
                     issues.append(f"[{loc}] CTA回复关键词「{kw}」未加粗——买家扫读必须看到回复动作（Reply \"<b>{kw}</b>\"）")
+                if len(kw.split()) > 2 or len(kw) > 20:
+                    issues.append(f"[{loc}] CTA回复关键词「{kw}」过长——应为 1-2 个单词的短词（如 CATALOG/DATA/YES）")
     # 视觉扫读：整封（钩子段+卖点段+CTA段，不含落款）≤120 词
     for d in DIRECTIONS:
         full_text = re.sub(r"<[^>]+>", " ", f"{d[2]} {d[3]} {VARIANTS[0]}")
@@ -445,6 +482,9 @@ binding = {"project": args.project, "org_sha256": hashlib.sha256(str(args.org).e
            "plan": {"sha256": PLAN_SHA}, "name": SIGN, "prefix": args.prefix, "suffix": args.suffix,
            "foid": str(args.foid or "auto"), "out": out_rel}
 require_approval(args.approval, args.project, ("S7", "S8"), what="批量创建模板", expected_hash=stable_params_hash(binding))
+
+# ★工作空间落点校验(写之前): 防"给了企业 orgId 却落进个人空间"——接口 success 不能证明落点正确
+preflight(args.token, args.org, what="批量创建模板")
 
 args.foid = ensure_folder()  # S8: 模板必须归入分组(禁散落未指定目录; 失败即退出)
 

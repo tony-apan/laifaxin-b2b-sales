@@ -421,6 +421,9 @@ if not pathA:
     if confirm("S2_客群", "将创建产品档案并推演客群（写操作，租户本地），推演结果出来后我再给您选。继续？",
                node_params({"product": args.product, "info": args.product_info})):
         if not args.dry_run:
+            # ★工作空间落点校验(写之前): 防"给了企业 orgId 却把产品档案/客群写进个人空间"
+            from workspace_guard import preflight
+            preflight(args.token, args.org, what="S2 建产品档案并推演客群")
             # ★ISS-48: 建【推理档案】须用 inference-product-add(字段 zh/en/desc_zh/exclusions)——旧用基础档案 product-add 会导致 inference-segment-generate 返回 500
             pa=api("profile/inference-product-add",{"product_name":args.product,"product_zh":args.product,"product_en":args.product,"product_desc_zh":args.product_info,"product_exclusions":""})
             pid=pa.get("data",{}).get("product_id") or pa.get("data",{}).get("_id") or pa.get("data",{}).get("id") or (pa.get("data") if isinstance(pa.get("data"),str) else "")

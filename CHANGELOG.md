@@ -2,6 +2,21 @@
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
 
+## [v0.5.4] - 2026-09-09
+
+修两个"工具不拦、真实产物出错"的主链缺陷：**工作空间落点从未被校验**、**开发信 CTA 短关键词从未被强制**。
+
+- **工作空间落点校验（P0，用户实测事故）**：AI 拿到企业空间 orgId（如 <企业空间ID>）后，客户/模板/序列却全部建进了 token 所属**个人账号**。根因：`?uid=<orgId>` 只是请求参数、不是信任边界——token 对该 org 无权限时平台**静默落回 token 自己的空间**，且仍返回 `success:true`、参数回显一致。因此"接口成功+参数一致"证明不了落点正确，而当时所有写入工具**根本没做过登录/空间校验**（只有 flow/onboard 调 check_login）。
+  - 新增 `tools/workspace_guard.py`：只读 `benefits/refine-data` 的 `data.isOrg`，比对"声明 orgId"与"token 中段用户UID"。`isOrg=false 且 org≠uid`（声明企业却落个人）或 `isOrg=true 且 org==uid`（自相矛盾）→ **阻断写操作**；平台未返回 `isOrg` → 记"未校验"，**不冒充通过**。
+  - 九个写路径全部接入 `preflight()`（审批之后、任何写请求之前）：`gen_templates` / `tag_add` / `save_first_n` / `contact_add` / `build_sequence` / `activate_sequence` / `rebuild_templates` / `delete_all_products` / `segments_infer`，以及 `flow_orchestrator` 的 S2 推演写。静态测试逐个核对"必须调用且早于首个写接口"，防漏网。
+  - `gate_check.sh` 新增 `[2b]` 强制校验；stdin 只读一次后用变量分发给登录校验与空间校验（`IFS= read -r -d ''` 保留原始字节）。
+  - 汇报口径收紧：只能说"落点校验通过"或"未校验"，禁止用"参数回显一致"冒充空间正确。
+- **CTA 短关键词闸门（P0，真实产物整批违规）**：`runs/*/template-plan.json` 的真实变体是**零 `<b>`、无短关键词**的开放式要求（"Reply with your target cup sizes…"），而旧工具两处静默放行——`if bolds and (bolds<2 or bolds>4)` 让 **0 处加粗不报错**；关键词提取在 `if m:` 内，**提取不到就整段跳过**（且 `to?` 正则让 `Reply CATALOG` 这类无引号写法永远匹配不上）。实测复现：零加粗文案被判"22 句全部合规"并 exit 0。
+  - `bolds` 判断改为 `bolds < 2 or bolds > 4`（0 处必错）；新增 `_cta_keyword()` 识别带引号/不带引号/中文关键词，**缺失、未加粗、超过 1-2 个单词**均 exit 2；`— yes or no is enough` 是非问按规范豁免。
+  - `specs/sequence-config.md` 明确"每封必须给恰好一个 1-2 词短关键词、每轮换词、开放式要求不算 CTA"。
+- **新增本地模板预览**：`tools/render_html_preview.py --plan <plan.json> [--rounds 1-4 --variants 1,2]` 生成 `preview.html`——加粗卖点/回复关键词黄色高亮、CTA 段蓝线标注，浏览器直接看收件人视角；S7 展示话术已接入。
+- 测试从 101 增至 132：新增 `test_workspace_guard.py`（17 项，含误路由阻断、未校验不冒充通过、写工具覆盖与顺序）、`test_cta_keyword_gate.py`（8 项，含零加粗/未加粗关键词/开放式要求回归）、`test_render_html_preview.py`（6 项，含转义与标记泄漏）。两仓同步后各 132 项通过。
+
 ## [v0.5.3] - 2026-09-09
 
 用“宠物食品包装袋”在隔离副本做 S0-S12 全流程离线模拟，真实运行本地工具/状态机/审批/模板/manifest，平台写操作使用明确网络桩且不冒充线上成功。模拟发现并修复四类主链断点：

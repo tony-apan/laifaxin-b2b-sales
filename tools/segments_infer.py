@@ -12,6 +12,7 @@ sys.path.insert(0, str(KB / "tools"))
 from approval import require_approval, stable_params_hash
 from profile_utils import ensure_same_project_paths, profile_gate
 from update_run_state import require_state, update_frontmatter
+from workspace_guard import preflight
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--token", required=True); ap.add_argument("--org", required=True)
@@ -77,6 +78,8 @@ if issues:
 binding = {"project": args.project, "org_sha256": hashlib.sha256(str(args.org).encode()).hexdigest(), "profile": {"sha256": ph, "status": ps, "version": pm.get("profile_version", "")},
            "pid": str(pid), "rounds": args.rounds}
 require_approval(args.approval, args.project, ("S2",), what="推理客群", expected_hash=stable_params_hash(binding))
+# ★工作空间落点校验(写之前): 防"给了企业 orgId 却把客群推演写进个人空间"
+preflight(args.token, args.org, dry_run=args.dry_run, what="推理客群")
 
 for i in range(args.rounds):
     r = api("profile/inference-segment-generate", {"product_id": pid}, t=180)

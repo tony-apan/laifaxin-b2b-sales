@@ -337,12 +337,13 @@ class ShellRoutingTest(unittest.TestCase):
     def run_script(self, name, args=(), input_text=None):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            capture = tmp_path / "capture.json"
+            capture = tmp_path / "capture.jsonl"
             fake = tmp_path / "python3"
+            # 追加写入：脚本可能调用多个 python3 工具（登录校验 + 工作空间校验），全部记录
             fake.write_text(
                 "#!/bin/sh\n"
                 "\"$REAL_PYTHON\" -c 'import json,os,sys; "
-                "open(os.environ[\"CAPTURE\"],\"w\").write(json.dumps({\"argv\":sys.argv[1:],\"stdin\":sys.stdin.read()}))' \"$@\"\n"
+                "open(os.environ[\"CAPTURE\"],\"a\").write(json.dumps({\"argv\":sys.argv[1:],\"stdin\":sys.stdin.read()})+\"\\n\")' \"$@\"\n"
                 "exit \"${FAKE_RC:-0}\"\n",
                 encoding="utf-8",
             )
@@ -363,36 +364,43 @@ class ShellRoutingTest(unittest.TestCase):
                 env=env,
                 timeout=5,
             )
-            data = json.loads(capture.read_text(encoding="utf-8")) if capture.exists() else None
-            return result, data
+            calls = ([json.loads(line) for line in capture.read_text(encoding="utf-8").splitlines() if line]
+                     if capture.exists() else [])
+            return result, calls
 
     def test_gate_routes_stdin_without_token_argv(self):
-        result, data = self.run_script("gate_check.sh", ["--credentials-stdin"], BLOB)
+        result, calls = self.run_script("gate_check.sh", ["--credentials-stdin"], BLOB)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(data["stdin"], BLOB)
-        self.assertIn("--credentials-stdin", data["argv"])
-        self.assertIn("--gate-mode", data["argv"])
-        self.assertNotIn(TOKEN, " ".join(data["argv"]))
+        self.assertTrue(calls, "gate_check.sh 应至少调用一次 python3 工具")
+        for call in calls:
+            self.assertEqual(call["stdin"], BLOB)  # 凭据原样转发（含末尾换行），不得改写
+            self.assertIn("--credentials-stdin", call["argv"])
+            self.assertNotIn(TOKEN, " ".join(call["argv"]))
+        login = next(c for c in calls if any("check_login.py" in a for a in c["argv"]))
+        self.assertIn("--gate-mode", login["argv"])
+        self.assertTrue(any("workspace_guard.py" in a for c in calls for a in c["argv"]),
+                        "gate_check.sh 必须做工作空间落点校验")
 
     def test_rules_routes_stdin_without_token_argv(self):
-        result, data = self.run_script("check_rules.sh", ["--credentials-stdin"], BLOB)
+        result, calls = self.run_script("check_rules.sh", ["--credentials-stdin"], BLOB)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(data["stdin"], BLOB)
-        self.assertNotIn(TOKEN, " ".join(data["argv"]))
+        self.assertTrue(calls)
+        self.assertEqual(calls[0]["stdin"], BLOB)
+        self.assertNotIn(TOKEN, " ".join(calls[0]["argv"]))
 
     def test_rules_without_credentials_is_offline_and_does_not_run_python(self):
-        result, data = self.run_script("check_rules.sh")
+        result, calls = self.run_script("check_rules.sh")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIsNone(data)
+        self.assertEqual([], calls)
         self.assertIn("未做登录校验", result.stdout)
         self.assertNotIn("token有效", result.stdout)
 
     def test_shell_help_marks_legacy_arguments_deprecated_and_unsafe(self):
         for name in ("gate_check.sh", "check_rules.sh"):
             with self.subTest(name=name):
-                result, data = self.run_script(name, ["--help"])
+                result, calls = self.run_script(name, ["--help"])
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                self.assertIsNone(data)
+                self.assertEqual([], calls)
                 self.assertIn("deprecated", result.stdout.lower())
                 self.assertIn("argv", result.stdout.lower())
                 self.assertNotIn(TOKEN, result.stdout + result.stderr)

@@ -28,10 +28,16 @@ for f in RULES.md INDEX.md specs/environment-setup.md specs/migration-handoff.md
   [ -f "$KB/$f" ] && ok "文档 $f" || bad "文档 $f 缺失"
 done
 echo "[2] 登录凭据与当前工作空间有效"
+# stdin 只能读一次：先把两行凭据读到变量，再分别喂给登录校验与工作空间校验（两者都读同一份）
+CRED_BLOB=""
+if [ "$CREDENTIALS_STDIN" -eq 1 ] && [ -z "$TOKEN" ] && [ -z "$ORG" ]; then
+  # $(cat) 会剥掉末尾换行；用 IFS= read -r -d '' 保留原始字节（凭据须原样转发）
+  IFS= read -r -d '' CRED_BLOB <&0 || true
+fi
 if [ "$CREDENTIALS_STDIN" -eq 1 ]; then
   if [ -n "$TOKEN" ] || [ -n "$ORG" ]; then
     bad "--credentials-stdin 不能与内部兼容参数混用"
-  elif python3 "$KB/tools/check_login.py" --credentials-stdin --gate-mode; then
+  elif printf '%s' "$CRED_BLOB" | python3 "$KB/tools/check_login.py" --credentials-stdin --gate-mode; then
     ok "登录校验通过"
   else
     LOGIN_RC=$?
@@ -50,6 +56,24 @@ elif [ -n "$TOKEN" ] || [ -n "$ORG" ]; then
 else
   bad "还差登录校验：请把 accesstoken 与 orgId 两行整段直接粘贴到聊天框，由 AI 通过 stdin 重跑"
   echo "  教程: $TOKEN_GUIDE"
+fi
+echo "[2b] 工作空间落点校验（声明的 orgId 是否被平台采纳）"
+if [ "$CREDENTIALS_STDIN" -eq 1 ] && [ -z "$TOKEN" ] && [ -z "$ORG" ]; then
+  if printf '%s' "$CRED_BLOB" | python3 "$KB/tools/workspace_guard.py" --credentials-stdin --require-verified; then
+    ok "工作空间落点校验通过"
+  else
+    WS_RC=$?
+    bad "工作空间落点校验未通过（workspace_guard rc=$WS_RC）——给了企业 orgId 也可能写进个人空间，禁止开始写操作"
+  fi
+elif [ -n "$TOKEN" ] && [ -n "$ORG" ]; then
+  if python3 "$KB/tools/workspace_guard.py" --token "$TOKEN" --org "$ORG" --require-verified; then
+    ok "工作空间落点校验通过"
+  else
+    WS_RC=$?
+    bad "工作空间落点校验未通过（workspace_guard rc=$WS_RC）"
+  fi
+else
+  bad "还差工作空间校验：与登录校验同一次一键双取（缺 orgId 一律停止）"
 fi
 echo "[3] 强制流程关键项（开始前自查）"
 grep -q "排除中国" "$KB/RULES.md" && ok "4区排除规则已读" || bad "RULES 缺4区排除"

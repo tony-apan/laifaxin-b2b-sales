@@ -48,6 +48,7 @@ if _re.search(r'[a-zA-Z]', args.name):
 
 from approval import require_approval, stable_params_hash
 from profile_utils import profile_gate
+from workspace_guard import preflight
 if not args.profile or not args.project:
     print("❌ 创建标签须带 --profile <product-profile.md> --project <operator_key>/<product_key>"); sys.exit(2)
 pp = Path(args.profile); pp = pp if pp.is_absolute() else KB / pp
@@ -60,6 +61,8 @@ if issues:
 binding = {"project": args.project, "org_sha256": hashlib.sha256(str(args.org).encode()).hexdigest(), "profile": {"sha256": ph, "status": ps, "version": pm.get("profile_version", "")},
            "tag": {"name": args.name, "type": args.type}}
 require_approval(args.approval, args.project, ("S2", "S5"), what="建标签", expected_hash=stable_params_hash(binding))
+# ★工作空间落点校验(写之前): 防"给了企业 orgId 却落进个人空间"
+preflight(args.token, args.org, dry_run=getattr(args, "dry_run", False), what="建标签")
 
 # 查重（同名已存在则直接返回现有 id，不重复建）
 d = api("contacts/tags-list", {"type": args.type})

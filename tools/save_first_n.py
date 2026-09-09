@@ -15,6 +15,7 @@ from approval import require_approval, stable_params_hash
 from profile_utils import ensure_same_project_paths, profile_gate
 from project_lock import acquire_project_lock
 from update_run_state import require_state, update_frontmatter
+from workspace_guard import preflight
 
 def api(org, token, path, payload, timeout=120):
     cmd = ["curl","-sSL","-X","POST",f"https://web.laifaxin.com{path}?uid={org}",
@@ -54,6 +55,8 @@ def main():
                "keyword": args.keyword, "n": args.n, "company_tag": args.company_tag, "contact_tag": args.contact_tag,
                "max": args.max, "exclude": exclude, "verify_status": ["valid", "unkown"]}
     require_approval(args.approval, args.project, ("S5",), what="保存前N", expected_hash=stable_params_hash(binding))
+    # ★工作空间落点校验(写之前): 防"给了企业 orgId 却落进个人空间"
+    preflight(args.token, args.org, dry_run=getattr(args, "dry_run", False), what="保存前N")
     # ★ 正确 exclude schema（实测 2026-08-29）：必须带 value:"" + valueType:"select"！
     # 排除生效（amc: 含4区 6→1，仅剩种子公司自身；total不变=截断+补位）
     exclude = sorted({x.strip() for x in args.exclude.split(",") if x.strip()})
