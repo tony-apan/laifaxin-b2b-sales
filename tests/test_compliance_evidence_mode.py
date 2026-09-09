@@ -92,10 +92,26 @@ class ComplianceValidationTest(unittest.TestCase):
             "placeholder", "mock", "stub", "simulated", "simulation", "not live", "not actual",
             "不代表线上", "未实际", "未联网", "未核验", "仅演练", "测试数据", "离线测试",
         }
-        self.assertEqual(expected, set(NON_LIVE_EVIDENCE_MARKERS))
+        # 必须是超集（词汇表允许随对抗审查扩充，但不允许删掉已有标记）
+        self.assertTrue(expected <= set(NON_LIVE_EVIDENCE_MARKERS),
+                        f"词汇表缺失标记: {expected - set(NON_LIVE_EVIDENCE_MARKERS)}")
         self.assertEqual("simulated", find_non_live_marker("SiMuLaTeD evidence"))
         self.assertEqual("离线", find_non_live_marker("离线测试记录"))
         self.assertEqual("", find_non_live_marker("verified against production"))
+
+    def test_english_test_fake_vocabulary_is_rejected(self):
+        """2026-09-09 对抗审查：原先 fake/test 可洗白 live 证据，必须拦截。"""
+        for text in ("fake source data", "this is test data not real", "dummy", "demo data",
+                     "test-only", "unverified", "TODO"):
+            with self.subTest(text=text):
+                self.assertNotEqual("", find_non_live_marker(text), f"应拦截: {text}")
+
+    def test_normal_wording_not_flagged(self):
+        """不得误伤正常措辞（latest/attestation/protest 含 test 子串）。"""
+        for text in ("latest audit report", "attestation from compliance officer",
+                     "protest-free channel check", "verified against production"):
+            with self.subTest(text=text):
+                self.assertEqual("", find_non_live_marker(text), f"不应拦截: {text}")
 
 
 class ActivateLocalGateOrderTest(unittest.TestCase):

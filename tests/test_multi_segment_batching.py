@@ -7,6 +7,7 @@
 3 套 120 模板→3 条序列）。本测试把"一客群一标签一计划"固化为可执行断言。
 """
 import re
+import sys
 import unittest
 from pathlib import Path
 
@@ -112,9 +113,11 @@ class BatchOwnershipInCardsTest(unittest.TestCase):
     """S5/S7/S9 三张卡必须写明本批客群归属。"""
 
     CASES = (
+        ("output-templates/S4-审计进行中.md", "批", "客群名"),
         ("output-templates/S5-保存确认.md", "本批客群", "标签"),
         ("output-templates/S7-模板确认.md", "批", "客群名"),
         ("output-templates/S9-序列确认.md", "批", "客群名"),
+        ("output-templates/S10-加联系人确认.md", "批", "客群名"),
     )
 
     def test_cards_show_batch_ownership(self):
@@ -123,6 +126,14 @@ class BatchOwnershipInCardsTest(unittest.TestCase):
             for token in needed:
                 with self.subTest(file=path, token=token):
                     self.assertIn(token, text, f"{path} 缺少批次归属标记: {token}")
+
+    def test_cards_title_contains_batch_placeholder(self):
+        """每张分批卡的用户话术块标题必须带「第 i/K 批」占位——删掉即失败。"""
+        for path, *_ in self.CASES:
+            blocks = "".join(user_blocks(read(path)))
+            with self.subTest(file=path):
+                self.assertRegex(blocks, r"第\s*<i>\s*/\s*<K>\s*批|本批客群|第 <i>/<K> 批",
+                                 f"{path} 用户话术块缺「第 i/K 批」批次占位")
 
     def test_cards_forbid_merging_segments(self):
         for path, *_ in self.CASES:
@@ -196,6 +207,60 @@ class SegmentTemplateFilesTest(unittest.TestCase):
         for col in ("标签", "模板批次", "序列"):
             with self.subTest(col=col):
                 self.assertIn(col, text, f"客群索引模板缺少列: {col}")
+
+
+class SegmentSelectToolTest(unittest.TestCase):
+    """S2 客群落档工具：把选中客群固化成机读记录（防只记在对话里）。"""
+
+    def setUp(self):
+        import tempfile, shutil
+        sys.path.insert(0, str(ROOT / "tools"))
+        self.tmp = tempfile.TemporaryDirectory()
+        self.record = Path(self.tmp.name) / "operation-record.md"
+        shutil.copy2(ROOT / "runs" / "_template" / "operation-record.md", self.record)
+        text = self.record.read_text(encoding="utf-8")
+        self.record.write_text(text.replace("status: S0", "status: S2", 1), encoding="utf-8")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_parse_accepts_id_colon_name(self):
+        import segment_select
+        self.assertEqual([("S04", "运营商"), ("S05", "批发商")],
+                         segment_select.parse_segments("S04:运营商,S05:批发商"))
+
+    def test_parse_rejects_bad_format_and_duplicates(self):
+        import segment_select
+        for bad in ("S04", "S04:", ":名称", "S04:甲,S04:乙", ""):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    segment_select.parse_segments(bad)
+
+    def test_writes_segments_into_record(self):
+        import segment_select
+        old, new = segment_select.select_segments(self.record, [("S04", "运营商"), ("S05", "批发商")])
+        self.assertIn("S04(运营商)", new)
+        self.assertIn("S05(批发商)", new)
+        body = self.record.read_text(encoding="utf-8")
+        self.assertIn("| 客群 | S04(运营商)、S05(批发商) |", body)
+
+    def test_dry_run_does_not_write(self):
+        import segment_select
+        before = self.record.read_text(encoding="utf-8")
+        segment_select.select_segments(self.record, [("S06", "零售商")], dry_run=True)
+        self.assertEqual(before, self.record.read_text(encoding="utf-8"))
+
+    def test_rejects_when_past_save_stage(self):
+        import segment_select
+        text = self.record.read_text(encoding="utf-8").replace("status: S2", "status: S5", 1)
+        self.record.write_text(text, encoding="utf-8")
+        with self.assertRaises(ValueError):
+            segment_select.select_segments(self.record, [("S06", "零售商")])
+
+    def test_tool_is_wired_into_rules_and_sop(self):
+        for name in ("RULES.md", "specs/operations-sop.md", "output-templates/S2-客群确认.md"):
+            with self.subTest(file=name):
+                self.assertIn("segment_select.py", read(name), f"{name} 应指向客群落档工具")
 
 
 if __name__ == "__main__":

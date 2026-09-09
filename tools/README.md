@@ -26,6 +26,7 @@ audience: AI优先（人可参考）
 | `credential_input.py` | 聊天框两行凭据严格解析单一真源 | ✅ LF/CRLF/CR；缺org/重复/null/控制符/超限fail-closed |
 | `gate_check.sh` | 流程开始前强制闸门（token 有效 + 必读文档 + 规则命中） | ✅ 未通过禁止写操作 |
 | `check_login.py` | 首次平台操作前·登录检查（只读，三分类引导；不是对话开局第一句） | ✅ 一键双取 token + 当前工作空间 orgId |
+| `segment_select.py` | S2 客群落档：把用户选中的客群写进 record（铁律 7d 机读固化） | ✅ 只允许 S1/S2/S3；去重保序；`--dry-run` 预览 |
 | `workspace_guard.py` | **工作空间落点校验**（只读 `benefits/refine-data` 的 isOrg）：防"给了企业 orgId 却写进个人空间" | ✅ 落点矛盾阻断；无 isOrg=未校验(不冒充通过) |
 | `bootstrap.sh` / `bootstrap.ps1` | 无 Python 前提的跨平台环境探测/自动安装/复查 | ✅ 环境入口；详见 environment-setup |
 | `onboard_check.py` | Python 就绪后的自检 + 可续接项目/status/profile扫描 | ✅ 不输出 token/审批原话/邮箱 |
