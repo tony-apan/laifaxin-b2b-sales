@@ -2,6 +2,21 @@
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
 
+## [v0.5.8] - 2026-09-09
+
+真机跑企业空间（南京知机）时发现并修复 **P0 工作空间传输根因**，另修两个真机断点。
+
+- **P0 根因：工作空间必须放 HTTP header `uid`，query `?uid=` 无效**（真机双空间对照实测）
+  - 同一 token、同一 orgId 对照：header `uid` → 余额 4,661,777 / `isOrg=true` / 联系人 509,693；query `?uid=` → 余额 768,265 / `isOrg=false` / 联系人 11,572。
+  - query 传任意值（含不存在的 `99999999999`）都返回个人空间数据。
+  - 这解释了历史事故"给了企业 orgId 却写进个人账号"——工具把 uid 放 query，永远操作个人空间。
+  - 修：**22 个调用点**全部加 header `uid`（19 个 curl 工具 + `check_login`/`flow_orchestrator` 的 urllib 路径 + `workspace_guard` 探测）；query 保留仅作兼容。
+  - 真实验证：`workspace_guard` 判"企业空间"✅、`gate_check` 的 `[2b]` 通过、`tag_add --list` 读到企业空间标签。
+  - 同步更正 `workspace_guard.py` 文档字符串的旧诊断（"平台静默回落"→ header/query 机制）。
+- **断点#1**：`gate_check.sh` 是 bash 脚本，RULES/SKILL/node-playbook 补 `bash tools/gate_check.sh` 调用形式（原只写文件名，易误用 `python3`）。
+- **断点#2**：S3 种子发现必须用客群 `query_en` 长句——真机实测单词 `paddle` 首页 10 条仅 1 条相关（其余金融科技/CMS/内容出版）；改长句后首页即出 `Saturn Rafts`（分销商，10 邮箱）、`The Boat People`（专业零售商，5 邮箱）。
+- 测试 182 → **192**：新增 `tests/test_workspace_transport.py`（10 项）锁定"每个 API 工具必须发 header uid""uid 取 org 不取 token""文档写 bash""S3 用长句"。
+
 ## [v0.5.7] - 2026-09-09
 
 全流程对抗审查，修 2 个 P0 + 3 个结构性缺口。
