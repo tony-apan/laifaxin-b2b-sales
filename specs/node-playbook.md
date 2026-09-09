@@ -44,14 +44,17 @@ audience: 人+AI
 - **产出记录**：`.local/operators/<operator_key>.md`（nickname/operator_key，不含 token）；`runs/<operator_key>/<product_key>/product-profile.md`（状态/版本/hash/字段级来源/变更记录）；`.local/approvals.tsv`（S0 gate_ok + profile hash）。
 
 ### S1 PATH_PENDING（路径分支）
+- **★连接平台是独立前置（2026-09-09 用户拍板）**：产品档案确认后，**先**按 `../output-templates/T-token引导.md` 引导用户浏览器一键双取 → 主 AI 经程序化 stdin 跑 `check_login.py` + `workspace_guard.py --require-verified`（或 `gate_check.sh` 的 `[2b]`）→ 全过后展示 `S0-连接成功.md` 账号状态卡，**才**进入选起点。连接是全流程唯一需要用户动手的一步，必须放在推演/搜索之前（后面都要联网）。
 - **判据（来源）**：`../RULES.md` L24「有精准网址走快速路径；无网址走标准路径；两者都不能跳过确认」；`../methodology/decision-trees.md` 主逻辑图（A=快速/B=标准）。
 - **通过条件**：路径确定 +（快速路径）确认该网址是**客户方**而非用户自己公司、相关产品、非4区（`specs/operations-sop.md`「四、网址找相似」确认原则；网址确认原则）。
 - **API**：`POST /api/refine/company-list`（keyword=网址，海量搜相似）——API L54；`POST /api/domain/base-info`（提炼网址行业/NAICS）——API L57；`POST /api/domain/similar-list`（⚠️已弃用——统一走 refine/company-list keyword=域名）——API L56。
 - **脚本**：无独立脚本（纯分支决策，对话确认即可；`flow_orchestrator.py` 仅打印分支提示）。
 - **产出记录**：对话确认；种子进入 S3。
 
-### S2 SEGMENT_PENDING（标准路径·客群推演）
-- **判据（来源）**：`../RULES.md` L25「标准路径推演默认4个；打印全部，判断是否精准潜在客户，给成交周期/询盘速度/量级/邮箱/竞争度/推荐；用户确认或要求更多」；`../RULES.md` L51 输出标准：每个客群必须写「精准潜在客户：是/否/条件成立时是」+ 六维度；`specs/operations-sop.md`「三、AI 推演固化」（选最直接买家客群，Path B 流通与代理优先）。
+### S2 SEGMENT_PENDING（客群推演·两条路径都走）
+
+> ★2026-09-09 用户拍板（方案B）：**快速路径也推演**。有种子时把种子公司名/角色/中英摘要（只读 `domain/base-info`）并进推演输入，保证 `segments/` 不空、客群标签可用。理由：S4 匹配率以客群客户线为分子、直采/OEM/拓品分线计数、标签命名、模板痛点加权都依赖客群标签。推演失败**不终止**向导（如实告警继续）；已完成 S3+ 的项目不重复推演。
+- **判据（来源）**：`../RULES.md` S2「**两条路径都推演**（方案B：有种子时并入种子描述）；推演默认4个；打印全部，判断是否精准潜在客户，给成交周期/询盘速度/量级/邮箱/竞争度/推荐；用户确认或要求更多；推演失败告警继续；已完成 S3+ 不重复推演」；`../RULES.md` L51 输出标准：每个客群必须写「精准潜在客户：是/否/条件成立时是」+ 六维度；`specs/operations-sop.md`「三、AI 推演固化」（选最直接买家客群，Path B 流通与代理优先）。
 - **通过条件**：≥1 个客群被用户确认选用（默认4个，要更多 → 再 `inference-segment-generate` 扩到8个重新展示）。
 - **API**（API L35 标注 ✅ 全部实测）：`POST /api/profile/inference-product-add`（产品档案，product_name/zh/en/desc_zh/exclusions）——API L40；`POST /api/profile/inference-segment-generate {"product_id":<id>}`——API L44；`POST /api/profile/inference-segment-list {"product_id":<id>}` → segment_name/value_path/ai_reason/query_en/query_total——API L45。
 - **脚本**：无独立脚本；`python3 tools/flow_orchestrator.py ...` S2 段调用上述接口并打印（⚠️prototype，写操作须另行执行）。
@@ -59,7 +62,9 @@ audience: 人+AI
 
 > ★S0 产品画像交互：AI 先出 A/B/C/D 客群/画像方案（每项含组合内容/买家纯度/邮箱可达/推荐与淘汰理由），用户回复字母或组合，或自由填写覆盖——**方案化优先于开放式提问**（新手常说不清画像）。
 
-### S3 SEED_PENDING（种子确认）
+### S3 SEED_PENDING（选起点·入口二选一）
+
+> ★2026-09-09 用户拍板：①用户已给起点网址（询盘客户/认得的精准买家）→ 直接核对确认，AI 判定其所属客群/客户线请用户确认；②用户没给 → 从已推演的客群挑精准买家当起点。**起点必须关联客群**（下游硬依赖）。旧版"用户没网址就自动走标准路径、不追问"已废弃，改为**优先主动引导**（引导一次，不重复追问）。
 - **判据（来源）**：`../RULES.md` L26「展示候选种子及采购可能；用户确认后才搜相似」；`../RULES.md` L100 决策节点②选种子：候选种子+代表客户，按**精准度/邮箱率/是否会采购**展示并给建议。
 - **通过条件**：用户确认种子**网址/域名**（或输入新种子）。
 - **★AI 数据库搜索链（3步，2026-09-03 用户拍板；禁用 domain/similar-list 作为主流程）**：

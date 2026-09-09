@@ -407,50 +407,87 @@ if not args.dry_run:
 # ---------- S1 PATH ----------
 pathA = bool(args.seed)
 print(f"●S1 PATH_PENDING: {'快速路径A(有精准网址)' if pathA else '标准路径B(无网址→先推演)'}")
-if not args.dry_run and not pathA:
-    print("  (标准路径: 需要你确认→推演客群, 或提供精准网址)")
 
-# ---------- S2 SEGMENT(标准路径) ----------
-if not pathA:
+# ---------- 种子描述(仅快速路径, 只读): 有种子时用种子信息增强推演输入 ----------
+def seed_context(domain):
+    """只读 domain/base-info 取种子公司名/角色/摘要，作为推演客群的补充描述。
+    取不到就返回空串——不阻断推演(推演仍可用产品信息)。"""
+    d = api("domain/base-info", {"domain": domain}, t=40)
+    data = d.get("data") if d.get("success") else None
+    if not isinstance(data, dict):
+        return "", {}
+    bits = [str(data.get(k) or "").strip() for k in ("company_name", "operational_role", "naics_label")]
+    summary = str(data.get("summary") or data.get("description") or data.get("desc") or "").strip()
+    text = " / ".join([b for b in bits if b])
+    if summary:
+        text = f"{text} | {summary}" if text else summary
+    return text[:300], data
+
+SEED_DESC, SEED_INFO = ("", {})
+if pathA and not args.dry_run:
+    SEED_DESC, SEED_INFO = seed_context(args.seed)
+    if SEED_DESC:
+        print(f"●种子信息(只读): {args.seed} → {SEED_DESC[:80]}")
+    else:
+        print(f"●种子信息(只读): {args.seed} 未取到描述——推演仍按产品信息进行(不阻断)")
+
+# ---------- S2 SEGMENT(两条路径都推演客群; 有种子时用种子描述增强) ----------
+# ★2026-09-09 用户拍板(方案B): 快速路径也推演客群——客群是 S4 匹配率的分母、客户线计数、
+#   标签命名、模板痛点加权的依据, 缺了快速路径会留下空档。有种子时把种子描述并进推演输入。
+# ★只在流程尚未走过 S2 时推演（状态 S1/S2）；已完成到 S3+ 的项目不重复推演、不改状态。
+_RECORD = PROFILE_PATH.parent / "operation-record.md"
+_CUR_STATE = read_meta(_RECORD).get("status", "") if _RECORD.is_file() else ""
+if _CUR_STATE in ("S1", "S2", ""):
     print("●S2 SEGMENT_PENDING: 推演客群(默认4个, 可扩展)")
-    try: require_state(PROFILE_PATH.parent / "operation-record.md", ("S1", "S2"))
+    try: require_state(_RECORD, ("S1", "S2"))
     except ValueError as exc: print(f"❌ {exc}"); sys.exit(4)
     print(f"   产品档案: status={PROFILE_STATUS} | sha256={PROFILE_SHA[:12]}... (已过 S0a 硬闸门)")
     # ★B-3: 写操作(建产品档案+推演客群)必须在用户确认后才执行——先确认, 后写
     # 绑定实际参数: project+profile{sha256,status,version}+product/info(向导均已持有)
-    if confirm("S2_客群", "将创建产品档案并推演客群（写操作，租户本地），推演结果出来后我再给您选。继续？",
-               node_params({"product": args.product, "info": args.product_info})):
+    _infer_desc = args.product_info
+    if pathA and SEED_DESC:
+        _infer_desc = f"{args.product_info} | 种子参考买家({args.seed}): {SEED_DESC}"
+        print(f"   (推演输入已并入种子描述, 长度={len(_infer_desc)})")
+    _s2_prompt = ("将创建产品档案并推演客群（写操作，租户本地），推演结果出来后我再给您选。继续？"
+                  if not pathA else
+                  "将创建产品档案并推演客群（会带上您给的起点信息，写操作，租户本地），推演结果出来后我再给您选。继续？")
+    if confirm("S2_客群", _s2_prompt, node_params({"product": args.product, "info": _infer_desc})):
         if not args.dry_run:
             # ★工作空间落点校验(写之前): 防"给了企业 orgId 却把产品档案/客群写进个人空间"
             from workspace_guard import preflight
             preflight(args.token, args.org, what="S2 建产品档案并推演客群")
             # ★ISS-48: 建【推理档案】须用 inference-product-add(字段 zh/en/desc_zh/exclusions)——旧用基础档案 product-add 会导致 inference-segment-generate 返回 500
-            pa=api("profile/inference-product-add",{"product_name":args.product,"product_zh":args.product,"product_en":args.product,"product_desc_zh":args.product_info,"product_exclusions":""})
+            pa=api("profile/inference-product-add",{"product_name":args.product,"product_zh":args.product,"product_en":args.product,"product_desc_zh":_infer_desc,"product_exclusions":""})
             pid=pa.get("data",{}).get("product_id") or pa.get("data",{}).get("_id") or pa.get("data",{}).get("id") or (pa.get("data") if isinstance(pa.get("data"),str) else "")
             pa_ok = "成功" if pa.get("success") else "未成功(token/网络? 检查S0登录检查输出)"
             print("   推理档案add: {} {}".format(pa_ok, str(pid)[:16] if pid else ""))
             if not pid:
-                print("  ❌ 推理档案创建失败（多半 token 失效/网络——看上方登录检查输出）——流程终止,勿确认空客群")
-                sys.exit(1)
-            # 推演（★接口慢: generate 后须轮询 list 直到非空, 最长~60s; 立即 list 常为空）
-            gen = api("profile/inference-segment-generate",{"product_id":pid})
-            if not gen.get("success"):
-                print("  ❌ 客群generate未成功——中止，不读取历史客群、不推进S2")
-                sys.exit(1)
-            segs=[]
-            for _i in range(6):
-                segs=api("profile/inference-segment-list",{"product_id":pid}).get("data",[]) or []
-                if segs: break
-                time.sleep(10)
-            print("   ★推演客群(默认4+; 按 v2 客户线人工剔除跨产品污染簇, 见 threshold-method):")
-            for s in segs: print(f"    - {s.get('segment_name')} | {s.get('value_path')}")
-            if not segs:
-                print("   ⚠️ 推演返回空(平台慢/未落库)——等 1-2 分钟重跑本向导, 或改跑 tools/segments_infer.py")
+                # ★推演失败不终止整个向导：S2 只影响客群标签，后续 S3/S5/S7/S9 仍可继续。
+                #   如实告知用户"客群没推出来"，不要静默跳过（也不要把空客群当成推演成功）。
+                print("  ⚠️ 客群推演未完成（推理档案没建起来，多为 token 失效/网络/接口空）——本次跳过客群推演，"
+                      "不影响后面选起点；稍后可在平台或重跑本向导补推演。")
             else:
-                update_frontmatter(PROFILE_PATH.parent / "operation-record.md", {"status": "S2", "next_state": "S3",
-                                   "updated": time.strftime("%Y-%m-%d"), "profile_version": f'"{PROFILE_META.get("profile_version", "")}"',
-                                   "profile_sha256": f'"{PROFILE_SHA}"'}, expected_states=("S1", "S2"))
-                print("   ✅ 运行状态已推进: S2 (next=S3)")
+                # 推演（★接口慢: generate 后须轮询 list 直到非空, 最长~60s; 立即 list 常为空）
+                gen = api("profile/inference-segment-generate",{"product_id":pid})
+                if not gen.get("success"):
+                    print("  ⚠️ 客群推演未成功——跳过客群推演，不影响后面选起点（可稍后补）")
+                else:
+                    segs=[]
+                    for _i in range(6):
+                        segs=api("profile/inference-segment-list",{"product_id":pid}).get("data",[]) or []
+                        if segs: break
+                        time.sleep(10)
+                    print("   ★推演客群(默认4+; 按 v2 客户线人工剔除跨产品污染簇, 见 threshold-method):")
+                    for s in segs: print(f"    - {s.get('segment_name')} | {s.get('value_path')}")
+                    if not segs:
+                        print("   ⚠️ 推演返回空(平台慢/未落库)——等 1-2 分钟重跑本向导, 或改跑 tools/segments_infer.py")
+                    else:
+                        update_frontmatter(_RECORD, {"status": "S2", "next_state": "S3",
+                                           "updated": time.strftime("%Y-%m-%d"), "profile_version": f'"{PROFILE_META.get("profile_version", "")}"',
+                                           "profile_sha256": f'"{PROFILE_SHA}"'}, expected_states=("S1", "S2"))
+                        print("   ✅ 运行状态已推进: S2 (next=S3)")
+else:
+    print(f"●S2 SEGMENT_PENDING: 当前状态={_CUR_STATE}（已过推演）——跳过推演，沿用已有客群")
 
 # ---------- S3 SEED(快速路径也需确认; B4-4: 换种子真正生效) ----------
 def show_seed_candidates(kw):

@@ -21,6 +21,8 @@ FLOW_FILES = (
     "evidence_validation.py",
     "profile_utils.py",
     "update_run_state.py",
+    "workspace_guard.py",
+    "credential_input.py",
 )
 SEQ = "0123456789abcdef01234567"
 ORG = "org-for-s12-tests"
@@ -314,7 +316,9 @@ class ResumeS12Test(unittest.TestCase):
     def test_ordinary_flow_with_complete_s12_params_and_tty_only_records_pending(self):
         code, output, answered = self.run_ordinary_tty()
         self.assertEqual(0, code, output)
-        self.assertEqual(5, answered, output)
+        # 6 次确认 = S2客群 + S3种子 + S5保存 + S7模板 + S9序列 + S10联系人
+        # （2026-09-09 方案B：快速路径也推演客群，故比旧版多一次 S2 确认）
+        self.assertEqual(6, answered, output)
         rows = [row for row in self.approval_rows() if row["state"] == "S12_激活"]
         self.assertEqual(1, len(rows), output)
         self.assertEqual("decision_pending", rows[0]["decision"])
