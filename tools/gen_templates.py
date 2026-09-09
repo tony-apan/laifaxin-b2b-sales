@@ -332,6 +332,29 @@ def _cta_keyword(plain):
             return candidate
     return ""
 
+def check_plan_duplicates():
+    """★断点修复(2026-09-09 真机)：生成前预检 plan 变体/方向是否重复。
+    旧流程要等 120 个模板全部建完、跑 check_template_diff 才发现重复（相似度 1.00），
+    此时已浪费 120 次写操作。此处 fail-fast：变体正文去重后数量不足即退出。"""
+    import re as _re
+    norm = [ _re.sub(r"\s+", " ", _re.sub(r"</?b>", "", v)).strip().lower() for v in VARIANTS ]
+    dupes = sorted({v for v in norm if norm.count(v) > 1})
+    if dupes:
+        print(f"❌ plan.variants 有 {len(dupes)} 条重复内容——120 个模板会撞车（相似度 1.00）。修 plan 后重跑：")
+        for d in dupes[:3]:
+            print(f"   - {d[:90]}")
+        raise SystemExit(2)
+    # 方向句也查重（同轮 angle 相同会导致跨轮相似度高）
+    dnorm = [ _re.sub(r"\s+", " ", _re.sub(r"</?b>", "", d[3])).strip().lower() for d in DIRECTIONS ]
+    ddupes = sorted({v for v in dnorm if dnorm.count(v) > 1})
+    if ddupes:
+        print(f"❌ plan.directions 轮次句有 {len(ddupes)} 条重复——跨轮会撞车。修 plan 后重跑：")
+        for d in ddupes[:3]:
+            print(f"   - {d[:90]}")
+        raise SystemExit(2)
+    print(f"  ✅ plan 去重预检: {len(VARIANTS)} 变体 + {len(DIRECTIONS)} 轮次句均无重复")
+
+
 def check_four_elements():
     """四要素+视觉扫读铁律（sequence-config）：①变体句含CTA（具体可回复）②优势具体化
     ③<b>加粗2-4处且含加粗回复关键词④CTA可回复性 ⑤整封≤120词 ⑥CTA回复关键词必须加粗。
@@ -396,6 +419,7 @@ def preview():
             print("  " + l)
     print(f"\n(预览仅代表; 生成={len(DIRECTIONS)}轮x{len(VARIANTS)}={len(DIRECTIONS)*len(VARIANTS)}, 每轮正文句不同+每变体正文句不同)")
 
+check_plan_duplicates()
 check_four_elements()
 
 def ensure_folder():
@@ -420,8 +444,14 @@ def ensure_folder():
         lst = []
     for f in lst:
         if isinstance(f, dict) and f.get("name") == args.prefix:
-            print(f"   分组复用: {args.prefix} (foid={f.get('id')})")
-            return str(f.get("id"))
+            # ★断点修复(2026-09-09 真机)：分组列表返回的 id 字段名是 `_id` 不是 `id`，
+            #   旧代码只读 `id` → 拿到 None → 误判"无此分组" → 重复创建撞"名称重复" → 中止。
+            # ⚠️ 不要取 f["foid"]——那是父目录字段（值常为 "0"），不是分组自身 id
+            fid = f.get("id") or f.get("_id")
+            if fid and re.fullmatch(r"[0-9a-f]{24}", str(fid)):
+                print(f"   分组复用: {args.prefix} (foid={fid})")
+                return str(fid)
+            print(f"   ⚠️ 分组「{args.prefix}」已存在但未取到有效 id（返回字段={list(f.keys())}）——继续尝试创建")
     fa = subprocess.run(["curl", "-sSL", "-X", "POST",
                          f"https://web.laifaxin.com/api/mailbox/template-folder-add?uid={args.org}",
                          "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
@@ -441,6 +471,26 @@ def ensure_folder():
     raise SystemExit(1)
 
 
+def _existing_template_id(name):
+    """★断点修复(2026-09-09 真机)：查同名模板是否已存在，返回其 id。
+    重跑时模板已建（如上次因分组报错中止、实际已写入）→ 旧代码报"名称已存在"并整体失败；
+    现在改为幂等复用，避免"明明成功却报失败"误导 AI 去删数据重来。"""
+    cmd = ["curl", "-sSL", "-X", "POST", f"https://web.laifaxin.com/api/mailbox/templates-list?uid={args.org}",
+           "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
+           "-H", f"uid: {args.org}",
+           "-d", json.dumps({"current": 1, "pageSize": 500, "filter": {}, "sort": {}})]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        for t in (json.loads(r.stdout).get("data") or {}).get("list") or []:
+            if isinstance(t, dict) and t.get("name") == name and not t.get("folder"):
+                tid = t.get("_id") or t.get("id")
+                if tid and re.fullmatch(r"[0-9a-f]{24}", str(tid)):
+                    return str(tid)
+    except Exception:
+        pass
+    return ""
+
+
 def add(name, subject, html):
     p = {"name": name, "foid": args.foid, "subject": subject, "html": html}
     cmd = ["curl", "-sSL", "-X", "POST", f"https://web.laifaxin.com/api/mailbox/template-add?uid={args.org}",
@@ -453,7 +503,15 @@ def add(name, subject, html):
         tid = d.get("data", {}).get("id", "") if d.get("success") else ""
         if tid and not re.fullmatch(r'[0-9a-f]{24}', str(tid)):
             raise SystemExit(f'id格式异常: {tid}')
-        return tid or ("FAIL:" + d.get("message", ""))
+        if not tid:
+            msg = str(d.get("message", ""))
+            if "已存在" in msg or "重复" in msg:
+                existing = _existing_template_id(name)
+                if existing:
+                    print(f"    (幂等复用已存在的模板: {name})")
+                    return existing
+            return "FAIL:" + msg
+        return tid
     except SystemExit:
         raise
     except Exception as e:

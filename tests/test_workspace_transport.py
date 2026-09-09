@@ -147,5 +147,27 @@ class AuditToolProductWordsTest(unittest.TestCase):
                                  f"{name} 未写明审计需带本产品词")
 
 
+class TemplateIdempotencyAndFolderTest(unittest.TestCase):
+    """真机断点#6/#8：分组 id 取值 + 模板幂等复用。"""
+
+    def test_folder_reuse_reads_underscore_id(self):
+        source = read("gen_templates.py")
+        # 必须读 _id（真机返回字段名），且不得误取 foid（那是父目录字段，值常为 "0"）
+        self.assertIn('f.get("id") or f.get("_id")', source, "分组复用须读 _id")
+        self.assertNotIn('or f.get("foid")', source, "不得把 foid（父目录字段）当分组 id")
+
+    def test_template_add_is_idempotent(self):
+        """重跑时同名模板应复用现有 id，而不是整体报失败。"""
+        source = read("gen_templates.py")
+        self.assertIn("_existing_template_id", source, "缺同名模板复用查询")
+        self.assertIn("幂等复用", source, "缺幂等复用提示")
+
+    def test_plan_duplicate_precheck_exists(self):
+        """生成前预检 plan 重复（真机：旧流程建完 120 个才发现撞车）。"""
+        source = read("gen_templates.py")
+        self.assertIn("check_plan_duplicates", source)
+        self.assertIn("去重预检", source)
+
+
 if __name__ == "__main__":
     unittest.main()
