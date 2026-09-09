@@ -28,7 +28,8 @@ args = ap.parse_args()
 
 def api(path, p, t=90):
     r = subprocess.run(["curl","-sSL","-m","80","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}",
-                        "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}","-d",json.dumps(p)],
+                        "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
+           "-H", f"uid: {args.org}","-d",json.dumps(p)],
                        capture_output=True, text=True, timeout=t)
     try:
         d = json.loads(r.stdout)

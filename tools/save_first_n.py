@@ -20,6 +20,7 @@ from workspace_guard import preflight
 def api(org, token, path, payload, timeout=120):
     cmd = ["curl","-sSL","-X","POST",f"https://web.laifaxin.com{path}?uid={org}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {token}",
+           "-H", f"uid: {org}",
            "-d", json.dumps(payload)]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     try: return json.loads(r.stdout)

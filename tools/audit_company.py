@@ -81,6 +81,7 @@ def fetch(page, keyword, token, org, filters=None, page_size=10):
         f"https://web.laifaxin.com/api/refine/company-list?uid={org}",
         "-H", "Content-Type: application/json",
         "-H", f"accesstoken: {token}",
+           "-H", f"uid: {org}",
         "-d", json.dumps(payload),
     ]
     r = subprocess.run(cmd, capture_output=True, text=True)
@@ -112,6 +113,7 @@ def fetch_similar(domain, token, org):
         f"https://web.laifaxin.com/api/domain/similar-list?uid={org}",
         "-H", "Content-Type: application/json",
         "-H", f"accesstoken: {token}",
+           "-H", f"uid: {org}",
         "-d", json.dumps(payload),
     ]
     r = subprocess.run(cmd, capture_output=True, text=True)

@@ -21,7 +21,7 @@ audience: 人+AI
 
 | 规则 | 内容 | 来源 |
 |------|------|------|
-| **流程闸门** | 首次平台调用前，用户在浏览器一键双取并把两行直接粘贴到当前聊天框；主 AI 通过程序化 stdin 运行 `gate_check.sh --credentials-stdin --product <项目键>`。缺 token/orgId 一律阻断，不回退；禁止让用户设置变量、`.env` 或执行命令 | `../RULES.md` L18；脚本 `../tools/gate_check.sh` |
+| **流程闸门** | 首次平台调用前，用户在浏览器一键双取并把两行直接粘贴到当前聊天框；主 AI 通过程序化 stdin 运行 `bash tools/gate_check.sh --credentials-stdin --product <项目键>`（★bash 脚本）。缺 token/orgId 一律阻断，不回退；禁止让用户设置变量、`.env` 或执行命令 | `../RULES.md` L18；脚本 `../tools/gate_check.sh` |
 | **节点确认** | 高影响节点必须收到**本节点明确确认**；确认原话、参数 JSON/hash、时间写入 `.local/approvals.tsv`（★审批流水：每账号/每 clone 一份，不入 Git） | `../RULES.md` L40 |
 | **审批硬闸门（工具级）** | 新项目稳定键=`<operator_key>/<product_key>`，确认参数同时绑定当前 product-profile path/version/hash；legacy 项目可暂用旧产品名但不得跨运营方复用。写工具无有效 approval 或项目键不符直接 exit 1；换机历史 approvals 只作审计，未执行写节点与 S12 必须当前对话重新确认 | `../RULES.md` 状态转换与确认；`../tools/approval.py` |
 | **参数变化回退** | 产品、种子、临界N、标签、模板、配额任一变化 → 原确认失效 → 回到对应状态重新确认 | `../RULES.md` L42 |
@@ -69,7 +69,7 @@ audience: 人+AI
 - **判据（来源）**：`../RULES.md` L26「展示候选种子及采购可能；用户确认后才搜相似」；`../RULES.md` L100 决策节点②选种子：候选种子+代表客户，按**精准度/邮箱率/是否会采购**展示并给建议。
 - **通过条件**：用户确认种子**网址/域名**（或输入新种子）。
 - **★AI 数据库搜索链（3步，2026-09-03 用户拍板；禁用 domain/similar-list 作为主流程）**：
-  1) **预览**：客群 query_en 作关键词 → `refine/company-list {keyword:<query_en>}` 默认第一页 10 条（含 id/公司名/国家/角色/NAICS/客户类型/置信度/邮箱数/电话/社媒/摘要/匹配分；列表项无 domain）。若首页质量差 → 改关键词或换客群。
+  1) **预览**：客群 query_en 作关键词 → `refine/company-list {keyword:<query_en>}` 默认第一页 10 条（★**必须用 query_en 完整长句，禁用产品词/单词**——实测单词 `paddle` 首页 10 条仅 1 条相关，长句首页即出真实渠道商）（含 id/公司名/国家/角色/NAICS/客户类型/置信度/邮箱数/电话/社媒/摘要/匹配分；列表项无 domain）。若首页质量差 → 改关键词或换客群。
   2) **取域名**：挑代表买家 → 结果 `id` 调 `domain/base-info {"domain":<id>}` → 真实域名+详情（`tools/seed_resolve.py --id`；`--company` 仅兜底）。
   3) **扩量**：域名作 keyword 继续走 `refine/company-list` 主搜索 → 用户确认锚点后进入 S4 审计。
   随后由 S4 找名单筛选边界；S5/S6 按审计所用 keyword 保存前 N（域名/长文本 keyword 均已实测：保存与列表同批）。勿拿公司名当锚；禁翻页收集 id（铁律3）。

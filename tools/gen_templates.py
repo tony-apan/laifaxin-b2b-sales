@@ -409,7 +409,9 @@ def ensure_folder():
         return str(args.foid).strip()
     fl = subprocess.run(["curl", "-sSL", "-X", "POST",
                          f"https://web.laifaxin.com/api/mailbox/templates-folder-list?uid={args.org}",
-                         "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}", "-d", "{}"],
+                         "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
+ "-H", f"uid: {args.org}",
+                          "-d", "{}"],
                         capture_output=True, text=True, timeout=60)
     try:
         lst = json.loads(fl.stdout).get("data") or []
@@ -423,6 +425,7 @@ def ensure_folder():
     fa = subprocess.run(["curl", "-sSL", "-X", "POST",
                          f"https://web.laifaxin.com/api/mailbox/template-folder-add?uid={args.org}",
                          "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
+ "-H", f"uid: {args.org}",
                          "-d", json.dumps({"name": args.prefix})],
                         capture_output=True, text=True, timeout=60)
     try:
@@ -441,7 +444,9 @@ def ensure_folder():
 def add(name, subject, html):
     p = {"name": name, "foid": args.foid, "subject": subject, "html": html}
     cmd = ["curl", "-sSL", "-X", "POST", f"https://web.laifaxin.com/api/mailbox/template-add?uid={args.org}",
-           "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}", "-d", json.dumps(p)]
+           "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
+ "-H", f"uid: {args.org}",
+           "-d", json.dumps(p)]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     try:
         d = json.loads(r.stdout)

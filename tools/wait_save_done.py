@@ -25,7 +25,8 @@ if rec.get("save_task_id", "") != args.task or rec.get("contact_tag_id", "") != 
 
 def api(path, payload, timeout=40):
     cmd = ["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}",
-           "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}","-d",json.dumps(payload)]
+           "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
+           "-H", f"uid: {args.org}","-d",json.dumps(payload)]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     try: return json.loads(r.stdout)
     except: return {}

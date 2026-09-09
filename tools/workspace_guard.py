@@ -3,10 +3,12 @@
 """★工作空间落点校验（fail-closed）——防"给了企业 orgId 却写进个人空间"。
 
 为什么必须单独校验：
-  token 是单点凭据，`?uid=<orgId>` 只是**请求参数**，不是信任边界。当 token 所属账号
-  对该 org 没有权限（典型：orgId 抄错、切换空间后没重取、token 属于别的账号）时，
-  平台会**静默把请求落回 token 自己的空间**——响应仍是 `success:true`，参数回显也一致。
-  所以"接口返回成功 + 参数回显一致"**不能**证明数据落进了目标空间；必须比对
+  ★2026-09-09 真实双空间对照实测（推翻旧诊断）：平台的工作空间由 **HTTP header `uid`** 决定，
+  **query 参数 `?uid=` 无效**——同一 token 同一 orgId，header 传 → isOrg=true/企业数据，
+  query 传 → isOrg=false/个人数据（query 传任意值含不存在的 ID 都落个人空间）。
+  历史事故"给了企业 orgId 却写进个人账号"的根因就是工具把 uid 放 query。
+  即便如此，落点仍须显式校验：token 可能属于别的账号、orgId 可能抄错、切换空间后没重取。
+  "接口返回成功 + 参数回显一致"**不能**证明数据落进了目标空间；必须比对
   "声明的空间"与"平台实判的空间"。
 
 判据（只读 `benefits/refine-data`，不写任何数据）：
@@ -51,6 +53,7 @@ def _probe(token, org, timeout=40):
            f"https://web.laifaxin.com/api/{PROBE_PATH}?" + parse.urlencode({"uid": org}),
            "-H", "Content-Type: application/json",
            "-H", f"accesstoken: {token}",
+           "-H", f"uid: {org}",
            "-d", "{}"]
     try:
         completed = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)

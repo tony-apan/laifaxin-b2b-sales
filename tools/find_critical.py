@@ -18,7 +18,8 @@ import json, subprocess, argparse, time
 def fetch(page, keyword, token, org):
     p = {"keyword": keyword, "current": page, "pageSize": 10, "filters": [], "logic": "and"}
     cmd = ["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/refine/company-list?uid={org}",
-           "-H","Content-Type: application/json","-H",f"accesstoken: {token}","-d",json.dumps(p)]
+           "-H","Content-Type: application/json","-H",f"accesstoken: {token}",
+           "-H", f"uid: {org}","-d",json.dumps(p)]
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         return json.loads(r.stdout).get("data", {})

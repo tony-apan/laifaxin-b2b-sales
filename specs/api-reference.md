@@ -13,7 +13,7 @@ audience: AI优先（人可参考）
 # API 接口规范（来发信全功能接口速查）
 
 > 来源：前端 bundle 逆向 + 实测验证（✅=已实测可用，⚠️=需界面流程，🚧=维护中）
-> 通用约定：`POST`，header `accesstoken: <token>` + query `?uid=<orgId>`，body JSON
+> 通用约定：`POST`，header `accesstoken: <token>` + **header `uid: <orgId>`**（★工作空间靠 header 传，query `?uid=` 无效——2026-09-09 双空间实测）+ body JSON
 
 ## 0. 认证与账户
 
@@ -349,7 +349,7 @@ POST /api/mailbox/template-add
 
 ## 📌 使用注意
 
-1. **header 与工作空间**：`accesstoken: web.laifaxin.com&<用户UID>&<token>`（含 `&` 原样传）；API 查询参数 `uid=<当前工作空间orgId>` 取 localStorage 独立 `orgId` 键。个人账号二者恰好相同；企业账号严禁拿 token 中段用户 UID 代替 orgId。
+1. **header 与工作空间**：`accesstoken: web.laifaxin.com&<用户UID>&<token>`（含 `&` 原样传）；**工作空间用 header `uid: <orgId>`**（取 localStorage 独立 `orgId` 键）——★query `?uid=` 无效，实测会落回个人空间（2026-09-09 双空间对照）。个人账号 orgId 与用户UID 恰好相同；企业账号严禁拿 token 中段用户 UID 代替 orgId。
 2. **保存/搜索任务**：保存已**纯 API 可用**（refine/company-save，见 §4）；仅搜索任务 `search/tasks/create` type:keyword 维护中 → 走界面（旧记录"维护期走界面"已被 §4 实测推翻）
 3. **标签 ID**：公司/联系人两个独立体系，别混用
 4. **排除中国区**：默认 CN/TW/HK/MO

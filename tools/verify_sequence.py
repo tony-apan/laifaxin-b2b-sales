@@ -8,7 +8,8 @@ ap=argparse.ArgumentParser(); ap.add_argument("--token",required=True); ap.add_a
 ap.add_argument("--seq",required=True); ap.add_argument("--allow-active",action="store_true",help="仅激活后复核时允许active；S11默认必须inactive")
 args=ap.parse_args()
 def api(path,p,t=50):
-    cmd=["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}","-H","Content-Type: application/json","-H",f"accesstoken: {args.token}","-d",json.dumps(p)]
+    cmd=["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}","-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
+           "-H", f"uid: {args.org}","-d",json.dumps(p)]
     r=subprocess.run(cmd,capture_output=True,text=True,timeout=t)
     try: return json.loads(r.stdout).get("data",{})
     except: return {}

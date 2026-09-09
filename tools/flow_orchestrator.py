@@ -237,7 +237,8 @@ def api(path, p, t=60):
     req = _urlrequest.Request(
         url,
         data=json.dumps(p).encode("utf-8"),
-        headers={"Content-Type": "application/json", "accesstoken": args.token},
+        # ★工作空间必须放 header `uid`（query 参数不起作用——2026-09-09 真实双空间对照实测）
+        headers={"Content-Type": "application/json", "accesstoken": args.token, "uid": args.org},
         method="POST",
     )
     try:

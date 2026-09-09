@@ -111,7 +111,8 @@ preflight(args.token, args.org, dry_run=args.dry_run, what="建序列")
 
 def api(path, p, t=60, exit_on_fail=True):
     cmd = ["curl","-sSL","-m","55","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}",
-           "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}","-d",json.dumps(p)]
+           "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
+           "-H", f"uid: {args.org}","-d",json.dumps(p)]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=t)
     try:
         d = json.loads(r.stdout)

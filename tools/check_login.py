@@ -62,7 +62,9 @@ def request_once(token, org):
     req = request.Request(
         f"https://web.laifaxin.com/api/benefits/refine-data?{query}",
         data=b"{}",
-        headers={"Content-Type": "application/json", "accesstoken": token},
+        # ★工作空间必须放 header `uid`——实测 query 参数不起作用（2026-09-09 真实双空间对照）：
+        #   header uid=企业ID → isOrg=true/企业数据；query uid=企业ID → isOrg=false/个人数据
+        headers={"Content-Type": "application/json", "accesstoken": token, "uid": org},
         method="POST",
     )
     try:
