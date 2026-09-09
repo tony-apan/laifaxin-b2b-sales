@@ -11,10 +11,19 @@
       --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product "猫粮"
   （TOKEN/ORG_IN_MEMORY 仅为主 AI 内存占位，不是让用户设置变量或执行命令）
 
-判定标准（写死在规则表里，不再主观漂移）：
-  MATCH    = 客户业务是「会采购本产品的买家」（本产品：猫粮/宠物食品）
+判定标准：
+  MATCH    = 客户业务是「会采购本产品的买家」
   REJECT   = 客户业务与「采购本产品」无关
-  MARGINAL = 沾边但不确定（宠物行业但非食品 / 描述太模糊）
+  MARGINAL = 沾边但不确定（描述太模糊）
+
+★产品词必须由调用方传入（2026-09-09 真机实测断点）：
+  内置 STRONG_MATCH/STRONG_REJECT 是"宠物食品包装"这一品类的样例词表；
+  换产品（如皮筏艇）时若不带产品词，内置词表完全不匹配 → 全页判 REJECT=0% 精准度。
+  规则：`--match-words` 必须传本产品的中英词（品类/材质/形态/角色），
+  未传且内置词表与 `--product` 不匹配时工具会**直接报错退出**，不再静默给 0%。
+
+★判定口径以 `specs/threshold-method.md` 为准：正式 S4 收口要求 **AI 语义反思**（"这个买家会不会买"），
+本工具只做**关键词趋势初筛**，临界页必须人工逐条读完整 10 条。
 
 严格模式(mode=strict)：MATCH 才算精准
 宽松模式(mode=loose) ：MATCH+MARGINAL 都算精准
@@ -174,6 +183,13 @@ def main():
     ap.add_argument("--domains", default="", help="域名找相似模式: 逗号分隔的种子域名")
     ap.add_argument("--match-words", default="", help="额外匹配词,逗号分隔(产品自定义)")
     args = ap.parse_args()
+    # ★断点修复(2026-09-09)：产品词必填——内置词表只服务"宠物食品包装"样例，
+    #   换产品不带词会全页 REJECT=0%，静默误导。此处 fail-fast。
+    if not args.match_words.strip():
+        print("❌ 缺 --match-words <本产品中英词>（品类/材质/形态/角色，逗号分隔）")
+        print("   原因：内置判定词表是「宠物食品包装」样例；换产品不传词会全页判 0% 精准度（真机实测）。")
+        print("   例：--match-words \"raft,rafting,kayak,paddle,inflatable,water sports,漂流,皮筏艇,充气,桨\"")
+        raise SystemExit(2)
 
     # 设置额外匹配词（产品自定义）
     global EXTRA_MATCH

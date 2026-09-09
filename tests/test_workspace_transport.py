@@ -121,5 +121,31 @@ class ShellAndSeedQualityTest(unittest.TestCase):
         self.assertRegex(text, r"必须用 query_en 完整长句", "node-playbook 未同步长句规则")
 
 
+class AuditToolProductWordsTest(unittest.TestCase):
+    """断点#3：审计工具内置词表是宠物包装样例，换产品必须传 --match-words，否则全页 0%。"""
+
+    def test_requires_match_words(self):
+        import subprocess, sys
+        result = subprocess.run(
+            [sys.executable, str(TOOLS / "audit_company.py"),
+             "--query", "x", "--pages", "1", "--token", "t", "--org", "o"],
+            capture_output=True, text=True, timeout=30)
+        self.assertEqual(2, result.returncode, "缺 --match-words 应 fail-fast 退出 2")
+        self.assertIn("--match-words", result.stdout)
+
+    def test_docstring_marks_words_as_product_specific(self):
+        source = read("audit_company.py")
+        self.assertIn("产品词必须由调用方传入", source)
+        self.assertIn("0%", source, "应写明不带产品词的后果")
+
+    def test_sop_requires_match_words(self):
+        """S4 相关 SOP/卡必须写明审计要带本产品词。"""
+        for name in ("specs/threshold-method.md", "output-templates/S4-审计进行中.md"):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            with self.subTest(file=name):
+                self.assertRegex(text, r"match-words|产品词",
+                                 f"{name} 未写明审计需带本产品词")
+
+
 if __name__ == "__main__":
     unittest.main()
