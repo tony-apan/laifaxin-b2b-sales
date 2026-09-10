@@ -36,7 +36,7 @@ audience: 人+AI
 | **规则-营销** | marketing-rules-2.0 | `specs/marketing-rules-2.0.md` | 70%默认/3邮箱/暖机/contactExcludes | ✅ |
 | **SOP-代运营** | operations-sop | `specs/operations-sop.md` | 时区/点数预算/标签/找相似 | ✅ |
 | **API参考** | api-reference | `specs/api-reference.md` | 全接口参数（含front保存/验证） | ✅ |
-| **教训** | lessons-learned | `lessons/lessons-learned.md` | 问题教训(L-01~L-54) | ✅ |
+| **教训** | lessons-learned | `lessons/lessons-learned.md` | 问题教训(L-01~L-57) | ✅ |
 | **询盘转化** | mass-to-precision | `docs/09-mass-outreach-to-precision-follow-up.md` | 广撒网成本账→询盘背调→A/B/C/D分级→多渠道长期跟进 | ✅ |
 | **用户话术** | output-templates | `output-templates/`（总索引+18话术模板，含S0a运营方/网站资料/产品知识档案） | S0-S12+询盘阶段给小白看的固定输出模板 | ✅ |
 | **数据结构（历史参考）** | data-structure | `specs/data-structure.md` | 仅参考 md/tsv/jsonl 格式比较；旧目录未实施，严禁按其保存 token/orgId | 历史 |
