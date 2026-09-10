@@ -27,6 +27,18 @@ FORBIDDEN_IN_USER_VIEW = (
     "S0a", "S11", "S12", "ERROR_BLOCKED", "evidence_mode",
     "query_en", "base-info", "similar-list", "lfxFieldVeriable",
     "SEND_READY_WITH_MANUAL_REPLY_REVIEW",
+    # ★2026-09-10 对抗审查补：这些也曾泄漏到用户话术块
+    "specs/", "methodology/", "docs/0", "verification-panel", "product-fit",
+    "companySaveCount", "contactSaveCount", "selectOption", "notSentTags",
+    "Jaccard", "断言", "幂等", "finished", "verify 通过",
+    "公司触发器", "候选锚", "条目ID", "临界第",
+)
+
+# 会出现在用户话术块里的内部文件名/状态码（正则，因为前后文多变）
+FORBIDDEN_IN_USER_VIEW_RE = (
+    re.compile(r"[a-zA-Z0-9_\-]+\.(?:py|md|json|tsv|sh)\b"),
+    re.compile(r"\bS(?:0a|1[0-2]|[0-9])\b(?![\w])"),
+    re.compile(r"\b(?:finished|sha256)\b", re.IGNORECASE),
 )
 
 # 明确禁止的"要求用户做的事"（凭据相关铁律）
@@ -51,6 +63,10 @@ class UserFacingCopyDisciplineTest(unittest.TestCase):
                     with self.subTest(file=path.name, block=index, term=term):
                         self.assertNotIn(term, block,
                                          f"{path.name} 第 {index} 个用户话术块出现内部术语「{term}」")
+                for rx in FORBIDDEN_IN_USER_VIEW_RE:
+                    found = rx.search(block)
+                    if found:
+                        self.fail(f"{path.name} 第 {index} 个用户话术块出现内部术语/文件名「{found.group(0)}」")
 
     def test_no_credential_asks_in_user_visible_blocks(self):
         for path in sorted(TEMPLATES.glob("*.md")):
