@@ -263,3 +263,84 @@ class CardActionAndSummaryTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RulePrecisionTest(unittest.TestCase):
+    """规则精度（2026-09-10 AI 执行层审查）：
+    ①「同一家公司 5 封」必须是【每日】上限——写成总量会误导
+    ②规则文档不得出现不精确的"单家5"简写"""
+
+    def test_per_domain_limit_states_daily(self):
+        """用户话术与规则里，单域名上限必须写明"每天/每日"。"""
+        targets = (
+            ("output-templates/S9-序列确认.md", "同一家公司"),
+            ("output-templates/S12-激活确认.md", "同一家公司"),
+        )
+        for name, needle in targets:
+            text = (ROOT / name).read_text(encoding="utf-8")
+            idx = text.find(needle)
+            with self.subTest(file=name):
+                self.assertGreater(idx, -1, f"{name} 应提到「{needle}」上限")
+                window = text[idx:idx + 60]
+                self.assertRegex(window, r"每天|每日",
+                                 f"{name} 单公司上限必须写明是【每天】，实际: {window[:50]}")
+
+    def test_no_ambiguous_shortform_in_rules(self):
+        """规则文件不得用"单家5"这种会被读成总量上限的简写。"""
+        for name in ("RULES.md", "SKILL.md", "specs/sequence-config.md",
+                     "specs/operations-sop.md", "specs/node-playbook.md"):
+            with self.subTest(file=name):
+                text = (ROOT / name).read_text(encoding="utf-8")
+                self.assertNotIn("单家5", text, f"{name} 出现含糊简写「单家5」")
+                self.assertNotIn("单家 5", text, f"{name} 出现含糊简写「单家 5」")
+
+    def test_sequence_config_defines_both_limits_explicitly(self):
+        text = (ROOT / "specs" / "sequence-config.md").read_text(encoding="utf-8")
+        self.assertIn("max_emails_per_day", text)
+        self.assertIn("domain_emails_per_day", text)
+        self.assertRegex(text, r"domain_emails_per_day[^\n]*每天|每天[^\n]*domain_emails_per_day",
+                         "sequence-config 应写明 domain_emails_per_day 是每日上限")
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class NoLineNumberReferenceTest(unittest.TestCase):
+    """规则文档不得用行号引用（2026-09-10 AI 执行层审查）。
+
+    行号引用天然脆弱：本次实测 10 处 RULES L## 全部漂移（+2~+6），
+    node-playbook 的 `API L54` 甚至指向了空行——AI 照行号去查会拿到无关内容。
+    改用稳定的「节点名/章节名/接口名」引用。
+    """
+
+    DOCS = (
+        "RULES.md", "SKILL.md", "specs/node-playbook.md",
+        "specs/operations-sop.md", "specs/sequence-config.md",
+    )
+
+    # 允许：教训编号 L-45；目录结构里的 L0/L1/L2/L3
+    ALLOW = re.compile(r"L-\d+|L[0-3]\s|L[0-3]/|L[0-3]$")
+
+    def test_no_line_number_references(self):
+        # 两种形态都拦：`xxx.md` L99，以及裸 L99（指向本文档/他文档行号）
+        patterns = (
+            re.compile(r"`[a-zA-Z0-9_/.\-]+\.md`\s*L(\d{1,3})"),
+            re.compile(r"(?<![A-Za-z0-9_\-])L(\d{1,3})(?![0-9])"),
+        )
+        for name in self.DOCS:
+            path = ROOT / name
+            if not path.is_file():
+                continue
+            for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if self.ALLOW.search(line):
+                    continue
+                for rx in patterns:
+                    m = rx.search(line)
+                    if m:
+                        with self.subTest(file=name, line=i):
+                            self.fail(f"{name}:L{i} 出现行号引用「{m.group(0)}」——行号会漂移，请改用节点名/章节名")
+
+
+if __name__ == "__main__":
+    unittest.main()

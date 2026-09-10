@@ -47,7 +47,7 @@
   1. `check_login.py --credentials-stdin`（经宿主程序化 stdin，凭据不进 argv/文件/日志）
   2. `workspace_guard.py --credentials-stdin --require-verified`（落点校验；命中误路由必须停止）
   3. 通过后按 `S0-连接成功.md` 展示账号状态卡
-- 用户在浏览器复制后，只需把 `accesstoken=` + `orgId=` 两行整段直接粘贴到当前聊天框；**禁止要求用户设置环境变量、创建 `.env`、执行工具命令、拆分或改写参数**；**禁止声称"只读 token / 只读授权"**——平台没有这种权限级别（`RULES.md` L110）
+- 用户在浏览器复制后，只需把 `accesstoken=` + `orgId=` 两行整段直接粘贴到当前聊天框；**禁止要求用户设置环境变量、创建 `.env`、执行工具命令、拆分或改写参数**；**禁止声称"只读 token / 只读授权"**——平台没有这种权限级别（见 `RULES.md` 审查代理权限）
 - 主 AI 收到后不回显完整 token、不写文件/日志/持久环境变量；通过宿主提供的**程序化 stdin**（如 subprocess `input=`/`communicate()`）原样交给 `check_login.py --credentials-stdin`。禁止用 heredoc、`printf |` 或把凭据拼进 Bash 工具调用文本，避免进入命令历史/工具日志
 - **失败分流（白话）**：
   - 没登录/凭据失效 → 让用户回浏览器重新执行同一条一键复制命令后，再把新的两行整段发到聊天框；同一份反复重试无意义

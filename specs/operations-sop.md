@@ -237,7 +237,7 @@ audience: 人+AI
 
 ### 序列
 - 命名：`[产品]-[语言]-[轮数]轮[每轮封数]封-[策略]`
-- 配置按 [sequence-config.md](sequence-config.md) 标准（时区按语言/单日30000/单家5/禁发询盘不发送/每步10封）
+- 配置按 [sequence-config.md](sequence-config.md) 标准（时区按语言/每日30000(全账号)/每公司每日5/禁发询盘不发送/每步10封）
 - 序列配置**快照**存 `sequences/{seq-name}.md`（rules/步骤/模板映射）——便于复盘
 
 ---
