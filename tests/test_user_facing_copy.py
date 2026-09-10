@@ -248,13 +248,22 @@ class CardActionAndSummaryTest(unittest.TestCase):
                 self.assertNotIn(jargon, block, f"S2 表头仍是内部术语「{jargon}」")
 
     def test_consistent_second_person_pronoun(self):
-        """★称谓统一为「您」（2026-09-10）：同一套话术忽"你"忽"您"显得不专业。"""
+        """★称谓统一为「您」（2026-09-10）：同一套话术忽"你"忽"您"显得不专业。
+
+        ⚠️ 例外：一键双取命令是给用户复制的**代码**，内部文案固定用「你」且必须逐字一致
+        （见 OneClickCommandConsistencyTest）——校验时须剔除该命令行。
+        """
         for path in sorted(TEMPLATES.glob("*.md")):
             if path.name == "README.md":
                 continue
             for bi, block in enumerate(self.blocks_of(path.name), 1):
+                # 剔除一键双取命令所在行（命令是代码，不适用文案规范）
+                checked = "\n".join(
+                    l for l in block.splitlines()
+                    if "var t=localStorage" not in l
+                )
                 with self.subTest(file=path.name, block=bi):
-                    self.assertNotIn("你", block, f"{path.name} 用户话术块用了「你」，应统一用「您」")
+                    self.assertNotIn("你", checked, f"{path.name} 用户话术块用了「你」，应统一用「您」")
 
     def test_s2_explains_each_column(self):
         block = self.blocks_of("S2-客群确认.md")[0]
@@ -344,3 +353,47 @@ class NoLineNumberReferenceTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OneClickCommandConsistencyTest(unittest.TestCase):
+    """一键双取命令必须逐字一致（2026-09-10 发现：v0.5.16 统一"你/您"时误改了命令内文案，
+    导致 6 份副本出现 2 个版本）。命令是给用户复制的代码，不得被文案规范波及。"""
+
+    COMMAND_START = "var t=localStorage"
+
+    def _extract(self, path):
+        for line in Path(path).read_text(encoding="utf-8").splitlines():
+            if self.COMMAND_START in line:
+                c = line[line.index(self.COMMAND_START):]
+                return c[:c.rindex(");") + 2]
+        return None
+
+    def test_all_copies_are_byte_identical(self):
+        repo = ROOT
+        knowledge = ROOT.parent / "laifaxin-knowledge"
+        copies = {}
+        for base in (repo, knowledge):
+            if not base.is_dir():
+                continue
+            for p in base.rglob("*.md"):
+                if ".git" in str(p):
+                    continue
+                c = self._extract(p)
+                if c:
+                    copies.setdefault(c, []).append(str(p.relative_to(base.parent)))
+        self.assertGreaterEqual(len(copies), 1, "未找到一键双取命令副本")
+        self.assertEqual(
+            1, len(copies),
+            f"命令副本不一致（{len(copies)} 个版本）——命令是给用户复制的代码，必须逐字一致：\n"
+            + "\n".join(f"  版本{i+1}: {v[0]} (共{len(v)}份)" for i, v in enumerate(copies.values())))
+
+    def test_command_keeps_original_second_person(self):
+        """命令内部文案用「你」——不随用户话术的「您」规范改动（改了会让副本不一致）。"""
+        cmd = self._extract(ROOT / "SKILL.md")
+        self.assertIsNotNone(cmd, "SKILL.md 应含一键双取命令")
+        self.assertIn("你", cmd, "命令内部应保持原文用「你」")
+        self.assertNotIn("您", cmd, "命令内部不得出现「您」（会与其他副本不一致）")
+
+    def test_command_is_single_line(self):
+        cmd = self._extract(ROOT / "SKILL.md")
+        self.assertNotIn("\n", cmd, "命令必须单行（多行粘贴到控制台会失败）")

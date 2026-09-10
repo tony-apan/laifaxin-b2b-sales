@@ -57,7 +57,8 @@ audience: 人+AI
 > ★2026-09-09 用户拍板（方案B）：**快速路径也推演**。有种子时把种子公司名/角色/中英摘要（只读 `domain/base-info`）并进推演输入，保证 `segments/` 不空、客群标签可用。理由：S4 匹配率以客群客户线为分子、直采/OEM/拓品分线计数、标签命名、模板痛点加权都依赖客群标签。推演失败**不终止**向导（如实告警继续）；已完成 S3+ 的项目不重复推演。
 - **判据（来源）**：`../RULES.md` S2「**两条路径都推演**（方案B：有种子时并入种子描述）；推演默认4个；打印全部，判断是否精准潜在客户，给成交周期/询盘速度/量级/邮箱/竞争度/推荐；用户确认或要求更多；推演失败告警继续；已完成 S3+ 不重复推演」；`../RULES.md`「客群输出标准」：每个客群必须写「精准潜在客户：是/否/条件成立时是」+ 六维度；`specs/operations-sop.md`「三、AI 推演固化」（选最直接买家客群，Path B 流通与代理优先）。
 - **通过条件**：≥1 个客群被用户确认选用（默认4个，要更多 → 再 `inference-segment-generate` 扩到8个重新展示）。
-- **API**（`specs/api-reference.md` 接口表标注 ✅ 全部实测）：`POST /api/profile/inference-product-add`（产品档案，product_name/zh/en/desc_zh/exclusions）——见 `specs/api-reference.md` 接口表；`POST /api/profile/inference-segment-generate {"product_id":<id>}`——见 `specs/api-reference.md` 接口表；`POST /api/profile/inference-segment-list {"product_id":<id>}` → segment_name/value_path/ai_reason/query_en/query_total——见 `specs/api-reference.md` 接口表。
+- **API**（`specs/api-reference.md` 接口表标注 ✅ 全部实测）：`POST /api/profile/inference-product-add`（产品档案，product_name/zh/en/desc_zh/exclusions）——见 `specs/api-reference.md` 接口表；`POST /api/profile/inference-segment-generate {"product_id":<id>}`——见 `specs/api-reference.md` 接口表；
+  `POST /api/profile/inference-segment-list {"product_id":<id>}` → segment_name/value_path/ai_reason/query_en/query_total——见 `specs/api-reference.md` 接口表。
 - **脚本**：无独立脚本；`python3 tools/flow_orchestrator.py ...` S2 段调用上述接口并打印（⚠️prototype，写操作须另行执行）。
 - **产出记录**：`.local/approvals.tsv`（S2_客群行）；客群固化写入 `runs/<运营方>/<产品>/operation-record.md`。
 
@@ -115,18 +116,22 @@ audience: 人+AI
 ### S8 TEMPLATE_BUILD（批量创建 + 差异实测）
 - **判据（来源）**：`../RULES.md` S8「创建后断言变量样式、标题、正文差异、轮次绑定；失败回S7」；`specs/sequence-config.md`「模板差异度」 ★诚实口径：**"差异≥30%"不得声称达标**——12轮方向互异是硬保证，但同轮变体必须生成后跑 `check_template_diff.py` 实测（Jaccard>0.70=违例）；重建顺序铁律与引用锁（L-43：名称唯一/被序列引用不可删/至少保留1步/step 非空模板）。
 - **通过条件**：120 模板全部创建成功 + 每个 id 为完整 24hex（断言失败 exit 1）+ `check_template_diff.py` 实测两两相似度≤0.70 + name→id 映射落盘；任一失败 → 回 S7。
-- **API**：`POST /api/mailbox/template-add {"name":...,"foid":"0","subject":...,"html":...}`——见 `specs/api-reference.md` 接口表；`POST /api/mailbox/templates-list`（注意：list 项**不含 html**，只有 subject——取正文必须再调 template-info）——见 `specs/api-reference.md` 接口表；`POST /api/mailbox/template-info`——见 `specs/api-reference.md` 接口表；`POST /api/mailbox/template-delete {"id":<id>}`（单删；`templates-delete` 批量 500 勿用）——见 `specs/api-reference.md` 接口表。
+- **API**：`POST /api/mailbox/template-add {"name":...,"foid":"0","subject":...,"html":...}`——见 `specs/api-reference.md` 接口表；`POST /api/mailbox/templates-list`（注意：list 项**不含 html**，只有 subject——取正文必须再调 template-info）——见 `specs/api-reference.md` 接口表；
+  `POST /api/mailbox/template-info`——见 `specs/api-reference.md` 接口表；`POST /api/mailbox/template-delete {"id":<id>}`（单删；`templates-delete` 批量 500 勿用）——见 `specs/api-reference.md` 接口表。
 - **脚本**：
-  - `python3|py tools/gen_templates.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --product <产品> --profile runs/<operator_key>/<product_key>/product-profile.md --plan <计划JSON> --prefix "英-<产品>-" --suffix -RT --name <纯昵称> --out runs/<operator_key>/<product_key>/tmap.json --record runs/<operator_key>/<product_key>/operation-record.md --approval <ap-id> --project <项目键>`（全部成功后自动推进S8；签名/profile/claims/id硬校验）
+  - `python3|py tools/gen_templates.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --product <产品> --profile runs/<operator_key>/<product_key>/product-profile.md --plan <计划JSON> --prefix "英-<产品>-" --suffix -RT --name <纯昵称> --out runs/<operator_key>/<product_key>/tmap.json --record runs/<operator_key>/<product_key>/operation-record.md --approval <ap-id> --project <项目键>`（全部成功后自动推进S8；
+    签名/profile/claims/id硬校验）
   - `python3 tools/check_template_diff.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --prefix "英-<产品>-" --limit 120`（逐模板 template-info 取真实 html 算 Jaccard，>0.70 列违例对 exit 1）
   - 重建场景：按 `rebuild_templates.py` docstring 分别铸造“建新模板”与“重建序列步骤”两份绑定凭证，命令必带 `--profile --plan --record --gen-approval --approval --project <operator_key>/<product_key>`；仅inactive序列可重建，12步回读全指向新模板后才删旧模板。
 - **产出记录**：name→id 映射（`--out`，建议 `runs/<运营方>/<产品>/tmap.json`）；差异实测 `verify-diff.txt`；`.local/approvals.tsv`（S7/S8 行）。
 
 ### S9 SEQUENCE_PENDING（序列配置确认）
-- **判据（来源）**：`../RULES.md` S9「展示12步(30分/5/15/30天)、时区(★默认纽约)、每日30000(全账号)/每公司每日5、notSentTags=[询盘,不发]；用户确认后建序列」；`specs/sequence-config.md`：12轮方向每轮不同（见 `specs/sequence-config.md`）、步长 step1=minute/30、step2=day/5、step3=day/15、step4-12=day/30、★纽约 schedule_id **运行时解析**（`tools/resolve_schedule.py --tz "America/New_York"`；各账号不同,勿硬编码）、max_emails_per_day:30000(每日全账号) / domain_emails_per_day:5(★同一家公司每日,非总量) / notSentTags=[<tagId>(询盘), <tagId>(不发)]（跌破往前阶段）、命名 `[产品]-[语言]-[轮数]轮[每轮封数]封-[策略]`、每步 10 个**互不相同**模板。
+- **判据（来源）**：`../RULES.md` S9「展示12步(30分/5/15/30天)、时区(★默认纽约)、每日30000(全账号)/每公司每日5、notSentTags=[询盘,不发]；用户确认后建序列」；`specs/sequence-config.md`：12轮方向每轮不同（见 `specs/sequence-config.md`）、步长 step1=minute/30、step2=day/5、step3=day/15、step4-12=day/30、★纽约 schedule_id **运行时解析**（`tools/resolve_schedule.py --tz "America/New_York"`；
+  各账号不同,勿硬编码）、max_emails_per_day:30000(每日全账号) / domain_emails_per_day:5(★同一家公司每日,非总量) / notSentTags=[<tagId>(询盘), <tagId>(不发)]（跌破往前阶段）、命名 `[产品]-[语言]-[轮数]轮[每轮封数]封-[策略]`、每步 10 个**互不相同**模板。
 - **通过条件**：用户确认序列配置（12步+纽约+30000/5+notSentTags+每步10个不同模板 id）。
 - **脚本**：`python3|py tools/build_sequence.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --name <序列名> --tmap runs/<operator_key>/<product_key>/tmap.json --profile .../product-profile.md --record .../operation-record.md --from-name <纯昵称> --tz "America/New_York" --approval <S9凭证> --project <operator_key>/<product_key>`。
-- **API**（§10 全部实测）：`POST /api/sequences/sequence-create {"name":...,"channel":"system"}`——见 `specs/api-reference.md` 接口表；`POST /api/sequences/step-create {"seqId":<id>,"step":<n>,"template_ids":[...],"wait_mode":...,"wait_time":...,"senders":[...]}`——见 `specs/api-reference.md` 接口表；`POST /api/sequences/sequence-save {id,name,schedule_id,others,rules}`——见 `specs/api-reference.md` 接口表；`POST /api/settings/sequence/schedule-list`——见 `specs/api-reference.md` 接口表；`POST /api/settings/sequence/schedule-default {"id":<schedule_id>}`——见 `specs/api-reference.md` 接口表（id 运行时解析,勿硬编码）。
+- **API**（§10 全部实测）：`POST /api/sequences/sequence-create {"name":...,"channel":"system"}`——见 `specs/api-reference.md` 接口表；`POST /api/sequences/step-create {"seqId":<id>,"step":<n>,"template_ids":[...],"wait_mode":...,"wait_time":...,"senders":[...]}`——见 `specs/api-reference.md` 接口表；
+  `POST /api/sequences/sequence-save {id,name,schedule_id,others,rules}`——见 `specs/api-reference.md` 接口表；`POST /api/settings/sequence/schedule-list`——见 `specs/api-reference.md` 接口表；`POST /api/settings/sequence/schedule-default {"id":<schedule_id>}`——见 `specs/api-reference.md` 接口表（id 运行时解析,勿硬编码）。
 - **脚本入口唯一**：使用上一行带 `--profile`、tmap.meta 校验与稳定项目键的 `build_sequence.py`；缺任一项即拒绝，禁止用旧命令绕过档案绑定。
 - **产出记录**：`.local/approvals.tsv`（S9_序列配置行）；`runs/<运营方>/<产品>/seq-config.json`；序列 id 记 `operation-record.md`。
 
@@ -150,7 +155,8 @@ audience: 人+AI
 
 ### S12 ACTIVE（仅用户明确确认 + 技术可用性与运营合规核验）
 - **判据（来源）**：`../RULES.md` S12「仅明确确认激活才激活；平台负责发送技术与退订呈现，运营方仍核验目标市场规则、名单来源、发送主体、实际退订入口、拒收名单与数据处理要求」+ 铁律5「发信前」。激活前逐字核对目标序列 id，并验证 notSentTags/上限/步骤。
-- **通过条件**：verify_sequence 已用真实线上状态通过；compliance-check 顶层必须 `evidence_mode:"live"` 并绑定 project/seq/profile/checked_at，五项均 status=pass 且 evidence 含真实 source/checked_at/detail；simulation/mock/stub/离线/网络桩/占位/未实际标记一律拒绝。项目已在 S11 时，使用 `flow_orchestrator.py --resume-s12 --org <ORG_IN_MEMORY> --profile <标准档案> --seq <序列id> --compliance-file <文件>`，仅在当前真实TTY由用户现场确认签发凭证；该入口不联网、不激活、不重跑S0-S10，record保持S11。S12禁止approval.py grant，历史/backfilled/工具自签无效。
+- **通过条件**：verify_sequence 已用真实线上状态通过；compliance-check 顶层必须 `evidence_mode:"live"` 并绑定 project/seq/profile/checked_at，五项均 status=pass 且 evidence 含真实 source/checked_at/detail；simulation/mock/stub/离线/网络桩/占位/未实际标记一律拒绝。项目已在 S11 时，使用 `flow_orchestrator.py --resume-s12 --org <ORG_IN_MEMORY> --profile <标准档案> --seq <序列id> --compliance-file <文件>`，仅在当前真实TTY由用户现场确认签发凭证；
+  该入口不联网、不激活、不重跑S0-S10，record保持S11。S12禁止approval.py grant，历史/backfilled/工具自签无效。
 - **API**：`POST /api/sequences/sequence-active {"id":<seqId>,"active":true}`；工具必须回读 active 防假成功。
 - **脚本**：先用上行 `--resume-s12` 获取与当前参数绑定的 S12 凭证，再由主 AI 内部调用 `activate_sequence.py --seq <id> --project <key> --profile <product-profile> --compliance-file <compliance-check.json> --record <operation-record> --confirm '<与凭证一致的用户原话>' --approval <S12凭证>`；凭据参数不向用户展示。
 - **产出记录**：`.local/approvals.tsv`（激活确认行）；本地运行记录 status→active（不入 Git）。

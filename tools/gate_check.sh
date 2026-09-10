@@ -76,12 +76,14 @@ else
   bad "还差工作空间校验：与登录校验同一次一键双取（缺 orgId 一律停止）"
 fi
 echo "[3] 强制流程关键项（开始前自查）"
+# ★闸门写法：多关键词规则用【token 独立检查】而非同行正则——
+#   同行正则（如 "签名区.*只有昵称"）在文档换行/拆行后会误报失败（2026-09-10 实测）。
 grep -q "排除中国" "$KB/RULES.md" && ok "4区排除规则已读" || bad "RULES 缺4区排除"
 grep -q 'selectOption:"front"' "$KB/specs/domain-scale-sop.md" && ok "front保存规则已读" || bad "domain-scale-sop 缺front"
-grep -q "等联系人保存任务" "$KB/RULES.md" && ok "时序规则已读" || bad "RULES 缺时序规则"
+if grep -q "时序" "$KB/RULES.md" && grep -q "finished" "$KB/RULES.md"; then ok "时序规则已读"; else bad "RULES 缺时序规则"; fi
 grep -q "lfxFieldVeriable" "$KB/specs/sequence-config.md" && ok "模板code变量规则已读" || bad "sequence-config 缺code变量"
 grep -q "搜索锚" "$KB/RULES.md" && ok "S3搜索锚规则已读" || bad "RULES 缺S3搜索锚规则"
-grep -q "签名区.*只有昵称\|签名.*只有昵称" "$KB/RULES.md" && ok "邮件签名纯昵称铁律已读" || bad "RULES 缺邮件签名纯昵称铁律"
+if grep -q "签名/落款铁律\|签名铁律" "$KB/RULES.md" && grep -q "只有昵称" "$KB/RULES.md"; then ok "邮件签名纯昵称铁律已读"; else bad "RULES 缺邮件签名纯昵称铁律"; fi
 if grep -q '`draft`' "$KB/specs/product-profile-sop.md" && grep -q '`confirmed`' "$KB/specs/product-profile-sop.md" && grep -q '`declined`' "$KB/specs/product-profile-sop.md"; then ok "产品档案状态机已读"; else bad "product-profile-sop 缺状态机"; fi
 if [ -n "$PRODUCT" ]; then
   PROFILE="$KB/runs/$PRODUCT/product-profile.md"
