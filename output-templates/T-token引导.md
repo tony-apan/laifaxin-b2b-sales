@@ -17,7 +17,7 @@
 3. 在这个页面按右键 → 点「检查」→ 上方选「控制台 / Console」
 4. 把下面这一行粘贴进去、回车：
 
-   var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！回到对话框 Ctrl+V（Mac按⌘V）粘贴发送给 AI"):(location.host.indexOf("laifaxin")<0&&location.host.indexOf("worldtradetool")<0?"❌ 你现在打开的网页（"+location.host+"）不是来发信——新开标签页访问 web.laifaxin.com 并登录，再按 F12 打开控制台重新粘贴本命令":"❌ 来发信页面上没取到登录凭证——先看右上角有没有你的账号头像：没有=先登录；有=按 F5 刷新后再运行一次（不用退出重登）");
+   var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！回到对话框 Ctrl+V（Mac按⌘V）粘贴发送给 AI"):(location.host.indexOf("laifaxin")<0&&location.host.indexOf("worldtradetool")<0?"❌ 您现在打开的网页（"+location.host+"）不是来发信——新开标签页访问 web.laifaxin.com 并登录，再按 F12 打开控制台重新粘贴本命令":"❌ 来发信页面上没取到登录凭证——先看右上角有没有您的账号头像：没有=先登录；有=按 F5 刷新后再运行一次（不用退出重登）");
 
 看到 ✅ 已复制到剪贴板！之后，回到这里，直接粘贴（Ctrl+V / ⌘V）发给我就行。
 
@@ -30,12 +30,14 @@
 
 ⚠️ 小提示：
 - 粘贴代码时浏览器可能提示 "Don't paste code"——按提示输入 allow pasting 再粘
-- token 等同账号密码，只发给你信任的 AI，别发群里
+- token 等同账号密码，只发给您信任的 AI，别发群里
 - 拿到 null = 还没登录，先登录再试
 - 🔴 切换过账号/企业后要重新复制（orgId 会变）
 - 🔴 **token 单点有效**：在其他设备/浏览器登录，或网页重新登录 → 旧 token 立即作废（同一份反复贴没用，必须重取）
 - ℹ️ token 开头域名可能是 web.laifaxin.com 或 web.worldtradetool.com 等——都正常，不影响
 - 图文教程：https://www.laifa.xin/share/ai/laifaxin-ai-account-connection
+
+👉 **现在轮到您**：按上面 4 步复制好之后，**把复制到的内容直接粘贴到聊天框发我**（不用自己看、不用改格式），我来检查。
 ```
 
 ## AI 执行要点与边界

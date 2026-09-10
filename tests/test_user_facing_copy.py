@@ -197,5 +197,69 @@ class FlowOrderAndSeedInferenceTest(unittest.TestCase):
         self.assertIn("（已过推演）——跳过推演", self.source)
 
 
+class CardActionAndSummaryTest(unittest.TestCase):
+    """卡片可读性两铁律（2026-09-10 对抗推进）：
+    ①每张卡结尾必须有明确行动指引（用户知道现在该做什么/不用做什么）
+    ②重卡片必须结论先行（表格前先给一句话，别让小白先啃表）"""
+
+    # 交互卡：用户需要行动
+    ACTION_WORDS = re.compile(r"回复|确认|请选|告诉我|选编号|该您|请您|需要您|您可以|您不用|轮到您")
+
+    # 重卡片（表格 ≥6 行 或 列 ≥6）：必须结论先行
+    HEAVY = ("S0-产品知识档案.md", "S2-客群确认.md", "S5-保存确认.md", "S12-激活确认.md")
+
+    def blocks_of(self, name):
+        text = (TEMPLATES / name).read_text(encoding="utf-8")
+        return re.findall(r"```[a-zA-Z]*\n(.*?)```", text, re.S)
+
+    def test_every_card_ends_with_action_guidance(self):
+        for path in sorted(TEMPLATES.glob("*.md")):
+            if path.name == "README.md":
+                continue
+            for bi, block in enumerate(self.blocks_of(path.name), 1):
+                tail = "\n".join(block.strip().splitlines()[-6:])
+                with self.subTest(file=path.name, block=bi):
+                    self.assertRegex(tail, self.ACTION_WORDS,
+                                     f"{path.name} 卡结尾缺明确行动指引（用户不知道该做什么）")
+
+    def test_heavy_cards_lead_with_one_line_conclusion(self):
+        for name in self.HEAVY:
+            block = self.blocks_of(name)[0]
+            first_table = block.find("|")
+            with self.subTest(file=name):
+                self.assertGreater(first_table, 0, f"{name} 应有表格")
+                head = block[:first_table]
+                self.assertRegex(head, r"💡|一句话",
+                                 f"{name} 重表格前必须先给一句话结论（别让用户先啃表）")
+
+    def test_process_cards_say_you_need_do_nothing(self):
+        """过程卡（S4审计/S8构建）必须明确告诉用户'不用做什么'——否则小白干等会焦虑。"""
+        for name in ("S4-审计进行中.md", "S8-模板构建中.md"):
+            with self.subTest(file=name):
+                block = self.blocks_of(name)[0]
+                self.assertRegex(block, r"您不用做|不用做任何事|等我",
+                                 f"{name} 过程卡应说明用户无需操作")
+
+    def test_table_headers_are_plain_language(self):
+        """重卡片表头必须白话（禁'量级/询盘速度/邮箱可得'这类内部维度名）。"""
+        block = self.blocks_of("S2-客群确认.md")[0]
+        for jargon in ("量级", "询盘速度", "邮箱可得", "竞争度", "精准买家?"):
+            with self.subTest(jargon=jargon):
+                self.assertNotIn(jargon, block, f"S2 表头仍是内部术语「{jargon}」")
+
+    def test_consistent_second_person_pronoun(self):
+        """★称谓统一为「您」（2026-09-10）：同一套话术忽"你"忽"您"显得不专业。"""
+        for path in sorted(TEMPLATES.glob("*.md")):
+            if path.name == "README.md":
+                continue
+            for bi, block in enumerate(self.blocks_of(path.name), 1):
+                with self.subTest(file=path.name, block=bi):
+                    self.assertNotIn("你", block, f"{path.name} 用户话术块用了「你」，应统一用「您」")
+
+    def test_s2_explains_each_column(self):
+        block = self.blocks_of("S2-客群确认.md")[0]
+        self.assertIn("表头人话解释", block, "S2 应逐列解释表头（小白看不懂六维缩写）")
+
+
 if __name__ == "__main__":
     unittest.main()
