@@ -119,9 +119,10 @@ class TaskMenuFormatTest(unittest.TestCase):
             self._check_block(block, bi)
 
     def _check_block(self, block, bi):
-        # 6 项必须各自独立成行，且每行有 emoji
-        lines = [l for l in block.splitlines() if re.match(r"\s*[1-6]\.\s", l)]
-        self.assertEqual(6, len(lines), f"菜单应为 6 行独立项，实际 {len(lines)} 行")
+        # ★项数铁律(2026-09-10)：只列 4 项，上限 5（防选择困难）
+        lines = [l for l in block.splitlines() if re.match(r"\s*[1-9]\.\s", l)]
+        self.assertEqual(4, len(lines), f"菜单应为 4 行独立项（用户反馈6项太多），实际 {len(lines)} 行")
+        self.assertLessEqual(len(lines), 5, f"菜单项数超过上限 5: {len(lines)}")
         # ★禁止一行塞多项：任一菜单行里不得再出现 "数字. " 的第二项
         for line in lines:
             with self.subTest(compressed=line.strip()[:40]):
@@ -132,6 +133,19 @@ class TaskMenuFormatTest(unittest.TestCase):
         for line in lines:
             with self.subTest(line=line.strip()[:30]):
                 self.assertRegex(line, emoji_re, f"菜单项缺 emoji 突出: {line.strip()[:40]}")
+
+    def test_menu_is_state_aware_and_hides_irrelevant(self):
+        """★按状态裁剪：两个菜单（有/无旧项目）各自给 4 项；不得含「更新/换机」。"""
+        blocks = re.findall(r"```[a-zA-Z]*\n(.*?)```", self.path.read_text(encoding="utf-8"), re.S)
+        self.assertEqual(2, len(blocks), "应分别给出「有旧项目」「无旧项目」两个菜单")
+        with_proj, without_proj = blocks
+        # 有旧项目 → 必须出现"继续"；无旧项目 → 不得出现"继续"（列"（无）"是噪音）
+        self.assertIn("继续", with_proj, "有旧项目菜单应含「继续项目」")
+        self.assertNotIn("继续", without_proj, "无旧项目菜单不应出现「继续项目」")
+        # 两份都不得把"更新/换机"当菜单项（刚装完无关；用户主动说才走路由）
+        for name, block in (("有旧项目", with_proj), ("无旧项目", without_proj)):
+            with self.subTest(menu=name):
+                self.assertNotIn("更新系统", block, f"{name}菜单不应含「更新系统」")
 
     def test_menu_marks_recommendation(self):
         text = self.path.read_text(encoding="utf-8")
@@ -147,7 +161,8 @@ class TaskMenuFormatTest(unittest.TestCase):
         source = (ROOT / "tools" / "onboard_check.py").read_text(encoding="utf-8")
         self.assertIn("emoji 突出", source, "onboard_check 输出应要求 emoji 突出")
         self.assertIn("⭐推荐", source, "onboard_check 输出应含推荐标记")
-        self.assertIn("禁止把 1-6 压成", source, "onboard_check 应禁止压成一行")
+        self.assertIn("禁止压成", source, "onboard_check 应禁止压成一行")
+        self.assertIn("只列 4 项", source, "onboard_check 应写明项数上限")
 
     def test_rules_carry_menu_format_rule(self):
         text = (ROOT / "RULES.md").read_text(encoding="utf-8")
