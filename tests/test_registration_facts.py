@@ -278,3 +278,48 @@ class ReadmeMenuConsistencyTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReleaseBookkeepingTest(unittest.TestCase):
+    """发版记账一致性（2026-09-10 发现：CHANGELOG 漏了 v0.5.9~v0.5.19 共 11 个版本、
+    knowledge 仓 SKILL 版本停在 0.5.17）。发版=三件事同步：SKILL 版本 / CHANGELOG 条目 / 两仓一致。"""
+
+    def _skill_version(self):
+        text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        m = re.search(r"^version:\s*([0-9.]+)\s*$", text, re.M)
+        self.assertIsNotNone(m, "SKILL.md frontmatter 缺 version")
+        return m.group(1)
+
+    def test_changelog_has_entry_for_current_version(self):
+        ver = self._skill_version()
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        # 注意 [ 必须转义（否则被当字符类）
+        self.assertIn(f"## [v{ver}]", changelog,
+                      f"CHANGELOG 缺当前版本 v{ver} 的条目——发版必须记 CHANGELOG")
+
+    def test_no_version_gaps_in_recent_series(self):
+        """v0.5.x 系列不得有缺口（补发/漏记都会在序列里留洞）。"""
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        vers = sorted({int(m) for m in re.findall(r"^## \[v0\.5\.(\d+)\]", changelog, re.M)})
+        self.assertTrue(vers, "CHANGELOG 缺 v0.5.x 条目")
+        gaps = [v for v in range(min(vers), max(vers) + 1) if v not in vers]
+        self.assertEqual([], gaps, f"CHANGELOG 的 v0.5.x 有缺口: {gaps}（漏记版本）")
+
+    def test_no_duplicate_version_entries(self):
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        vers = re.findall(r"^## \[(v[0-9.]+)\]", changelog, re.M)
+        dupes = sorted({v for v in vers if vers.count(v) > 1})
+        self.assertEqual([], dupes, f"CHANGELOG 有重复版本条目: {dupes}")
+
+    def test_knowledge_repo_version_matches(self):
+        """两仓 SKILL 版本必须一致（本次实测知识仓曾停在 0.5.17）。"""
+        knowledge = ROOT.parent / "laifaxin-knowledge"
+        if not knowledge.is_dir():
+            self.skipTest("知识仓不在同级目录")
+        kp = knowledge / "SKILL.md"
+        if not kp.is_file():
+            self.skipTest("知识仓无 SKILL.md")
+        km = re.search(r"^version:\s*([0-9.]+)\s*$", kp.read_text(encoding="utf-8"), re.M)
+        self.assertIsNotNone(km)
+        self.assertEqual(self._skill_version(), km.group(1),
+                         "两仓 SKILL 版本不一致——发版时漏同步其中一个仓库")
