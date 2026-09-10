@@ -369,3 +369,56 @@ class LessonBookkeepingTest(unittest.TestCase):
         for label, pat in must.items():
             with self.subTest(incident=label):
                 self.assertRegex(text, pat, f"教训库未收录: {label}")
+
+
+class DocsConsistencyTest(unittest.TestCase):
+    """docs/ 与 methodology/ 的口径一致性（2026-09-10 原本几乎无测试覆盖）。
+
+    docs 是"面向人的教程"，风险是**教程与权威规则冲突**——用户/AI 按教程做会与生成器断言打架。
+    """
+
+    def _tutorial_files(self):
+        files = list((ROOT / "docs").glob("*.md")) + list((ROOT / "methodology").glob("*.md"))
+        self.assertTrue(files, "docs/methodology 应有文件")
+        return files
+
+    def test_word_limit_states_relationship(self):
+        """出现"≤100词"时必须注明与硬上限 120 词的关系（否则 AI 会困惑该按哪个）。"""
+        for p in self._tutorial_files():
+            text = p.read_text(encoding="utf-8")
+            if "≤100" not in text:
+                continue
+            with self.subTest(file=p.name):
+                self.assertRegex(text, r"建议值|硬上限|120",
+                                 f"{p.name} 写了 ≤100 词但未说明与 120 词硬上限的关系")
+
+    def test_authoritative_thresholds_not_contradicted(self):
+        """教程里的关键数值不得与权威值冲突（每公司邮箱/阈值/日上限）。"""
+        import re as _re
+        for p in self._tutorial_files():
+            text = p.read_text(encoding="utf-8")
+            for m in _re.finditer(r"contactMaxCount[:：]?\s*(\d+)", text):
+                with self.subTest(file=p.name, value=m.group(1)):
+                    self.assertEqual("3", m.group(1), f"{p.name} contactMaxCount 与权威值 3 不符")
+
+    def test_no_stale_price_or_gift_claims(self):
+        """教程不得出现已知过时的数字（2.3 万赠点）。"""
+        for p in self._tutorial_files():
+            text = p.read_text(encoding="utf-8")
+            with self.subTest(file=p.name):
+                self.assertNotRegex(text, r"2\.3\s*[万w]", f"{p.name} 含过时的 2.3 万赠点口径")
+
+    def test_no_internal_jargon_leaked_to_tutorials(self):
+        """教程正文不得出现内部状态码（流程图/节点表除外——决策树需要对应状态机）。
+
+        docs/ 面向业务读者；methodology/decision-trees 的状态码出现在 mermaid 图与节点映射表里，
+        属于"给 AI 看的路由依据"，不算泄漏。
+        """
+        import re as _re
+        for p in self._tutorial_files():
+            if "decision-trees" in p.name:
+                continue  # 决策树含状态机图与节点映射，状态码是必要内容
+            text = p.read_text(encoding="utf-8")
+            for code in ("S0a", "S9a", "ERROR_BLOCKED"):
+                with self.subTest(file=p.name, code=code):
+                    self.assertNotIn(code, text, f"{p.name} 正文出现内部状态码 {code}")
