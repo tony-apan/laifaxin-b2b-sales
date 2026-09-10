@@ -378,8 +378,10 @@ class DocsConsistencyTest(unittest.TestCase):
     """
 
     def _tutorial_files(self):
-        files = list((ROOT / "docs").glob("*.md")) + list((ROOT / "methodology").glob("*.md"))
-        self.assertTrue(files, "docs/methodology 应有文件")
+        files = (list((ROOT / "docs").glob("*.md"))
+                 + list((ROOT / "methodology").glob("*.md"))
+                 + list((ROOT / "wiki").glob("*.md")))
+        self.assertTrue(files, "docs/methodology/wiki 应有文件")
         return files
 
     def test_word_limit_states_relationship(self):
