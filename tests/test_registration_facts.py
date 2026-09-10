@@ -323,3 +323,49 @@ class ReleaseBookkeepingTest(unittest.TestCase):
         self.assertIsNotNone(km)
         self.assertEqual(self._skill_version(), km.group(1),
                          "两仓 SKILL 版本不一致——发版时漏同步其中一个仓库")
+
+
+class LessonBookkeepingTest(unittest.TestCase):
+    """教训库记账（2026-09-10 发现：本轮 5 个真机断点里 4 个没进教训库）。
+
+    教训库是"防止重复踩坑"的机制——如果踩了坑却不收录，机制就空转。
+    """
+
+    LESSONS = ROOT / "lessons" / "lessons-learned.md"
+
+    def test_index_and_body_match(self):
+        text = self.LESSONS.read_text(encoding="utf-8")
+        idx = set(re.findall(r"^\| (L-\d+) \|", text, re.M))
+        sec = set(re.findall(r"^### (L-\d+) ", text, re.M))
+        self.assertTrue(idx, "教训索引为空")
+        self.assertEqual(set(), idx - sec, f"索引有条目但正文缺失: {sorted(idx - sec)}")
+        self.assertEqual(set(), sec - idx, f"正文有条目但索引缺失: {sorted(sec - idx)}")
+
+    def test_count_statement_matches_reality(self):
+        text = self.LESSONS.read_text(encoding="utf-8")
+        nums = sorted({int(m) for m in re.findall(r"^### L-(\d+) ", text, re.M)})
+        want = f"L-01~L-{nums[-1]:02d}"
+        self.assertIn(want, text, f"教训库计数声明应更新为 {want}")
+
+    def test_referencing_docs_use_current_range(self):
+        text = self.LESSONS.read_text(encoding="utf-8")
+        nums = sorted({int(m) for m in re.findall(r"^### L-(\d+) ", text, re.M)})
+        want = f"L-01~L-{nums[-1]:02d}"
+        for name in ("INDEX.md", "SKILL.md"):
+            with self.subTest(file=name):
+                doc = (ROOT / name).read_text(encoding="utf-8")
+                if "L-01~L-" in doc:
+                    self.assertIn(want, doc, f"{name} 的教训区间未同步为 {want}")
+
+    def test_key_incidents_are_recorded(self):
+        """本轮真机断点必须进教训库（防"踩了坑不收录"）。"""
+        text = self.LESSONS.read_text(encoding="utf-8")
+        must = {
+            "工作空间 header 机制": r"header `uid`|header.*uid",
+            "审计工具产品词必填": r"产品词|match-words",
+            "模板幂等": r"幂等",
+            "对外事实核对": r"官网原文|核对官网",
+        }
+        for label, pat in must.items():
+            with self.subTest(incident=label):
+                self.assertRegex(text, pat, f"教训库未收录: {label}")
