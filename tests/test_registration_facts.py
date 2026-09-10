@@ -101,5 +101,65 @@ class PointsRuleConsistencyTest(unittest.TestCase):
                                      f"{name} 写 9100 时必须说明是'等值总权益'而非一次性到账")
 
 
+class TaskMenuFormatTest(unittest.TestCase):
+    """任务菜单格式（2026-09-10 用户拍板）：逐行 + emoji 突出 + 标 ⭐推荐。"""
+
+    def setUp(self):
+        self.path = ROOT / "output-templates" / "S0-任务菜单.md"
+
+    def test_menu_template_exists(self):
+        self.assertTrue(self.path.is_file(), "缺任务菜单展示模板")
+
+    def test_menu_items_are_line_separated_with_emoji(self):
+        text = self.path.read_text(encoding="utf-8")
+        blocks = re.findall(r"```[a-zA-Z]*\n(.*?)```", text, re.S)
+        self.assertTrue(blocks, "菜单模板缺代码块")
+        # ★两个代码块（有旧项目 / 无旧项目）都要逐行+emoji
+        for bi, block in enumerate(blocks, 1):
+            self._check_block(block, bi)
+
+    def _check_block(self, block, bi):
+        # 6 项必须各自独立成行，且每行有 emoji
+        lines = [l for l in block.splitlines() if re.match(r"\s*[1-6]\.\s", l)]
+        self.assertEqual(6, len(lines), f"菜单应为 6 行独立项，实际 {len(lines)} 行")
+        # ★禁止一行塞多项：任一菜单行里不得再出现 "数字. " 的第二项
+        for line in lines:
+            with self.subTest(compressed=line.strip()[:40]):
+                inline = re.findall(r"[1-6]\.\s*★?[\w\u4e00-\u9fff]", line)
+                self.assertLessEqual(len(inline), 1,
+                                     f"菜单行疑似压了多项（应逐行独立）: {line.strip()[:60]}")
+        emoji_re = re.compile("[\U0001F300-\U0001FAFF\u2600-\u27BF]")
+        for line in lines:
+            with self.subTest(line=line.strip()[:30]):
+                self.assertRegex(line, emoji_re, f"菜单项缺 emoji 突出: {line.strip()[:40]}")
+
+    def test_menu_marks_recommendation(self):
+        text = self.path.read_text(encoding="utf-8")
+        self.assertIn("⭐推荐", text, "菜单必须标注推荐项")
+        self.assertIn("无旧项目", text, "应区分有无旧项目的推荐")
+        self.assertIn("有旧项目", text)
+
+    def test_menu_forbids_inline_compression(self):
+        text = self.path.read_text(encoding="utf-8")
+        self.assertRegex(text, r"禁止.*①②③|违例", "模板应写明禁止压成①②③一行")
+
+    def test_onboard_check_requires_emoji_and_recommendation(self):
+        source = (ROOT / "tools" / "onboard_check.py").read_text(encoding="utf-8")
+        self.assertIn("emoji 突出", source, "onboard_check 输出应要求 emoji 突出")
+        self.assertIn("⭐推荐", source, "onboard_check 输出应含推荐标记")
+        self.assertIn("禁止把 1-6 压成", source, "onboard_check 应禁止压成一行")
+
+    def test_rules_carry_menu_format_rule(self):
+        text = (ROOT / "RULES.md").read_text(encoding="utf-8")
+        self.assertRegex(text, r"菜单.*逐行|逐行.*emoji", "RULES 应含菜单格式纪律")
+        self.assertIn("①②③", text, "RULES 应点名禁止的写法")
+
+    def test_menu_template_distinguishes_chat_vs_email_emoji(self):
+        """聊天鼓励 emoji，邮件禁 emoji——模板必须说明两者不混用。"""
+        text = self.path.read_text(encoding="utf-8")
+        self.assertIn("sequence-config", text)
+        self.assertRegex(text, r"聊天.*emoji|emoji.*聊天", "应区分聊天与邮件的 emoji 规则")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -52,6 +52,7 @@ ERROR_BLOCKED: 异常/参数变/对账不一致时只读检查；恢复须项目
 - **★审批硬闸门（工具级）**：写操作必须带 `--approval <id> --project <项目键>`；只有 `decision=confirm + status=confirmed` 可授权，modify/pending/backfilled 都只留痕不可写。新项目稳定键=`<operator_key>/<product_key>`；工具必须按本次实际参数（含 profile/plan/tmap/seq/tag/task 等）重算 stable hash 并与凭证 memo 一致，不能只验证 id。legacy 项目可暂用旧产品名但不得跨运营方复用。换机旧 approvals 只作历史审计；未执行写节点和 S12 必须新机当前对话重新确认。
 
 ### 面向用户的输出纪律（B7-4）
+- **★菜单/选项必须逐行+emoji突出+标⭐推荐（2026-09-10 用户拍板）**：给用户选的任务菜单或选项列表，逐项独立成行、每项前加 emoji、明确标出推荐项；**禁止压成 `①②③` 连成一行**（用户实测反馈"1234 不明显、不知道选哪个"）。聊天话术鼓励 emoji；**邮件正文**另有禁 emoji 规则（`specs/sequence-config.md`），两处不混用。
 - **★用户可见文案禁黑话（2026-09-09 用户拍板：小白要能看懂）**：给用户看的正文（`output-templates/*.md` 代码块内的部分）**禁止出现**内部术语与开发信息——`status=`/`sha256`/`hash`/`profile_version`/`draft`/`confirmed`/`declined`/`runs/`/`.local/`/`.py` 命令/`approval`/`claims`/`S0a`/`S11`/`S12`/`evidence_mode`/`query_en`/`base-info`；也禁止 `SEND_READY`/`NOT_SEND_READY`/`Shadow Run`/`blockers` 这类英文状态码，以及"十三套单测全部 0 失败""5 个文件已更改 +425 -0"这类开发进度。内部术语只写在每个模板的"AI 执行要点与边界"里。`tests/test_user_facing_copy.py` 自动扫描，违规即测试失败。
 - **★禁止要求用户设置环境变量或声称只读授权**：凭据唯一交付路径=浏览器一键复制后把两行整段粘贴到聊天框。禁止要求设置 `LAIFAXIN_TOKEN` 等环境变量、创建 `.env`；**禁止声称"只读 token/只读接口取授权"**——平台没有只读 token 这种权限级别（L110）。
 - 任何英文错误/术语（FAIL:/ERR:/None/undefined/null/接口 message）出现在给用户看的输出前，**先给一句中文解释 + 下一步**；不确定就说"这是系统内部日志，我来看，你不用操作"。
