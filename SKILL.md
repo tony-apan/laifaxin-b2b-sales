@@ -2,7 +2,7 @@
 name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
-version: 0.5.13
+version: 0.5.14
 created: 2026-08-30
 updated: 2026-09-09
 author: "独立审查 agent（对抗判定后落地）"
@@ -52,7 +52,7 @@ flowchart TD
 
 | 用户说（触发词） | 路由到 |
 |------------------|--------|
-| "安装 / 第一次安装 / 学习这个 Skill / 帮我装好" | **只执行安装学习阶段**：下载或识别旧安装→保留 `.local/`/`runs/` 更新→自动准备环境→通读 README/SKILL/RULES/specs→运行 onboard 自检+扫描旧项目→汇报后按 `output-templates/S0-任务菜单.md` 展示菜单（**逐行+emoji突出+⭐推荐+上限4项且按状态裁剪**，禁压成①②③一行、禁列不适用项）并只问“安装完成。你现在想做什么？”；🔴此阶段禁止问产品/市场/官网/昵称/token，不得默认建新项目 |
+| "安装 / 第一次安装 / 学习这个 Skill / 帮我装好" | **只执行安装学习阶段**：下载或识别旧安装→保留 `.local/`/`runs/` 更新→自动准备环境→通读 README/SKILL/RULES/specs→运行 onboard 自检+扫描旧项目→**先按 `output-templates/S0-安装完成汇报.md` 用白话汇报**（装好没/能做什么/哪些要确认/有无旧项目；禁止抛 S0-S12、contact_add.py、status= 等术语，onboard 原始输出只给自己看）→再按 `output-templates/S0-任务菜单.md` 展示菜单（**逐行+emoji突出+⭐推荐+上限4项且按状态裁剪**，禁压成①②③一行、禁列不适用项）并只问“安装完成。你现在想做什么？”；🔴此阶段禁止问产品/市场/官网/昵称/token，不得默认建新项目 |
 | "新电脑第一次安装" / 环境缺 Python / `python` 找不到 | `specs/environment-setup.md` → `bootstrap.sh --install` 或 Windows `bootstrap.ps1 -Install` → check-only → onboard；完成后回到任务选择，不自动进入 S0。⚠️PowerShell脚本当前仅静态检查、未在全新Windows实机跑完；失败按SOP官方安装兜底 |
 | 新会话（同机） / "接着上次" | `onboard_check.py` 枚举可续接项目并展示任务菜单；有项目先让用户选择是否续接，再读 operation-record + product-profile 从当前节点继续；无项目也不自动建新项目，仍等待用户选择任务 |
 | "换机 / 换电脑 / 另一台电脑接手" | README「💻 换电脑继续干」完整指令块 + `specs/migration-handoff.md`：旧机迁移 `.local/`+`runs/`+可选本地`db/` → 新机恢复同名路径 → token重新获取 → onboard枚举项目 → 禁止从S0重跑已有项目 |

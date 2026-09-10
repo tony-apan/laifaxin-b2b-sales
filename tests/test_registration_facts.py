@@ -178,3 +178,103 @@ class TaskMenuFormatTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BeginnerFriendlyReportTest(unittest.TestCase):
+    """小白适配（2026-09-10 对抗审查）：安装后先白话汇报，禁抛内部术语。"""
+
+    def setUp(self):
+        self.path = ROOT / "output-templates" / "S0-安装完成汇报.md"
+        self.text = self.path.read_text(encoding="utf-8") if self.path.is_file() else ""
+
+    def test_report_template_exists(self):
+        self.assertTrue(self.path.is_file(), "缺安装完成汇报模板（小白看不懂 onboard 原始输出）")
+
+    def test_report_has_plain_language_and_no_jargon_in_user_block(self):
+        blocks = re.findall(r"```[a-zA-Z]*\n(.*?)```", self.text, re.S)
+        self.assertTrue(blocks, "汇报模板缺用户话术块")
+        # 用户话术块内禁止内部术语
+        banned = ("S0", "S10", "S12", ".py", ".local/", "runs/", "status=", "contact_add")
+        for bi, block in enumerate(blocks, 1):
+            for term in banned:
+                with self.subTest(block=bi, term=term):
+                    self.assertNotIn(term, block, f"汇报话术块出现内部术语「{term}」")
+
+    def test_report_covers_four_things(self):
+        text = self.text
+        for need in ("装好了", "能帮", "确认", "项目"):
+            with self.subTest(need=need):
+                self.assertIn(need, text, f"汇报模板应覆盖: {need}")
+
+    def test_report_has_status_plain_mapping(self):
+        """必须有 S0-S12 → 白话 对照表（防 AI 对用户抛 S10）。"""
+        for code in ("S1", "S4", "S10", "S12", "ERROR_BLOCKED"):
+            with self.subTest(code=code):
+                self.assertIn(code, self.text, f"白话对照表缺 {code}")
+
+    def test_report_emphasizes_nothing_sends_without_confirm(self):
+        self.assertIn("不会发", self.text.replace("一封都不会发", "不会发"),
+                      "汇报必须强调'不确认就不发信'")
+
+
+class PlainStepMappingTest(unittest.TestCase):
+    """onboard_check 必须内置状态码→白话映射。"""
+
+    def setUp(self):
+        self.source = (ROOT / "tools" / "onboard_check.py").read_text(encoding="utf-8")
+
+    def test_plain_hint_exists_and_covers_key_nodes(self):
+        import importlib.util, tempfile, shutil, subprocess, sys
+        # 直接跑函数：白话映射必须真能翻译关键节点（防"表被清空但仍匹配键名"的假通过）
+        script = (
+            "import sys; sys.path.insert(0, 'tools')\n"
+            "import onboard_check as oc\n"
+            "for s in ('S1','S4','S10','S12','ERROR_BLOCKED'):\n"
+            "    print(s, '=>', oc.plain_step_for(s))\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            shutil.copytree(ROOT, repo, ignore=shutil.ignore_patterns(".git", "__pycache__", ".local", "runs"))
+            out = subprocess.run([sys.executable, "-c", script], cwd=str(repo),
+                                 capture_output=True, text=True, timeout=120)
+        self.assertEqual(0, out.returncode, out.stderr[-400:])
+        lines = dict(l.split(" => ", 1) for l in out.stdout.strip().splitlines() if " => " in l)
+        # ★语义断言：白话必须真的描述那个阶段（防 fallback 兜底通过）
+        expect = {
+            "S1": "客户", "S4": "名单", "S10": "跟进计划",
+            "S12": "发送", "ERROR_BLOCKED": "卡",
+        }
+        for node, keyword in expect.items():
+            with self.subTest(node=node):
+                self.assertIn(node, lines)
+                self.assertNotEqual(node, lines[node].strip(), f"{node} 未翻译成白话")
+                self.assertIn(keyword, lines[node],
+                              f"{node} 的白话应含「{keyword}」，实际: {lines[node]}")
+
+    def test_output_tells_ai_to_use_plain_form(self):
+        self.assertIn("对用户说", self.source, "输出应提示 AI 用白话汇报")
+        self.assertIn("勿抛状态码", self.source, "输出应明确禁止抛状态码")
+
+    def test_jargon_stays_out_of_user_facing_text(self):
+        """README 的安装指令不得再让 AI 汇报'安装目录和当前版本'这种技术项。"""
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("S0-安装完成汇报", readme, "README 安装指令应指向白话汇报模板")
+        self.assertNotIn("安装目录和当前版本", readme, "README 不应让 AI 汇报技术目录/版本")
+
+
+class ReadmeMenuConsistencyTest(unittest.TestCase):
+    """README 里的菜单说明必须与 S0-任务菜单.md 的 4 项一致（防两处不同步）。"""
+
+    def test_readme_does_not_list_six_items(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        # 不得再出现旧的 6 项编号列表
+        self.assertNotRegex(readme, r"1\. 开始一个新的获客项目；\s*2\. 判断产品是否适合批量冷邮件",
+                            "README 仍含旧 6 项菜单（应与模板同步为 4 项）")
+
+    def test_readme_mentions_four_options(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertRegex(readme, r"4 个选项|四项|4 项", "README 应说明是 4 个选项")
+
+
+if __name__ == "__main__":
+    unittest.main()

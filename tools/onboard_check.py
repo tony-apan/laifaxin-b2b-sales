@@ -61,6 +61,34 @@ NODE_HINT = {
     "ERROR_BLOCKED": "只读检查定位异常/对账不一致，修复后重跑 gate_check.sh——禁止自动写操作",
 }
 
+# ★状态机节点 → 白话进度（2026-09-10 对抗审查补：小白看不懂 S10/contact_add.py）
+# 用途：向用户报告续接项目进度时必须用这列，禁止把 NODE_HINT（技术版）原话给用户。
+PLAIN_HINT = {
+    "S0": "刚开始了解你的产品",
+    "S0A": "正在整理你的产品资料",
+    "S1": "准备选从哪里开始找客户",
+    "S2": "正在推演该找哪些买家",
+    "S3": "在挑一个合适的起点（买家样板）",
+    "S4": "在抽查名单质量",
+    "S5": "准备保存客户名单（等你确认）",
+    "S6": "正在保存客户名单",
+    "S7": "准备写开发信（等你确认）",
+    "S8": "正在批量写开发信",
+    "S9": "正在排跟进计划",
+    "S9A": "正在准备固定标签",
+    "S10": "正在把客户加进跟进计划",
+    "S11": "全部准备好了，等你决定要不要开始发",
+    "S12": "已激活，正在发送中",
+    "ERROR_BLOCKED": "中途卡住了，需要你看一下",
+}
+
+
+def plain_step_for(status):
+    """返回面向用户的白话进度；定位不到时给保守表述。"""
+    node = locate_node(status)
+    return PLAIN_HINT.get(node, "已有一部分进度，具体我读一下档案再告诉你")
+
+
 # ★静态红队P2: S0a_PRODUCT_PROFILE 等带子标记/下划线的复合状态须优先于裸 S0 定位
 # (旧正则 S\d+[aA]? 会把 S0a_PRODUCT_PROFILE 截成 S0A 但 NODE_HINT 无此键, 退回泛化提示, 也存在被误读回 S0 的风险)
 _STATUS_TOKEN_RE = re.compile(r"(S\d+[A-Za-z]*(?:_[A-Za-z_]+)?|ERROR_BLOCKED)", re.IGNORECASE)
@@ -188,10 +216,12 @@ if projects:
     for i, p in enumerate(projects, 1):
         print(f"  {i}. 运营方={p['operator']}  产品={p['product']}")
         print(f"     流程状态={p['status']}  (updated {p['updated']})")
+        print(f"     👤 对用户说(白话,勿抛状态码): 上次做到「{plain_step_for(p['status'])}」")
         print(f"     产品档案 product-profile.md: {p['profile']}")
         print(f"     👉 下一步: {p['next']}")
     print("  ★ 续接纪律: 按 runs/<运营方>/<产品>/operation-record.md 的『✅ 本轮最终记录』表定位节点续跑,禁止从 S0 重跑(会重复建档/重复保存浪费点数)")
     print("     换电脑/新机器续接的完整校验清单(token 重取/审批凭证边界/序列 inactive 核对)见 specs/migration-handoff.md")
+    print("     ★向用户报告进度一律用上面『对用户说』那行；S0-S12/contact_add.py/status= 等只给自己看(小白看不懂)")
 else:
     print("  未发现可续接项目档案；安装完成后仍先让用户选择任务，不自动创建新项目")
 if incomplete:
