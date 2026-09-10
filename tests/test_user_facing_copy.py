@@ -397,3 +397,57 @@ class OneClickCommandConsistencyTest(unittest.TestCase):
     def test_command_is_single_line(self):
         cmd = self._extract(ROOT / "SKILL.md")
         self.assertNotIn("\n", cmd, "命令必须单行（多行粘贴到控制台会失败）")
+
+
+class GateBoundaryTest(unittest.TestCase):
+    """工具闸门边界（2026-09-10 对抗补：审批/哈希此前无边界测试，仅集成测试覆盖主路径）。
+
+    这里直接调用纯函数验证判定逻辑，不联网、不碰真实数据。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import sys as _sys
+        _sys.path.insert(0, str(ROOT / "tools"))
+
+    def test_params_hash_is_key_order_insensitive(self):
+        from approval import stable_params_hash as H
+        a = {"project": "p/x", "tags": ["a", "b"], "n": 100}
+        b = {"n": 100, "tags": ["a", "b"], "project": "p/x"}
+        self.assertEqual(H(a), H(b), "键顺序不应影响哈希（换机会重算）")
+
+    def test_params_hash_detects_value_and_type_change(self):
+        from approval import stable_params_hash as H
+        base = {"project": "p/x", "n": 100}
+        self.assertNotEqual(H(base), H({"project": "p/x", "n": 101}), "值变化必须改变哈希")
+        self.assertNotEqual(H(base), H({"project": "p/x", "n": "100"}), "类型变化必须改变哈希")
+
+    def test_params_hash_is_nested_and_list_sensitive(self):
+        from approval import stable_params_hash as H
+        d1 = {"p": {"sha": "x", "status": "declined"}, "tags": ["a", "b"]}
+        d2 = {"tags": ["a", "b"], "p": {"status": "declined", "sha": "x"}}
+        self.assertEqual(H(d1), H(d2), "嵌套键序不应影响哈希")
+        self.assertNotEqual(H(d1), H({"p": {"sha": "x", "status": "declined"}, "tags": ["b", "a"]}),
+                            "列表顺序变化必须改变哈希（调用方须先排序）")
+
+    def test_confirm_quote_rejects_negative_and_question(self):
+        from approval import confirm_quote_ok
+        for bad in ("不要保存", "确认保存吗？", "等我想想", "先别动", "是否激活"):
+            with self.subTest(quote=bad):
+                self.assertFalse(confirm_quote_ok(bad), f"应拒绝非正向确认: {bad}")
+
+    def test_confirm_quote_accepts_explicit_positive(self):
+        from approval import confirm_quote_ok
+        for good in ("确认", "确认保存", "确认激活", "可以"):
+            with self.subTest(quote=good):
+                self.assertTrue(confirm_quote_ok(good), f"应接受明确正向确认: {good}")
+
+    def test_require_approval_fails_closed(self):
+        import io, contextlib
+        from approval import require_approval
+        for aid in ("", "ap-does-not-exist"):
+            with self.subTest(approval=aid):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    with self.assertRaises(SystemExit) as ctx:
+                        require_approval(aid, "p/x", ("S5",), what="测试")
+                self.assertEqual(1, ctx.exception.code, "审批缺失/无效必须 fail-closed")
