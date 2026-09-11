@@ -2,6 +2,31 @@
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
 
+## [v0.5.28] - 2026-09-11
+
+全仓去重：清理「影子副本」+ 加防回退断言（旧副本停在过期版本，会让 AI/接手者读到错规则）。
+
+- **知识仓根目录 15 个过期副本删除**（真源都在子目录/根文件，副本停在旧版本）：
+  - 10 个 specs 旧版：`sequence-config` / `api-reference` / `data-structure` / `domain-scale-sop` /
+    `environment-setup` / `migration-handoff` / `node-playbook` / `operations-sop` /
+    `operator-profile-sop` / `product-profile-sop`（`lessons-learned` 副本 54 条 vs 真源 61 条，差 7 条）
+  - `lessons-learned.md`（真源 `lessons/lessons-learned.md`）、`faq.md`（真源已并入其他文档）、
+    `T-token引导.md`（真源 `output-templates/T-token引导.md`）
+  - `specs/RULES.md`（停在 9-04，真源根 `RULES.md`）、`tools/SKILL.md`（v0.4.2，落后 23 个版本）
+- **`output-templates/` 10 个误放产物删除**：`product-profile` / `segments` / `templates` /
+  `operation-record` / `reflection` + `audit-manifest` / `compliance-check` / `evidence` /
+  `recovery-manifest` / `verification-manifest`。该目录只应放**面向用户的话术卡片**；
+  产物（档案/清单）真源在 `runs/_template/`（种子）与 `runs/<运营方>/<产品>/`（实例）。
+  （其中 5 个与 `runs/_template/` 逐字相同、另 5 个是更早的旧版）
+- **新增防回退断言** `tests/test_repo_layout.py`（5 项，两仓一致）：
+  - 根目录不得出现产物文件（`product-profile.md` 等 10 个）
+  - `output-templates/` 只允许话术卡片（`S*.md` / `T-*.md` / `Q*.md` / `README.md`），禁 json
+  - 根目录 `.md` 不得与 `specs/` / `lessons/` / `methodology/` 下同名（同名=过期副本）
+- 变异验证有效：故意把 `product-profile.md` 放回 `output-templates/`、把 `sequence-config.md`
+  放回根目录，两项断言均立即失败；复原后通过。
+- 测试 275 → **280**（+5）。清理前已全量备份至 `/tmp/kb-ot-backup`、回滚点 `f54edf3`。
+
+
 ## [v0.5.27] - 2026-09-11
 
 统一序列命名规范：名字里的「N轮M封」必须与实际批次一致（工具校验）。
