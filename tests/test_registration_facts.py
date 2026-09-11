@@ -424,3 +424,61 @@ class DocsConsistencyTest(unittest.TestCase):
             for code in ("S0a", "S9a", "ERROR_BLOCKED"):
                 with self.subTest(file=p.name, code=code):
                     self.assertNotIn(code, text, f"{p.name} 正文出现内部状态码 {code}")
+
+
+class EffectFeedbackDisciplineTest(unittest.TestCase):
+    """效果反馈引用纪律（2026-09-11 用户提供真实反馈后立规）。
+
+    对外引用"用户跑出的效果"时三件事必须同时成立：
+      ① 标注成色——是【引用📚/用户反馈】而非【本仓库实测✅】
+      ② 脱敏——不得出现邮箱/@/ID/域名/人名等可识别信息
+      ③ 带免责——询盘≠订单、不保证同样结果
+    """
+
+    DOC = ROOT / "docs" / "09-mass-outreach-to-precision-follow-up.md"
+    HEADING = "### 真实效果参考"
+
+    def _section(self):
+        text = self.DOC.read_text(encoding="utf-8")
+        if self.HEADING not in text:
+            self.skipTest("尚未收录效果反馈节")
+        body = text.split(self.HEADING, 1)[1]
+        # 截到下一个二级标题或下一个项目符号条目
+        for stop in ("\n## ", "\n- **零成本入门**"):
+            if stop in body:
+                body = body.split(stop, 1)[0]
+        return body
+
+    def test_marked_as_user_report_not_verified(self):
+        """★必须同时具备：①说清来源是用户反馈 ②明确"非本仓库实测"。
+        旧断言用 or（任一命中即过）→ 删掉"非本仓库实测"仍能通过，等于没拦。"""
+        sec = self._section()
+        self.assertRegex(sec, r"用户反馈|用户群里|用户自述",
+                         "效果反馈必须说清来源【用户反馈】")
+        self.assertRegex(sec, r"非本仓库实测|不是本仓库实测|引用📚",
+                         "效果反馈必须标明【非本仓库实测 / 引用】成色，不得冒充实测✅")
+
+    def test_carries_order_inquiry_disclaimer(self):
+        sec = self._section()
+        self.assertRegex(sec, r"询盘 *≠ *订单|询盘不等于订单",
+                         "效果反馈必须带「询盘≠订单」免责")
+        self.assertRegex(sec, r"不保证|不代表", "效果反馈必须声明不保证同样结果")
+
+    def test_no_identifiable_information_leaked(self):
+        sec = self._section()
+        self.assertNotIn("@", sec, "效果反馈节不得出现邮箱/@")
+        self.assertNotRegex(sec, r"\b[0-9a-fA-F]{24}\b", "效果反馈节不得出现 24hex 资源 ID")
+        self.assertNotRegex(sec, r"\.(?:com|cn|ru|org|net)\b", "效果反馈节不得出现域名")
+        # 短会员 ID（如 7 位小写字母数字混排）出现在反馈节即视为泄漏
+        self.assertNotRegex(sec, r"\b[a-z]{2}[a-z0-9]{5}\b",
+                            "效果反馈节疑似出现会员/资源短 ID")
+
+    def test_readme_pointer_carries_marker(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        if "有人跑出效果了吗" not in readme:
+            self.skipTest("README 尚未加效果指路")
+        idx = readme.index("有人跑出效果了吗")
+        window = readme[idx:idx + 300]
+        self.assertRegex(window, r"用户反馈|引用📚|非本仓库实测",
+                         "README 效果指路必须标注成色")
+        self.assertRegex(window, r"不等于订单|询盘 *≠ *订单", "README 效果指路必须带免责")
