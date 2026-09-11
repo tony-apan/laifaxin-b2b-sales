@@ -83,7 +83,7 @@ class EvidenceModeTest(unittest.TestCase):
             "verify-seq.txt", f"{SEQ}\n步骤数: 12\n状态=inactive\n全部12步\n"
         )
         exclude = self.write_evidence("verify-exclude.txt", "含4区=0\n排除生效\n")
-        diff = self.write_evidence("verify-diff.txt", "模板数: 120\n最大相似度 20%\n差异≥30%达标\n")
+        diff = self.write_evidence("verify-diff.txt", "模板数: 48\n最大相似度 20%\n差异≥30%达标\n")
         panel = self.write_evidence(
             "verification-panel.md",
             panel_text or "标签 客群 保存 模板 配额 审查\n测试不激活\n",

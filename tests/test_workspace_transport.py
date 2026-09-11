@@ -163,7 +163,7 @@ class TemplateIdempotencyAndFolderTest(unittest.TestCase):
         self.assertIn("幂等复用", source, "缺幂等复用提示")
 
     def test_plan_duplicate_precheck_exists(self):
-        """生成前预检 plan 重复（真机：旧流程建完 120 个才发现撞车）。"""
+        """生成前预检 plan 重复（真机：旧流程建完整批才发现撞车）。"""
         source = read("gen_templates.py")
         self.assertIn("check_plan_duplicates", source)
         self.assertIn("去重预检", source)

@@ -574,7 +574,7 @@ else:
     print(f"     参数JSON结构: {S7_SCHEMA}")
 
 # ---------- S8 TEMPLATE_BUILD ----------
-print("●S8 TEMPLATE_BUILD: 生成120差异化模板(用 gen_templates.py; ★须带 S7 的 --approval id; 生成后跑 check_template_diff 断言差异)")
+print("●S8 TEMPLATE_BUILD: 生成差异化模板(默认12轮×4=48个,用 gen_templates.py; ★须带 S7 的 --approval id; 生成后跑 check_template_diff 断言差异)")
 
 # ---------- S9 SEQUENCE_PENDING（执行参数含序列名/发送昵称/org，向导不全，永远pending） ----------
 print("●S9 SEQUENCE_PENDING: 展示12步/时区/上限/notSentTags；实际全参数齐后另行绑定审批")

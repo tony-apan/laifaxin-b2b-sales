@@ -2,7 +2,7 @@
 name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
-version: 0.5.25
+version: 0.5.26
 created: 2026-08-30
 updated: 2026-09-09
 author: "独立审查 agent（对抗判定后落地）"
@@ -14,7 +14,7 @@ audience: AI优先
 
 # 🧭 来发信 B2B 获客 · Skill 入口
 
-> **一句话定位**：把"产品 → 推演客群/找种子 → 域名搜相似 → AI 反思 70% 临界 → 纯 API 保存前 N → 差异化模板 120 → 12 步序列 → contact-add → 不激活待确认"整条外贸获客流水线，做成**判据明确 + 工具硬闸门 + 全程留痕**的可执行流程。
+> **一句话定位**：把"产品 → 推演客群/找种子 → 域名搜相似 → AI 反思 70% 临界 → 纯 API 保存前 N → 差异化模板（默认48）→ 12 步序列 → contact-add → 不激活待确认"整条外贸获客流水线，做成**判据明确 + 工具硬闸门 + 全程留痕**的可执行流程。
 > **本文件只做路由与判据摘要**；执行任何步骤前先读 `RULES.md`（唯一真源）及指向的 specs，禁止凭记忆跳步。
 > **★定位话术**：本系统=**批量获客/广撒网拿询盘**，不是精准开发——"广撒网铺量拿询盘；人或 AI 助手发现回复后须立即打‘询盘’标签，邮件序列才会停发；之后由您人工背调和精准跟进"。
 > **★用户展示话术=照模板**（把用户当小白）：每环节给用户看什么/怎么说，照 `output-templates/S<节点>-*.md` 填充输出（人话+链接+具体核对点）；平台页面直达链接见下方路由表。
@@ -39,7 +39,7 @@ flowchart TD
     S3["S3: 选起点<br/>有网址→确认并判定客群<br/>没有→从客群挑精准买家"] --> S4["S4: 逐页审计<br/>找70%筛选边界"]
     S4 --> S5["S5-S6: 保存+数量账<br/>展示数据,用户确认"]
     S5 --> S7["S7: 落款只用昵称生成模板<br/>公司/官网=仅供AI建档,绝不进签名"]
-    S7 --> S8["S8: 120模板自动归组<br/>差异断言"]
+    S7 --> S8["S8: 整批模板自动归组<br/>差异断言"]
     S8 --> S9["S9-S10: 序列+加人"]
     S9 --> LOOP{"还有下一个客群?<br/>一个客群独立标签+模板+序列"}
     LOOP -- "有→回到S3(串行分批)" --> S3
@@ -119,13 +119,13 @@ flowchart TD
 | S0 INPUT_GATE | **必填只有昵称+一句话产品**（中英皆可）；卖给谁/卖到哪/自己的网址均选填。缺客群或市场时 AI 先推荐，不阻断、不冒充用户输入。S0 出 A/B/C/D **获客方向方案**（含推荐与淘汰理由），用户选字母。用户给自己的官网/目录/产品页 → 只走独立 `website-profile-sop.md` 六区候选，批准补丁后才导入；买家网址转 S3；模块失败/跳过继续原流程。用户给卖点文字/文件 → 按用户来源提炼；没给 → 邀请补充一次、可跳过。★出方案前按 `specs/product-fit.md` 四问判 **强/条件/弱适配**，弱适配如实说明预期，由用户决定 |
 | S0a PROFILE_PENDING | 分两轮主动索取：①公司级资料→`.local/operators/<operator_key>.md`（多公司隔离/跨产品/换机复用）②产品级资料→`runs/<operator_key>/<product_key>/product-profile.md`。每轮一组、可跳过不逼问；产品档案必须 confirmed 或 declined 才能进 S1，draft 阻断；后续绑定版本/hash |
 | S1 PATH_PENDING | **连接平台为独立前置**：档案确认后先按 `T-token引导.md` 引导一键双取→check_login+workspace_guard+gate 全过，才进选起点。有精准网址→快速路径 A；无→标准路径 B **自动选择，不追问**（用户随时可补网址切换） |
-| S2 SEGMENT_PENDING | **两条路径都推演**（方案B：有种子时并入种子描述）；★**多客群分批**（铁律7d）：可选多个但每个客群独立标签/模板/序列，选中≥2个必须提示分开做并告知 K×120 模板+K 序列，一个客群走完 S3→S10 再做下一个；推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add，非 product-add，否则 generate 500；generate 后轮询 list 至非空；★客群推演**优先读 product-profile.md** 的产品线/客群/卖点，推得更准）|
+| S2 SEGMENT_PENDING | **两条路径都推演**（方案B：有种子时并入种子描述）；★**多客群分批**（铁律7d）：可选多个但每个客群独立标签/模板/序列，选中≥2个必须提示分开做并告知 K×48 模板+K 序列（默认48=12轮×4），一个客群走完 S3→S10 再做下一个；推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add，非 product-add，否则 generate 500；generate 后轮询 list 至非空；★客群推演**优先读 product-profile.md** 的产品线/客群/卖点，推得更准）|
 | S3 SEED_PENDING | ★入口二选一：有起点网址→确认并判定其客群；没有→从已推演客群挑精准买家。**起点必须关联客群**。AI 数据库搜索链三步：①query_en 搜第一页（25字段/条，含 id、无 domain）②代表买家 id→`domain/base-info` 取域名 ③域名作 keyword 走主搜扩量（禁 similar-list）→用户确认锚点；随后 S4 审计、S5/S6 按审计关键词保存（域名/长文本均实测✅） |
 | S4 AUDIT_RUNNING | 只读+AI 语义反思找 70% 临界；按三条客户线留痕。正式收口须 `evidence_mode=live` 并绑定真实线上审计+独立review hash；模拟/离线/网络桩/占位只能出演练报告，禁止推进S4或保存 |
 | S5 SAVE_PENDING | 展示临界 N/标签/排除4区/max/点数，用户确认后才保存（→输出 approval_id）|
 | S6 SAVE_RUNNING | front 保存；等任务 status:finished；用标签结果对账。★完成后主动出示**数量账**（S6-数量账.md：max3/验真/去重/异步四机制；1.4~2.1 邮箱/家属正常，<1.0 查锚点） |
 | S7 TEMPLATE_PENDING | 只生草稿，展示 3-8 个**渲染后视图**+理由，确认后才批量创建。★邮件末尾签名区只有纯个人昵称，禁止公司名/官网/邮箱/职位/认证/宣传语。★正文卖点只可使用当前 confirmed product-profile 中有字段级来源的事实（认证/产能/MOQ/交期/价格带等），计划绑定 profile hash 并逐句 claims 校验；declined 档案只用无具体事实通用表达 |
-| S8 TEMPLATE_BUILD | 生成 120 模板并**自动归入同名分组**（禁散落未指定目录），断言变量样式/标题/差异（Jaccard≤0.70），失败回 S7 |
+| S8 TEMPLATE_BUILD | 生成整批模板（默认48=12轮×4）并**自动归入同名分组**（禁散落未指定目录），断言变量样式/标题/差异（Jaccard≤0.70），失败回 S7 |
 | S9 SEQUENCE_PENDING | 12 步(30分/5/15/30天)+纽约时区+每日30000(全账号)/每公司每日5+notSentTags，确认后建。★客群成交/询盘周期以季~年计时（条件/弱适配），如实告知节奏为快周期设计，建议调低轮次或改人工培育 |
 | S9a FIXED_TAGS（S9内部子检查，不单独推进operation status） | 账号固定标签“询盘/不发”：build_sequence前先查同名，存在复用id，不存在才经绑定审批创建；notSentTags解析失败则S9 fail-closed |
 | S10 CONTACT_PENDING | finished+标签联系人>0+序列 inactive+对账+确认后 contact-add(views:[]) |
@@ -138,7 +138,7 @@ flowchart TD
 登录 web.laifaxin.com 后，告诉用户直接打开：
 | 看什么 | 页面 | 链接 |
 |---|---|---|
-| 邮件模板（120 个）| 模板库 | https://web.laifaxin.com/settings/templets |
+| 邮件模板（整批，默认 48 个）| 模板库 | https://web.laifaxin.com/settings/templets |
 | 序列（12 步计划/inactive 状态）| 智能跟进 | https://web.laifaxin.com/mailing/sequence |
 | 保存的客户任务 | 已保存任务 | https://web.laifaxin.com/search/saved-tasks |
 | 发信设置 | 邮件营销 | https://web.laifaxin.com/mailing/send |

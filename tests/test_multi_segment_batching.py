@@ -4,7 +4,7 @@
 
 背景：保温杯真实案例——3 个客群（家居厨房分销+户外露营零售+咖啡器具批发）共用
 1 个标签 `英语-咖啡器具与保温杯-渠道商` 和 1 套话术；皮筏艇做对了（3 客群→3 标签→
-3 套 120 模板→3 条序列）。本测试把"一客群一标签一计划"固化为可执行断言。
+3 套模板→3 条序列）。本测试把"一客群一标签一计划"固化为可执行断言。
 """
 import re
 import sys
@@ -34,7 +34,7 @@ class MultiSegmentRuleTest(unittest.TestCase):
         self.assertIn("一客群一标签一计划", self.rules)
 
     def test_rule_covers_key_points(self):
-        for point in ("独立一对标签", "独立一套 120 模板", "独立一条序列", "禁止把多个客群合并"):
+        for point in ("独立一对标签", "独立一套模板", "独立一条序列", "禁止把多个客群合并"):
             with self.subTest(point=point):
                 self.assertIn(point, self.rules, f"铁律 7d 缺少要点: {point}")
 
@@ -49,7 +49,7 @@ class MultiSegmentRuleTest(unittest.TestCase):
 
     def test_rule_discloses_cost(self):
         self.assertIn("成本如实告知", self.rules)
-        self.assertIn("120", self.rules)
+        self.assertIn("48", self.rules)
 
     def test_rule_references_real_cases(self):
         """铁律要带正反案例（保温杯混存 / 皮筏艇分档）。"""
@@ -79,7 +79,7 @@ class S2CardTest(unittest.TestCase):
 
     def test_multi_segment_prompt_discloses_cost(self):
         block = "".join(user_blocks(self.text))
-        self.assertIn("120", block, "必须如实告知模板数量")
+        self.assertIn("48", block, "必须如实告知模板数量")
         self.assertIn("跟进计划", block, "必须如实告知序列数量")
 
     def test_requires_serial_execution(self):

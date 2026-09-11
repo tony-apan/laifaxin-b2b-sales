@@ -34,7 +34,7 @@ ap.add_argument("--org", required=True)
 ap.add_argument("--product", default="", help="产品名(仅展示/兜底命名;文案一律来自 --plan)")
 ap.add_argument("--prefix", required=True, help="模板名前缀,如 英-玻璃瓶-")
 ap.add_argument("--suffix", default="-GL", help="命名后缀")
-ap.add_argument("--foid", default="", help="模板分组id(默认自动按 --prefix 建同名分组并归入;传 0 = 未指定目录,不推荐——120 个模板会散落)")
+ap.add_argument("--foid", default="", help="模板分组id(默认自动按 --prefix 建同名分组并归入;传 0 = 未指定目录,不推荐——整批模板会散落)")
 ap.add_argument("--name", required=True, help="签名昵称=客户邮件落款·纯个人昵称(如 Tony/Iris;启动即校验:含公司/职位/产品/邮箱/数字/from→退出2)")
 ap.add_argument("--profile", required=True, help="★产品档案路径(硬闸门): status 须 confirmed/declined,plan.profile_sha256 须匹配其 sha256(draft/缺失→退出4)")
 ap.add_argument("--preview", action="store_true", help="仅草稿展示(渲染视图,不创建;各硬闸门照常执行)")
@@ -334,13 +334,13 @@ def _cta_keyword(plain):
 
 def check_plan_duplicates():
     """★断点修复(2026-09-09 真机)：生成前预检 plan 变体/方向是否重复。
-    旧流程要等 120 个模板全部建完、跑 check_template_diff 才发现重复（相似度 1.00），
-    此时已浪费 120 次写操作。此处 fail-fast：变体正文去重后数量不足即退出。"""
+    旧流程要等整批模板建完、跑 check_template_diff 才发现重复（相似度 1.00），
+    此时已浪费整批写操作。此处 fail-fast：变体正文去重后数量不足即退出。"""
     import re as _re
     norm = [ _re.sub(r"\s+", " ", _re.sub(r"</?b>", "", v)).strip().lower() for v in VARIANTS ]
     dupes = sorted({v for v in norm if norm.count(v) > 1})
     if dupes:
-        print(f"❌ plan.variants 有 {len(dupes)} 条重复内容——120 个模板会撞车（相似度 1.00）。修 plan 后重跑：")
+        print(f"❌ plan.variants 有 {len(dupes)} 条重复内容——整批模板会撞车（相似度 1.00）。修 plan 后重跑：")
         for d in dupes[:3]:
             print(f"   - {d[:90]}")
         raise SystemExit(2)
@@ -428,7 +428,7 @@ def ensure_folder():
     无则建同名分组; 解析/创建失败必须退出——不允许模板散落未指定目录。"""
     if args.foid:
         if str(args.foid).strip() == "0":
-            print("❌ --foid 0 = 未指定目录, 120 个模板会散落——S8 固化: 模板必须归入分组, 传已有分组 id 或留空自动建 (exit 1)")
+            print("❌ --foid 0 = 未指定目录, 整批模板会散落——S8 固化: 模板必须归入分组, 传已有分组 id 或留空自动建 (exit 1)")
             raise SystemExit(1)
         return str(args.foid).strip()
     fl = subprocess.run(["curl", "-sSL", "-X", "POST",

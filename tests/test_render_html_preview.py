@@ -52,7 +52,7 @@ class PreviewFileTest(unittest.TestCase):
 
     def test_selection_limits_rounds_and_variants(self):
         plan = {"directions": [[f"R{i:02d}", f"方向{i}", f"S{i}", f"Angle {i}"] for i in range(1, 13)],
-                "variants": [f"Variant {i} — reply \"<b>KW{i}</b>\" for details." for i in range(1, 11)]}
+                "variants": [f"Variant {i} — reply \"<b>KW{i}</b>\" for details." for i in range(1, 11)]}  # 每轮变体数仅影响渲染，不涉及 10/4 契约
         with tempfile.TemporaryDirectory() as tmp:
             plan_path = Path(tmp) / "plan.json"
             plan_path.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")

@@ -106,7 +106,7 @@ def main(argv=None):
     if old:
         print(f"   原值: {old}")
     print(f"   {verb}: {new}")
-    print("   ⚠️ 每个客群需独立标签/独立 120 模板/独立序列（铁律 7d）；执行分批，一批走完再做下一个。")
+    print("   ⚠️ 每个客群需独立标签/独立整套模板(默认48)/独立序列（铁律 7d）；执行分批，一批走完再做下一个。")
     if args.dry_run:
         print("   (dry-run 未落盘)")
     return 0

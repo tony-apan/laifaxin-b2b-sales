@@ -52,7 +52,7 @@ NODE_HINT = {
     "S5": "建标签 tag_add.py → 展示保存参数请用户确认 → save_first_n.py --approval 保存前 N",
     "S6": "等保存 finished+标签对账 wait_save_done.py → 主动出示数量账(S6-数量账)",
     "S7": "模板草稿预览(render_preview.py 渲染后收件人视图)请用户确认后才批量创建",
-    "S8": "批量建 120 模板 + check_template_diff.py 实测差异(≤0.70)，失败回 S7",
+    "S8": "批量建模板(默认48=12轮×4) + check_template_diff.py 实测差异(≤0.70)，失败回 S7",
     "S9": "resolve_schedule.py 运行时解析时区 → build_sequence.py 建序列(12步/纽约/30000/5/notSentTags)",
     "S9A": "账号固定标签「询盘/不发」：先 tags-list 查同名复用 id，不存在才建，不随产品重建",
     "S10": "时序守卫(finished+标签联系人>0+序列 inactive+人数对账)通过后 contact_add.py(views:[] 铁律)",

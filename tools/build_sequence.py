@@ -6,7 +6,7 @@
   tmap_sha256(=tmap 文件内容hash, 防手改)/project_key(=--project)/org_sha256(=sha256(--org), 防跨账号复用)/
   profile_path_rel+profile_sha256+profile_status(=当前档案, 防跨档案建序列); 缺字段=旧版产物, 须重新生成模板。
 用法:
-  python3 build_sequence.py --token <T> --org <orgId> --name "产品-英语-12轮10封-多轮开发" \
+  python3 build_sequence.py --token <T> --org <orgId> --name "产品-英语-12轮4封-多轮开发" \
       --tmap runs/<operator_key>/<product_key>/tmap.json --profile runs/<operator_key>/<product_key>/product-profile.md --from-name <纯昵称> --tz "America/New_York" \
       --approval <ap-id> --project <operator_key>/<product_key> [--dry-run]
 默认规则(用户拍板): max_emails_per_day=30000 / domain_emails_per_day=5 / notSentTags=按名解析 询盘+不发
@@ -26,8 +26,8 @@ from workspace_guard import preflight
 ap = argparse.ArgumentParser()
 ap.add_argument("--token", required=True, help="accesstoken 完整串（token中段是用户UID）")
 ap.add_argument("--org", required=True, help="当前工作空间ID=localStorage独立orgId键（企业必填；禁止拿token第2段代替）")
-ap.add_argument("--name", required=True, help="序列名,如 产品-英语-12轮10封-多轮开发")
-ap.add_argument("--tmap", required=True, help="gen_templates --out 产出的 name→id 映射 json(120个,有序);同目录须有 <tmap>.meta.json")
+ap.add_argument("--name", required=True, help="序列名,如 产品-英语-12轮4封-多轮开发（12轮/每轮封数按 plan 实际变体数）")
+ap.add_argument("--tmap", required=True, help="gen_templates --out 产出的 name→id 映射 json（数量=12轮×每轮变体数，默认48；有序）;同目录须有 <tmap>.meta.json")
 ap.add_argument("--profile", required=True, help="当前产品档案路径；须与 tmap.meta 的 profile_sha256/status 一致")
 ap.add_argument("--from-name", required=True, help="发信昵称=纯个人昵称；邮件签名/发件人不得含公司/职位/网址/邮箱")
 ap.add_argument("--tz", default="America/New_York", help="目标市场时区(默认纽约;运行时 schedule-list 解析,勿硬编码id)")
@@ -77,7 +77,7 @@ for _k in ("tmap_sha256", "project_key", "org_sha256", "profile_path_rel", "prof
         _meta_fail(f"tmap meta 缺字段 {_k}(旧版 gen_templates 产物或不完整)")
 if not Path(args.tmap).is_file():
     print(f"❌ tmap 文件不存在: {args.tmap}")
-    print("   先跑 gen_templates.py --out <路径> 生成 120 模板映射，再回来建序列。")
+    print("   先跑 gen_templates.py --out <路径> 生成模板映射（12轮×每轮变体数），再回来建序列。")
     sys.exit(1)
 if hashlib.sha256(Path(args.tmap).read_bytes()).hexdigest() != tmeta.get("tmap_sha256"):
     _meta_fail("tmap 内容 hash 与 meta.tmap_sha256 不一致(文件被手改或损坏)")
@@ -129,23 +129,23 @@ def api(path, p, t=60, exit_on_fail=True):
             print("  ⚠️ 接口无返回——可能是网络不通（这不是配置问题，不用改参数），稍等重试；反复出现再看 平台接口间歇空(已知)。")
         return {}
 
-# 1) tmap 校验（120 个 24hex + 唯一 + 按 name 轮/变体网格重构序——防手工重排错组, terra 1-④）
+# 1) tmap 校验（24hex + 唯一 + 按 name 轮/变体网格重构序——防手工重排错组, terra 1-④）
+# ★每轮变体数不再硬编码 10：用 tmap_grid 从总数动态推算（2026-09-11 用户把每轮变体 10→4）
+from tmap_grid import GridError, ROUNDS, group_by_round
 all_ids = list(mapping.values())
 bad = [i for i in all_ids if not re.fullmatch(r"[0-9a-f]{24}", str(i))]
-if len(all_ids) != 120 or bad or len(set(all_ids)) != 120:
-    print(f"❌ tmap 异常: 数量={len(all_ids)}(应120) 坏id={bad[:3]} 重复={len(all_ids)-len(set(all_ids))}——先跑 gen_templates.py 重新生成"); sys.exit(1)
-# 尝试按 name 的 (轮号, 变体号) 网格排序; 解析不出该模式才回退字典序并警告
-grid = {}
-for name, tid in mapping.items():
-    m2 = re.search(r'R(\d{2}).*V(\d{2})', name)
-    if m2: grid[(int(m2.group(1)), int(m2.group(2)))] = tid
-if len(grid) == 120 and sorted(grid) == [(r, v) for r in range(1, 13) for v in range(1, 11)]:
-    ordered = [grid[(r, v)] for r in range(1, 13) for v in range(1, 11)]
-    print("✅ tmap 网格校验通过(12轮×10变体,按轮序)")
-    groups = [ordered[i*10:(i+1)*10] for i in range(12)]
+if bad or len(set(all_ids)) != len(all_ids):
+    print(f"❌ tmap 异常: 数量={len(all_ids)} 坏id={bad[:3]} 重复={len(all_ids)-len(set(all_ids))}——先跑 gen_templates.py 重新生成"); sys.exit(1)
+try:
+    groups_pairs, exact = group_by_round(mapping)
+except GridError as exc:
+    print(f"❌ tmap 网格异常: {exc}——先跑 gen_templates.py 重新生成"); sys.exit(1)
+per_round = len(groups_pairs[0][1])
+groups = [ids for _, ids in groups_pairs]
+if exact:
+    print(f"✅ tmap 网格校验通过({ROUNDS}轮 × {per_round}变体 = {len(all_ids)} 个, 按轮序)")
 else:
-    print("⚠️ tmap name 不含 R轮/V变体 模式，按文件字典序分组（手工重排过=有错组风险，建议用 gen_templates 原始产物）")
-    groups = [all_ids[i*10:(i+1)*10] for i in range(12)]
+    print(f"⚠️ tmap name 不含 R轮/V变体 模式，按顺序每轮 {per_round} 个分组（手工重排过=有错组风险，建议用 gen_templates 原始产物）")
 
 # 2) 运行时解析 schedule_id（各账号不同）
 d = api("settings/sequence/schedule-list", {"current":1,"pageSize":100})
@@ -183,7 +183,7 @@ rules = {"finishReply": False, "notSentInvalid": True, "notSentBlack": True, "ai
 others = {"trackSelected": True, "fromNameSelected": True, "fromNameValue": args.from_name}
 
 if args.dry_run:
-    print("\n[dry-run] 将执行: sequence-create {{name:{}, channel:system}} → sequence-save(rules:30000/{}/notSent[询盘,不发], fromName:{}) → 12×step-create(30分/5/15/30天,每步10模板)".format(args.name, args.max_per_day, args.per_domain, args.from_name))
+    print("\n[dry-run] 将执行: sequence-create {{name:{}, channel:system}} → sequence-save(rules:30000/{}/notSent[询盘,不发], fromName:{}) → 12×step-create(30分/5/15/30天,每步{}模板)".format(args.name, args.max_per_day, args.per_domain, args.from_name, per_round))
     sys.exit(0)
 
 # 4) 幂等预检: 同名序列已存在则拒绝（terra 1-①）

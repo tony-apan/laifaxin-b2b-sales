@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 """★模板差异断言：拉模板(按前缀) → 逐模板 template-info 取真实 html → 两两 Jaccard 相似度，断言差异≥30%(相似度≤70%)
 ⚠️ templates-list 的 list 项不含 html(只有 subject)——必须再调 template-info(id) 取正文，否则空 html 恒"达标"(假阴性,模板差异实测（工具级）)
-用法: python3 check_template_diff.py --token <TOKEN> --org <orgId> --prefix "英-皮筏艇-" [--limit 120]
+用法: python3 check_template_diff.py --token <TOKEN> --org <orgId> --prefix "英-皮筏艇-" [--limit 48]
 """
 import json, subprocess, argparse, re, sys
 ap=argparse.ArgumentParser(); ap.add_argument("--token",required=True); ap.add_argument("--org",required=True)
-ap.add_argument("--prefix",required=True); ap.add_argument("--limit",type=int,default=120)
+ap.add_argument("--prefix",required=True); ap.add_argument("--limit",type=int,default=48,help="本批模板总数=12轮×每轮变体数（默认48=每轮4变体）")
 args=ap.parse_args()
 def api(path,p,t=60):
     cmd=["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}","-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",

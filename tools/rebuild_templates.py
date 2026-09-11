@@ -197,9 +197,16 @@ finally:
     temp_record.unlink(missing_ok=True)
 mapping = json.load(open(outf))
 all_ids = list(mapping.values())
-assert len(all_ids) == 120, f"期望120新模板, 实得 {len(all_ids)}"
-groups = [all_ids[i*10:(i+1)*10] for i in range(12)]
-print(f"[1/4] 生成新模板 {len(all_ids)} 个 (差异达标, 待 check_template_diff 实测)")
+from tmap_grid import GridError, ROUNDS, group_by_round, per_round_count
+try:
+    per_round = per_round_count(len(all_ids))
+except GridError as exc:
+    raise SystemExit(f"❌ 新模板数异常: {exc}")
+_pairs, _exact = group_by_round(mapping)
+groups = [ids for _, ids in _pairs]
+assert len(groups) == ROUNDS and all(len(g) == per_round for g in groups), \
+    f"分组异常: {len(groups)}轮 每组 {[len(g) for g in groups][:3]}"
+print(f"[1/4] 生成新模板 {len(all_ids)} 个（{ROUNDS}轮 × {per_round}变体, 差异达标待实测）")
 
 # 危险步骤写入前再次回读inactive，堵住创建120模板期间被激活的竞态
 ok_inactive, _ = readback_seq_inactive(enforce=False)
@@ -282,5 +289,5 @@ update_frontmatter(args.record, {"status": resume_state, "next_state": next_stat
 print(f"✅ 重建后运行状态: {resume_state} (next={next_state}); 须重新跑模板差异/序列终检")
 
 print("\n✅ 完成。请校验:")
-print(f"   python3 tools/check_template_diff.py --token <T> --org {args.org} --prefix '{args.prefix}' --limit 120")
+print(f"   python3 tools/check_template_diff.py --token <T> --org {args.org} --prefix '{args.prefix}' --limit {len(all_ids)}")
 print(f"   python3 tools/verify_sequence.py --token <T> --org {args.org} --seq {args.seq}")

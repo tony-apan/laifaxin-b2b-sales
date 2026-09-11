@@ -53,7 +53,7 @@ audience: 人+AI
 
 ### S2 SEGMENT_PENDING（客群推演·两条路径都走）
 
-> ★**多客群分批（铁律 7d，2026-09-09 用户拍板）**：用户可选多个客群，但**执行必须分批**——每个客群独立标签/独立 120 模板/独立序列，一个客群走完 S3→S10 再做下一个。S2 选中 ≥2 个时必须提示"建议分开做"并给"先做 1 个 / 都做（分 K 批）"，如实告知 K×120 模板 + K 条序列。选中客群用 `tools/segment_select.py` 落档 record + `segments/<ID>-<客群名>.md`。详见 `operations-sop.md` §3.1。
+> ★**多客群分批（铁律 7d，2026-09-09 用户拍板）**：用户可选多个客群，但**执行必须分批**——每个客群独立标签/独立整套模板/独立序列，一个客群走完 S3→S10 再做下一个。S2 选中 ≥2 个时必须提示"建议分开做"并给"先做 1 个 / 都做（分 K 批）"，如实告知 K×48 模板 + K 条序列。选中客群用 `tools/segment_select.py` 落档 record + `segments/<ID>-<客群名>.md`。详见 `operations-sop.md` §3.1。
 > ★2026-09-09 用户拍板（方案B）：**快速路径也推演**。有种子时把种子公司名/角色/中英摘要（只读 `domain/base-info`）并进推演输入，保证 `segments/` 不空、客群标签可用。理由：S4 匹配率以客群客户线为分子、直采/OEM/拓品分线计数、标签命名、模板痛点加权都依赖客群标签。推演失败**不终止**向导（如实告警继续）；已完成 S3+ 的项目不重复推演。
 - **判据（来源）**：`../RULES.md` S2「**两条路径都推演**（方案B：有种子时并入种子描述）；推演默认4个；打印全部，判断是否精准潜在客户，给成交周期/询盘速度/量级/邮箱/竞争度/推荐；用户确认或要求更多；推演失败告警继续；已完成 S3+ 不重复推演」；`../RULES.md`「客群输出标准」：每个客群必须写「精准潜在客户：是/否/条件成立时是」+ 六维度；`specs/operations-sop.md`「三、AI 推演固化」（选最直接买家客群，Path B 流通与代理优先）。
 - **通过条件**：≥1 个客群被用户确认选用（默认4个，要更多 → 再 `inference-segment-generate` 扩到8个重新展示）。
@@ -112,23 +112,23 @@ audience: 人+AI
 - **脚本**：`gen_templates.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --product <产品> --profile .../product-profile.md --plan <计划JSON> --prefix "英-<产品>-" --suffix -RT --name <纯昵称> --record .../operation-record.md --project <operator_key>/<product_key> --preview`；预览成功推进S7但不写平台。
 - **产出记录**：`.local/approvals.tsv`（S7_模板预览行）；草稿在对话展示。
 
-- **★每批一套模板（铁律 7d）**：N 客群 = N 套 120 模板，前缀带客群标识；确认卡标题写「<客群名>（第 i/K 批）」。
+- **★每批一套模板（铁律 7d）**：N 客群 = N 套模板（默认每套48），前缀带客群标识；确认卡标题写「<客群名>（第 i/K 批）」。
 ### S8 TEMPLATE_BUILD（批量创建 + 差异实测）
 - **判据（来源）**：`../RULES.md` S8「创建后断言变量样式、标题、正文差异、轮次绑定；失败回S7」；`specs/sequence-config.md`「模板差异度」 ★诚实口径：**"差异≥30%"不得声称达标**——12轮方向互异是硬保证，但同轮变体必须生成后跑 `check_template_diff.py` 实测（Jaccard>0.70=违例）；重建顺序铁律与引用锁（L-43：名称唯一/被序列引用不可删/至少保留1步/step 非空模板）。
-- **通过条件**：120 模板全部创建成功 + 每个 id 为完整 24hex（断言失败 exit 1）+ `check_template_diff.py` 实测两两相似度≤0.70 + name→id 映射落盘；任一失败 → 回 S7。
+- **通过条件**：整批模板（默认48）全部创建成功 + 每个 id 为完整 24hex（断言失败 exit 1）+ `check_template_diff.py` 实测两两相似度≤0.70 + name→id 映射落盘；任一失败 → 回 S7。
 - **API**：`POST /api/mailbox/template-add {"name":...,"foid":"0","subject":...,"html":...}`——见 `specs/api-reference.md` 接口表；`POST /api/mailbox/templates-list`（注意：list 项**不含 html**，只有 subject——取正文必须再调 template-info）——见 `specs/api-reference.md` 接口表；
   `POST /api/mailbox/template-info`——见 `specs/api-reference.md` 接口表；`POST /api/mailbox/template-delete {"id":<id>}`（单删；`templates-delete` 批量 500 勿用）——见 `specs/api-reference.md` 接口表。
 - **脚本**：
   - `python3|py tools/gen_templates.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --product <产品> --profile runs/<operator_key>/<product_key>/product-profile.md --plan <计划JSON> --prefix "英-<产品>-" --suffix -RT --name <纯昵称> --out runs/<operator_key>/<product_key>/tmap.json --record runs/<operator_key>/<product_key>/operation-record.md --approval <ap-id> --project <项目键>`（全部成功后自动推进S8；
     签名/profile/claims/id硬校验）
-  - `python3 tools/check_template_diff.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --prefix "英-<产品>-" --limit 120`（逐模板 template-info 取真实 html 算 Jaccard，>0.70 列违例对 exit 1）
+  - `python3 tools/check_template_diff.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --prefix "英-<产品>-" --limit 48`（逐模板 template-info 取真实 html 算 Jaccard，>0.70 列违例对 exit 1）
   - 重建场景：按 `rebuild_templates.py` docstring 分别铸造“建新模板”与“重建序列步骤”两份绑定凭证，命令必带 `--profile --plan --record --gen-approval --approval --project <operator_key>/<product_key>`；仅inactive序列可重建，12步回读全指向新模板后才删旧模板。
 - **产出记录**：name→id 映射（`--out`，建议 `runs/<运营方>/<产品>/tmap.json`）；差异实测 `verify-diff.txt`；`.local/approvals.tsv`（S7/S8 行）。
 
 ### S9 SEQUENCE_PENDING（序列配置确认）
 - **判据（来源）**：`../RULES.md` S9「展示12步(30分/5/15/30天)、时区(★默认纽约)、每日30000(全账号)/每公司每日5、notSentTags=[询盘,不发]；用户确认后建序列」；`specs/sequence-config.md`：12轮方向每轮不同（见 `specs/sequence-config.md`）、步长 step1=minute/30、step2=day/5、step3=day/15、step4-12=day/30、★纽约 schedule_id **运行时解析**（`tools/resolve_schedule.py --tz "America/New_York"`；
-  各账号不同,勿硬编码）、max_emails_per_day:30000(每日全账号) / domain_emails_per_day:5(★同一家公司每日,非总量) / notSentTags=[<tagId>(询盘), <tagId>(不发)]（跌破往前阶段）、命名 `[产品]-[语言]-[轮数]轮[每轮封数]封-[策略]`、每步 10 个**互不相同**模板。
-- **通过条件**：用户确认序列配置（12步+纽约+30000/5+notSentTags+每步10个不同模板 id）。
+  各账号不同,勿硬编码）、max_emails_per_day:30000(每日全账号) / domain_emails_per_day:5(★同一家公司每日,非总量) / notSentTags=[<tagId>(询盘), <tagId>(不发)]（跌破往前阶段）、命名 `[产品]-[语言]-[轮数]轮[每轮封数]封-[策略]`、每步 4 个**互不相同**模板（默认 12 轮×4=48）。
+- **通过条件**：用户确认序列配置（12步+纽约+30000/5+notSentTags+每步4个不同模板 id，默认48）。
 - **脚本**：`python3|py tools/build_sequence.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --name <序列名> --tmap runs/<operator_key>/<product_key>/tmap.json --profile .../product-profile.md --record .../operation-record.md --from-name <纯昵称> --tz "America/New_York" --approval <S9凭证> --project <operator_key>/<product_key>`。
 - **API**（§10 全部实测）：`POST /api/sequences/sequence-create {"name":...,"channel":"system"}`——见 `specs/api-reference.md` 接口表；`POST /api/sequences/step-create {"seqId":<id>,"step":<n>,"template_ids":[...],"wait_mode":...,"wait_time":...,"senders":[...]}`——见 `specs/api-reference.md` 接口表；
   `POST /api/sequences/sequence-save {id,name,schedule_id,others,rules}`——见 `specs/api-reference.md` 接口表；`POST /api/settings/sequence/schedule-list`——见 `specs/api-reference.md` 接口表；`POST /api/settings/sequence/schedule-default {"id":<schedule_id>}`——见 `specs/api-reference.md` 接口表（id 运行时解析,勿硬编码）。

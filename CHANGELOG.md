@@ -2,6 +2,25 @@
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
 
+## [v0.5.26] - 2026-09-11
+
+每轮邮件模板从 **10 个降到 4 个**（整批 120 → **48**）。
+
+- **改动范围**（全链路，避免"改了工具没改文档"）：
+  - 工具：`build_sequence` / `rebuild_templates` / `gen_templates` / `check_template_diff` / `finalize_run` / `flow_orchestrator` / `onboard_check` / `segment_select` 的硬编码与文案
+  - 文档：`RULES`（含铁律 7d 的成本告知 N×120 → N×48）/ `SKILL` / `sequence-config` / `node-playbook` / `operations-sop` / `product-fit` / `data-structure` / `domain-scale-sop` / `README` / 模板卡 S2·S7·S8·S9·S11
+  - 测试：集成测试变体列表 10→4、模板数断言 120→48
+- **新增 `tools/tmap_grid.py`（单一真源）**：轮数固定 12（步长铁律），**每轮变体数由总数动态推算**——调用方不再假设 10。
+  - `per_round_count(total)`：总数须为 12 的正整数倍，否则报错
+  - `group_by_round(mapping)`：按 `R##..V##` 精确分组；名称不含该模式则顺序等分并标记不精确
+- **新增 `tests/test_tmap_grid.py`（9 项）**：当前默认=4 / 支持 1·2·4·10·12 等合法值 / 拒绝非 12 倍数 /
+  按轮分组顺序正确 / **旧批次每轮 10 仍能正确分组（不破坏已跑批次）** / 工具不得再硬编码 10·120。
+  变异验证有效（塞回 120、按固定 10 切分、去掉倍数校验 均立刻失败）。
+- **平台约束已核实**：`step-create` 的 `template_ids` 只校验**非空**（"邮件模板不能为空"），
+  不限制个数；api-reference 示例本身即 2 个模板——降到 4 个技术上无阻碍。
+- 兼容：现役 RT2/S05/S06 三批（各 120）**继续有效不重建**（`sequence-config` 已注明）。
+- 测试 260 → **269**，两仓全绿。
+
 ## [v0.5.25] - 2026-09-11
 
 融入用户真实效果反馈（已脱敏），并立"效果反馈引用纪律"。
