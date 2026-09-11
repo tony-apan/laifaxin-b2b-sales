@@ -27,7 +27,7 @@ if args.execute and args.confirm != CONFIRM_PHRASE:
 executing = args.execute and args.confirm == CONFIRM_PHRASE
 
 def api(path, p, t=40):
-    cmd = ["curl", "-sSL", "-X", "POST", f"https://web.laifaxin.com/api/{path}?uid={args.org}",
+    cmd = ["curl", "-sSL", "-X", "POST", f"https://web.laifaxin.com/api/{path}",
            "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",
                           "-d", json.dumps(p)]

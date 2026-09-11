@@ -87,7 +87,7 @@ def fetch(page, keyword, token, org, filters=None, page_size=10):
     }
     cmd = [
         "curl", "-sSL", "-X", "POST",
-        f"https://web.laifaxin.com/api/refine/company-list?uid={org}",
+        "https://web.laifaxin.com/api/refine/company-list",
         "-H", "Content-Type: application/json",
         "-H", f"accesstoken: {token}",
            "-H", f"uid: {org}",
@@ -119,7 +119,7 @@ def fetch_similar(domain, token, org):
     payload = {"domain": domain}
     cmd = [
         "curl", "-sSL", "-X", "POST",
-        f"https://web.laifaxin.com/api/domain/similar-list?uid={org}",
+        "https://web.laifaxin.com/api/domain/similar-list",
         "-H", "Content-Type: application/json",
         "-H", f"accesstoken: {token}",
            "-H", f"uid: {org}",

@@ -142,15 +142,19 @@ class WorkspaceGuardCliTest(unittest.TestCase):
             argv = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
             return result, argv
 
-    def test_cli_passes_uid_and_keeps_token_out_of_url(self):
+    def test_cli_sends_uid_in_header_not_url(self):
+        """★2026-09-11：工作空间靠 header `uid` 传输，URL 里不得再出现 uid（query 无效且会误导）。"""
         result, argv = self.run_cli(json.dumps(response(True)))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         url = next(a for a in argv if a.startswith("https://"))
-        self.assertIn(f"uid={ENTERPRISE_ORG}", url)
-        self.assertNotIn("secret-hash", url)
-        header = argv[argv.index("-H") + 1]
-        self.assertEqual("Content-Type: application/json", header)
-        self.assertIn("secret-hash", argv[argv.index("-H") + 3])
+        self.assertNotIn("uid=", url, "URL 不应带 uid（平台只认 header）")
+        self.assertNotIn("secret-hash", url, "token 不得进 URL")
+        # header 形态： -H Content-Type ... / -H accesstoken: ... / -H uid: <org>
+        headers = [argv[i + 1] for i, a in enumerate(argv) if a == "-H"]
+        self.assertIn("Content-Type: application/json", headers)
+        self.assertIn(f"uid: {ENTERPRISE_ORG}", headers, "工作空间必须放 header uid")
+        self.assertTrue(any("accesstoken:" in h for h in headers))
+        self.assertNotIn(f"uid: {TOKEN}", headers, "header uid 不能误用 token")
 
     def test_cli_blocks_misrouted_workspace(self):
         result, _ = self.run_cli(json.dumps(response(False)))

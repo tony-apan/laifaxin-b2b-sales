@@ -55,7 +55,7 @@ preflight(args.token, args.org, dry_run=args.dry_run, what="加联系人入序�
 gots = {}
 
 def api(path, p, t=40):
-    cmd = ["curl","-sSL","-m","35","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}",
+    cmd = ["curl","-sSL","-m","35","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=t)

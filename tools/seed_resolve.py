@@ -25,7 +25,7 @@ if not (args.id or args.keyword or args.company):
     print("❌ 需 --id <32hex id> 或 --keyword <query_en> 或 --company <公司名>"); sys.exit(2)
 
 def api(path, p, t=60):
-    r = subprocess.run(["curl", "-sSL", "-m", "55", "-X", "POST", f"https://web.laifaxin.com/api/{path}?uid={args.org}",
+    r = subprocess.run(["curl", "-sSL", "-m", "55", "-X", "POST", f"https://web.laifaxin.com/api/{path}",
                         "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",
                           "-d", json.dumps(p)],

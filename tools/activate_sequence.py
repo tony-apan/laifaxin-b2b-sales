@@ -49,7 +49,7 @@ ap.add_argument("--deactivate", action="store_true", help="回滚为 inactive（
 args = ap.parse_args()
 
 def api(path, p, t=60):
-    r = subprocess.run(["curl","-sSL","-m","55","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}",
+    r = subprocess.run(["curl","-sSL","-m","55","-X","POST",f"https://web.laifaxin.com/api/{path}",
                         "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)],
                        capture_output=True, text=True, timeout=t)

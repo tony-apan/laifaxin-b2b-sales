@@ -2,6 +2,29 @@
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
 
+## [v0.5.29] - 2026-09-11
+
+工作空间传输加固：清掉被实测证伪的 `?uid=` 死参数，让 header 成为唯一机制（消除事故同款歧义）。
+
+- **背景**：工作空间由 **HTTP 头 `uid`** 决定，query `?uid=` 被平台完全忽略（2026-09-09 双空间对照实测）。
+  但 v0.5.4 修 header 时把 `?uid=` 留在了 URL 里——本身无害（头同时存在），却埋下**同款歧义**：
+  后人读代码会以为"uid 走查询串"，重构时删掉真正生效的头，就会复现"给了企业 orgId 却写进个人空间"。
+- **清除范围**：公开仓 18 个工具、知识仓另 17 个历史/采集脚本（含 `delete_all_contacts.py` 等删除类——
+  它们此前**只有 query uid、没有 header**，企业空间下会静默误写个人空间，属活隐患）——现全部只走 header。
+  三处 `urlencode({"uid": ...})`（`check_login` / `workspace_guard` / `flow_orchestrator`）同步清除，
+  并移除因此不再需要的 `parse` 导入。
+- **测试加固**（`tests/test_workspace_transport.py`）：
+  - 原 `test_query_uid_is_kept_for_compat...` 是**锁死旧机制的断言**，改为 `test_no_query_uid_param_in_api_urls`：
+    扫描**全部** `tools/*.py`（不再只 22 个 API 工具），URL 里出现 `?uid=` 或 `urlencode({'uid'` 即失败。
+  - `test_workspace_guard.py` 的 `..._passes_uid_and_keeps_token_out_of_url` 改为 `..._sends_uid_in_header_not_url`：
+    断言 URL 不含 uid、header 恰含 `uid: <org>` 且不误用 token。
+  - `test_credential_input.py` 的 `..._org_is_urlencoded_in_request_url` 改为 `..._org_goes_into_uid_header_not_url`。
+- 文档同步：`RULES.md` 铁律（"query 可保留作兼容"→"URL 一律不得再拼 `?uid=`"）、
+  `output-templates/T-token引导.md`（用户卡也把"API `?uid=` 一律用它"改成"放请求头 `uid`"）。
+- 变异验证有效：把 `?uid=` 加回任一工具（含知识仓独有脚本）→ 全工具扫描断言立即失败；复原通过。
+- 两仓 280 测试全绿（+0 项测试，含 1 项重写加固）；`py_compile` 全部通过。
+
+
 ## [v0.5.28] - 2026-09-11
 
 全仓去重：清理「影子副本」+ 加防回退断言（旧副本停在过期版本，会让 AI/接手者读到错规则）。

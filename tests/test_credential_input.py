@@ -190,15 +190,21 @@ class LoginTest(unittest.TestCase):
                 self.assertEqual(rc, 3, out + err)
                 self.assertEqual(saved, "")
 
-    def test_org_is_urlencoded_in_request_url(self):
+    def test_org_goes_into_uid_header_not_url(self):
+        """★2026-09-11：含特殊字符的 org 必须安全地走 header `uid`，不得注入 URL。
+
+        旧实现把 org 拼进 URL 查询串（`?uid=`），平台根本不读；现改走 header，
+        因此这里断言：URL 不含 org 原文，header uid 恰为 org 原值（不转义、不丢失）。
+        """
         response = mock.MagicMock()
         response.__enter__.return_value.read.return_value = b'{"success": true}'
         with mock.patch.object(check_login.request, "urlopen", return_value=response) as urlopen:
             result = check_login.request_once(TOKEN, "org?x=1&y=2")
         self.assertTrue(result["success"])
         request_object = urlopen.call_args.args[0]
-        self.assertIn("uid=org%3Fx%3D1%26y%3D2", request_object.full_url)
-        self.assertNotIn("org?x=1&y=2", request_object.full_url)
+        self.assertNotIn("org?x=1&y=2", request_object.full_url, "org 不得进 URL")
+        self.assertNotIn("uid=", request_object.full_url, "URL 不应带 uid（平台只认 header）")
+        self.assertEqual("org?x=1&y=2", request_object.get_header("Uid"), "header uid 应为 org 原值")
 
     def test_invalid_token_response_is_redacted_and_hash_only_is_saved(self):
         response = {"success": False, "message": f"失效: {TOKEN}"}

@@ -59,16 +59,26 @@ class WorkspaceTransportTest(unittest.TestCase):
                 self.assertNotRegex(source, r'"uid":\s*(args\.token|token)\b',
                                     f"{name} header uid 误用 token")
 
-    def test_query_uid_is_kept_for_compat_but_not_sole_mechanism(self):
-        """允许保留 query uid（向后兼容），但不得只有 query。"""
-        for name in self.API_TOOLS:
-            source = read(name)
-            if "uid={args.org}" in source or 'urlencode({"uid"' in source or "uid={org}" in source:
-                with self.subTest(tool=name):
-                    self.assertTrue(
-                        re.search(r'"-H",\s*f"uid: \{(args\.org|org)\}"', source)
-                        or re.search(r'"uid":\s*(args\.org|org)\b', source),
-                        f"{name} 只有 query uid、缺 header uid")
+    def test_no_query_uid_param_in_api_urls(self):
+        """★2026-09-11 对抗加固：query uid 是**被实测证伪的死参数**，一律不得再写进 URL。
+
+        旧代码把 `?uid=` 留在 URL 里（平台忽略它），虽然同时带了 header uid 不影响结果，
+        但会误导后人以为"uid 走查询串"，进而在重构时删掉真正生效的 header uid——
+        这正是"给了企业 orgId 却写进个人空间"事故的同款歧义来源。让 header 成为唯一机制。
+
+        扫描**全部** tools/*.py（不只 API_TOOLS）——知识仓里还有历史/采集脚本，
+        它们若只带 query uid 会在企业空间静默落个人空间，同样必须清掉。
+        只查 URL 构造行；文档串里解释"`?uid=` 无效"的说明文字不在此列。
+        """
+        url_with_uid = re.compile(r'(?:api/|https?://)[^\s"\'+]*\?uid=')
+        urlencode_uid = re.compile(r'urlencode\(\s*\{\s*"uid"')
+        offenders = []
+        for path in sorted(TOOLS.glob("*.py")):
+            source = path.read_text(encoding="utf-8")
+            if url_with_uid.search(source) or urlencode_uid.search(source):
+                offenders.append(path.name)
+        self.assertEqual([], offenders,
+                         f"这些工具仍在 URL 里拼 uid 死参数（平台只认 header uid）: {offenders}")
 
 
 class WorkspaceGuardProbeTest(unittest.TestCase):

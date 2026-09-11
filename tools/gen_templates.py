@@ -432,7 +432,7 @@ def ensure_folder():
             raise SystemExit(1)
         return str(args.foid).strip()
     fl = subprocess.run(["curl", "-sSL", "-X", "POST",
-                         f"https://web.laifaxin.com/api/mailbox/templates-folder-list?uid={args.org}",
+                         "https://web.laifaxin.com/api/mailbox/templates-folder-list",
                          "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",
                           "-d", "{}"],
@@ -453,7 +453,7 @@ def ensure_folder():
                 return str(fid)
             print(f"   ⚠️ 分组「{args.prefix}」已存在但未取到有效 id（返回字段={list(f.keys())}）——继续尝试创建")
     fa = subprocess.run(["curl", "-sSL", "-X", "POST",
-                         f"https://web.laifaxin.com/api/mailbox/template-folder-add?uid={args.org}",
+                         "https://web.laifaxin.com/api/mailbox/template-folder-add",
                          "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",
                          "-d", json.dumps({"name": args.prefix})],
@@ -475,7 +475,7 @@ def _existing_template_id(name):
     """★断点修复(2026-09-09 真机)：查同名模板是否已存在，返回其 id。
     重跑时模板已建（如上次因分组报错中止、实际已写入）→ 旧代码报"名称已存在"并整体失败；
     现在改为幂等复用，避免"明明成功却报失败"误导 AI 去删数据重来。"""
-    cmd = ["curl", "-sSL", "-X", "POST", f"https://web.laifaxin.com/api/mailbox/templates-list?uid={args.org}",
+    cmd = ["curl", "-sSL", "-X", "POST", "https://web.laifaxin.com/api/mailbox/templates-list",
            "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}",
            "-d", json.dumps({"current": 1, "pageSize": 500, "filter": {}, "sort": {}})]
@@ -493,7 +493,7 @@ def _existing_template_id(name):
 
 def add(name, subject, html):
     p = {"name": name, "foid": args.foid, "subject": subject, "html": html}
-    cmd = ["curl", "-sSL", "-X", "POST", f"https://web.laifaxin.com/api/mailbox/template-add?uid={args.org}",
+    cmd = ["curl", "-sSL", "-X", "POST", "https://web.laifaxin.com/api/mailbox/template-add",
            "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",
            "-d", json.dumps(p)]

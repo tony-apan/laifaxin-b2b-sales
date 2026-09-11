@@ -16,7 +16,7 @@ ap.add_argument("--list", action="store_true", help="列出全部模板")
 args = ap.parse_args()
 
 def api(path, p, t=60):
-    cmd = ["curl","-sSL","-m","55","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}",
+    cmd = ["curl","-sSL","-m","55","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=t)

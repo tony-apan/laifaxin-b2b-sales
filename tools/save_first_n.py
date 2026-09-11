@@ -18,7 +18,7 @@ from update_run_state import require_state, update_frontmatter
 from workspace_guard import preflight
 
 def api(org, token, path, payload, timeout=120):
-    cmd = ["curl","-sSL","-X","POST",f"https://web.laifaxin.com{path}?uid={org}",
+    cmd = ["curl","-sSL","-X","POST",f"https://web.laifaxin.com{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {token}",
            "-H", f"uid: {org}",
            "-d", json.dumps(payload)]

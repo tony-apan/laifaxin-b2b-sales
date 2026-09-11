@@ -26,7 +26,7 @@
   - 测试不激活；异常→ERROR_BLOCKED 退出非0
 """
 import json, subprocess, time, sys, argparse, hashlib, os
-from urllib import parse as _urlparse, request as _urlrequest
+from urllib import request as _urlrequest
 import re as _re
 from pathlib import Path
 
@@ -233,7 +233,7 @@ def ensure_operator_profile():
 
 def api(path, p, t=60):
     """平台请求：凭据只驻当前进程内存，不创建携带 token 的 curl 子进程 argv。"""
-    url = "https://web.laifaxin.com/api/{}?{}".format(path, _urlparse.urlencode({"uid": args.org}))
+    url = "https://web.laifaxin.com/api/{}".format(path)
     req = _urlrequest.Request(
         url,
         data=json.dumps(p).encode("utf-8"),

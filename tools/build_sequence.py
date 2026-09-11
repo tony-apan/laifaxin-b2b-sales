@@ -110,7 +110,7 @@ require_approval(args.approval, args.project, ("S9",), what="建序列", expecte
 preflight(args.token, args.org, dry_run=args.dry_run, what="建序列")
 
 def api(path, p, t=60, exit_on_fail=True):
-    cmd = ["curl","-sSL","-m","55","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}",
+    cmd = ["curl","-sSL","-m","55","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=t)

@@ -11,7 +11,7 @@ args=ap.parse_args()
 BAD=("CN","TW","HK","MO")
 def clist(pg):
     p={"logic":"and","current":pg,"pageSize":10,"filters":[{"property":"country_code","operator":"exclude","value":"","values":["CN","TW","HK","MO"],"valueType":"select"}],"sort":{},"keyword":args.keyword,"filter":{}}
-    cmd=["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/refine/company-list?uid={args.org}","-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
+    cmd=["curl","-sSL","-X","POST","https://web.laifaxin.com/api/refine/company-list","-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
     r=subprocess.run(cmd,capture_output=True,text=True,timeout=60)
     try:

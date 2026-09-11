@@ -33,7 +33,6 @@ import hashlib
 import json
 import subprocess
 import sys
-from urllib import parse
 
 from credential_input import Invalid, parse_credentials
 
@@ -47,10 +46,10 @@ def token_uid(token):
 
 
 def _probe(token, org, timeout=40):
-    """只读探测：POST benefits/refine-data?uid=<org>，返回解析后的 dict；非 JSON/失败返回 None。
+    """只读探测：POST benefits/refine-data（工作空间靠 header uid 指定，非 query），返回解析后的 dict；非 JSON/失败返回 None。
     走 curl 子进程（与其余工具同一条网络路径），因此离线集成测试的 PATH 假 curl 可拦截。"""
     cmd = ["curl", "-sSL", "-m", str(max(1, timeout - 5)), "-X", "POST",
-           f"https://web.laifaxin.com/api/{PROBE_PATH}?" + parse.urlencode({"uid": org}),
+           f"https://web.laifaxin.com/api/{PROBE_PATH}",
            "-H", "Content-Type: application/json",
            "-H", f"accesstoken: {token}",
            "-H", f"uid: {org}",

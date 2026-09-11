@@ -9,7 +9,7 @@ ap=argparse.ArgumentParser(); ap.add_argument("--token",required=True); ap.add_a
 ap.add_argument("--prefix",required=True); ap.add_argument("--limit",type=int,default=48,help="本批模板总数=12轮×每轮变体数（默认48=每轮4变体）")
 args=ap.parse_args()
 def api(path,p,t=60):
-    cmd=["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}","-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
+    cmd=["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/{path}","-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
     r=subprocess.run(cmd,capture_output=True,text=True,timeout=t)
     try:

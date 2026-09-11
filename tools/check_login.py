@@ -10,7 +10,7 @@ import re
 import sys
 import tempfile
 import time
-from urllib import error, parse, request
+from urllib import error, request
 
 from credential_input import Invalid, parse_credentials
 
@@ -58,9 +58,8 @@ def _decode_response(body):
 
 
 def request_once(token, org):
-    query = parse.urlencode({"uid": org})
     req = request.Request(
-        f"https://web.laifaxin.com/api/benefits/refine-data?{query}",
+        "https://web.laifaxin.com/api/benefits/refine-data",
         data=b"{}",
         # ★工作空间必须放 header `uid`——实测 query 参数不起作用（2026-09-09 真实双空间对照）：
         #   header uid=企业ID → isOrg=true/企业数据；query uid=企业ID → isOrg=false/个人数据

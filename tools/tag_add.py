@@ -24,7 +24,7 @@ ap.add_argument("--list", action="store_true", help="只列现有标签(免审�
 args = ap.parse_args()
 
 def api(path, p, t=40):
-    cmd = ["curl","-sSL","-m","35","-X","POST",f"https://web.laifaxin.com/api/{path}?uid={args.org}",
+    cmd = ["curl","-sSL","-m","35","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=t)
