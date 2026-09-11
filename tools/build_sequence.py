@@ -26,7 +26,7 @@ from workspace_guard import preflight
 ap = argparse.ArgumentParser()
 ap.add_argument("--token", required=True, help="accesstoken 完整串（token中段是用户UID）")
 ap.add_argument("--org", required=True, help="当前工作空间ID=localStorage独立orgId键（企业必填；禁止拿token第2段代替）")
-ap.add_argument("--name", required=True, help="序列名,如 产品-英语-12轮4封-多轮开发（12轮/每轮封数按 plan 实际变体数）")
+ap.add_argument("--name", required=True, help="序列名，规范 [产品]-[语言]-[轮数]轮[每轮封数]封-[策略]（可选 -S04 档位后缀）；其中「12轮4封」必须与本批实际变体数一致，否则拒绝（如 产品-英语-12轮4封-多轮开发）")
 ap.add_argument("--tmap", required=True, help="gen_templates --out 产出的 name→id 映射 json（数量=12轮×每轮变体数，默认48；有序）;同目录须有 <tmap>.meta.json")
 ap.add_argument("--profile", required=True, help="当前产品档案路径；须与 tmap.meta 的 profile_sha256/status 一致")
 ap.add_argument("--from-name", required=True, help="发信昵称=纯个人昵称；邮件签名/发件人不得含公司/职位/网址/邮箱")
@@ -146,6 +146,16 @@ if exact:
     print(f"✅ tmap 网格校验通过({ROUNDS}轮 × {per_round}变体 = {len(all_ids)} 个, 按轮序)")
 else:
     print(f"⚠️ tmap name 不含 R轮/V变体 模式，按顺序每轮 {per_round} 个分组（手工重排过=有错组风险，建议用 gen_templates 原始产物）")
+
+# 1b) ★序列命名规范校验：名字里的「N轮M封」必须与实际批次一致（2026-09-11 用户拍板）
+#    名字是对外的事实声明；写错会让平台里显示的规模与实际步骤挂载数不符，交接时极易误判。
+from tmap_grid import validate_sequence_name
+_name_ok, _name_msg = validate_sequence_name(args.name, per_round)
+if not _name_ok:
+    print(f"❌ 序列命名不符规范: {_name_msg}")
+    print(f"   规范: [产品]-[语言]-{ROUNDS}轮{per_round}封-[策略]（可选客群档位后缀如 -S04）")
+    sys.exit(2)
+print(f"  ✅ 序列命名: {_name_msg}")
 
 # 2) 运行时解析 schedule_id（各账号不同）
 d = api("settings/sequence/schedule-list", {"current":1,"pageSize":100})

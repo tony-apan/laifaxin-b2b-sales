@@ -83,3 +83,49 @@ class NoHardcodedTemplateCountTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SequenceNameRuleTest(unittest.TestCase):
+    """序列命名规范（2026-09-11 用户拍板：名字里的「N轮M封」必须与实际批次一致）。"""
+
+    def test_accepts_matching_name(self):
+        ok, msg = tmap_grid.validate_sequence_name("皮筏艇-英语-12轮4封-多轮开发", 4)
+        self.assertTrue(ok, msg)
+
+    def test_accepts_suffix_variant(self):
+        ok, _ = tmap_grid.validate_sequence_name("皮筏艇-英语-12轮4封-经销商-S04", 4)
+        self.assertTrue(ok)
+
+    def test_rejects_stale_per_round_in_name(self):
+        """名写 10 封但实际 4 → 必须拒绝（名字与实际不符）。"""
+        ok, msg = tmap_grid.validate_sequence_name("皮筏艇-英语-12轮10封-多轮开发", 4)
+        self.assertFalse(ok)
+        self.assertIn("10", msg)
+        self.assertIn("4", msg)
+
+    def test_rejects_wrong_round_count(self):
+        ok, msg = tmap_grid.validate_sequence_name("皮筏艇-英语-5轮4封-x", 4)
+        self.assertFalse(ok)
+        self.assertIn("5", msg)
+
+    def test_name_without_pattern_only_warns(self):
+        ok, msg = tmap_grid.validate_sequence_name("皮筏艇-英语-多轮开发", 4)
+        self.assertTrue(ok, "不含 N轮M封 时只提示、不阻断（历史命名兼容）")
+        self.assertIn("12轮4封", msg)
+
+    def test_build_sequence_enforces_name_rule(self):
+        """★必须检查【真实接线】，不能只查字符串存在——
+        旧断言只查 'validate_sequence_name' 与 'sys.exit(2)' 出现，
+        把 `if not _name_ok:` 改成 `if False:` 仍能通过（变异实测漏网）。"""
+        src = (ROOT / "tools" / "build_sequence.py").read_text(encoding="utf-8")
+        self.assertIn("from tmap_grid import validate_sequence_name", src,
+                      "build_sequence 必须导入命名校验")
+        # 校验结果必须真的参与分支，且失败路径 fail-closed
+        self.assertRegex(src, r"_name_ok,\s*_name_msg\s*=\s*validate_sequence_name\(",
+                         "必须把校验结果接进变量")
+        self.assertRegex(src, r"if\s+not\s+_name_ok\s*:",
+                         "校验结果必须真的用于分支判断（不能 if False 停用）")
+        # 失败分支内必须有 sys.exit
+        idx = src.index("if not _name_ok")
+        tail = src[idx:idx + 400]
+        self.assertIn("sys.exit(2)", tail, "命名不符必须 fail-closed exit 2")

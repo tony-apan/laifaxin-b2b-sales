@@ -127,7 +127,7 @@ audience: 人+AI
 
 ### S9 SEQUENCE_PENDING（序列配置确认）
 - **判据（来源）**：`../RULES.md` S9「展示12步(30分/5/15/30天)、时区(★默认纽约)、每日30000(全账号)/每公司每日5、notSentTags=[询盘,不发]；用户确认后建序列」；`specs/sequence-config.md`：12轮方向每轮不同（见 `specs/sequence-config.md`）、步长 step1=minute/30、step2=day/5、step3=day/15、step4-12=day/30、★纽约 schedule_id **运行时解析**（`tools/resolve_schedule.py --tz "America/New_York"`；
-  各账号不同,勿硬编码）、max_emails_per_day:30000(每日全账号) / domain_emails_per_day:5(★同一家公司每日,非总量) / notSentTags=[<tagId>(询盘), <tagId>(不发)]（跌破往前阶段）、命名 `[产品]-[语言]-[轮数]轮[每轮封数]封-[策略]`、每步 4 个**互不相同**模板（默认 12 轮×4=48）。
+  各账号不同,勿硬编码）、max_emails_per_day:30000(每日全账号) / domain_emails_per_day:5(★同一家公司每日,非总量) / notSentTags=[<tagId>(询盘), <tagId>(不发)]（跌破往前阶段）、命名 `[产品]-[语言]-[轮数]轮[每轮封数]封-[策略]`（**名字里的封数必须与实际一致**，build_sequence 会校验，不符即 exit 2）、每步 4 个**互不相同**模板（默认 12 轮×4=48）。
 - **通过条件**：用户确认序列配置（12步+纽约+30000/5+notSentTags+每步4个不同模板 id，默认48）。
 - **脚本**：`python3|py tools/build_sequence.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --name <序列名> --tmap runs/<operator_key>/<product_key>/tmap.json --profile .../product-profile.md --record .../operation-record.md --from-name <纯昵称> --tz "America/New_York" --approval <S9凭证> --project <operator_key>/<product_key>`。
 - **API**（§10 全部实测）：`POST /api/sequences/sequence-create {"name":...,"channel":"system"}`——见 `specs/api-reference.md` 接口表；`POST /api/sequences/step-create {"seqId":<id>,"step":<n>,"template_ids":[...],"wait_mode":...,"wait_time":...,"senders":[...]}`——见 `specs/api-reference.md` 接口表；

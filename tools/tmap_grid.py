@@ -50,3 +50,37 @@ def group_by_round(mapping):
         return [(r, [grid[(r, v)] for v in range(1, n + 1)]) for r in range(1, ROUNDS + 1)], True
     ids = list(mapping.values())
     return [(r, ids[(r - 1) * n:r * n]) for r in range(1, ROUNDS + 1)], False
+
+
+# ---------- 序列命名规范（★2026-09-11 用户拍板：封数必须跟随实际每轮变体数） ----------
+# 规范：`[产品]-[语言]-[轮数]轮[每轮封数]封-[策略]`（可选客群档位后缀，如 -S04）
+# 其中 [每轮封数] 必须**等于实际每轮变体数**——名字是对批次的事实声明，
+# 写错会让平台 UI 上的序列名与实际不符（例：名写"12轮10封"但每步只挂 4 个模板），
+# 后续维护/交接时极易误判。故此处做一致性校验。
+_NAME_RE = re.compile(r"(\d{1,3})\s*轮\s*(\d{1,3})\s*封")
+
+
+def parse_name_counts(name):
+    """从序列名解析 (轮数, 每轮封数)；名字不含该模式返回 None。"""
+    m = _NAME_RE.search(str(name or ""))
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def validate_sequence_name(name, per_round, rounds=ROUNDS):
+    """校验序列名里声明的"轮数轮X封"与实际批次一致。
+
+    返回 ``(ok, message)``：ok=False 时 message 说明冲突原因（调用方应 fail-closed）。
+    名字不含"N轮M封"模式 → ok=True 但 message 提示建议按规范命名（不阻断，避免约束过强）。
+    """
+    parsed = parse_name_counts(name)
+    if parsed is None:
+        return True, (f"序列名《{name}》不含「N轮M封」——建议按 "
+                      f"[产品]-[语言]-{rounds}轮{per_round}封-[策略] 命名，便于平台里一眼核对批次规模")
+    declared_rounds, declared_per = parsed
+    if declared_rounds != rounds:
+        return False, (f"序列名声明 {declared_rounds} 轮，实际 {rounds} 轮——名字与实际不符，"
+                       f"请改成 {rounds}轮{per_round}封")
+    if declared_per != per_round:
+        return False, (f"序列名声明每轮 {declared_per} 封，但本批实际每轮 {per_round} 个模板——"
+                       f"名字是对批次的事实声明，必须与实际一致。请改成 {rounds}轮{per_round}封")
+    return True, f"序列名与实际批次一致（{rounds}轮{per_round}封）"
