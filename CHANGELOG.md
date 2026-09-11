@@ -2,6 +2,27 @@
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
 
+## [v0.5.30] - 2026-09-11
+
+Skill 文档一致性收口：把「每轮 10 封」等在规格文档里的陈旧表述改为现行 4 封，并加文档级断言。
+
+- **背景**：v0.5.26 把每轮变体数 10→4（整批 120→48）时，代码全部改走 `tmap_grid`，
+  但 `specs/` 里仍有规则行写着「每轮 10 封」「每步 ≥10 封（template_ids 10个）」
+  「12 步都用同一批 10 模板」——属**代码对、文档错**的静默漂移：AI 照文档生成/讲解会出错。
+- **修正**（两仓同步）：
+  - `specs/sequence-config.md`：`每轮 10 封（10 个不同模板）` → `每轮 4 封（4 个不同模板）`，
+    同轮「10 封也不同」→「4 封也不同」，`template_ids 传 10 个` → `传 4 个`，
+    禁止项「同一批 10 模板」→「同一批 4 模板」。
+  - `specs/operations-sop.md`：`每步 ≥10 封（template_ids 10个）` → `每步 4 封（template_ids 4 个，互不相同）`。
+- **新增文档级断言**（`tests/test_tmap_grid.py` → `SpecsDocPerRoundConsistencyTest`，2 项）：
+  扫描 `specs/sequence-config.md` / `operations-sop.md` / `node-playbook.md` / `RULES.md` / `SKILL.md`，
+  出现「每轮 10 封」「每步 ≥10 封」「传 10 个」等陈旧表述即失败；并断言阈值与 `tmap_grid` 当前默认一致。
+- 顺带核实：SKILL/RULES/INDEX/README 引用的工具与规格路径**无悬空**（唯一 `finalize_seed.py`
+  是 RULES 明确标注的「S3 已知缺口」、非断链引用）。
+- 变异验证有效：把「每步 ≥10 封」加回 `operations-sop.md` → 断言立即失败；复原通过。
+- 测试 280 → **282**（+2）；两仓 282 全绿。
+
+
 ## [v0.5.29] - 2026-09-11
 
 工作空间传输加固：清掉被实测证伪的 `?uid=` 死参数，让 header 成为唯一机制（消除事故同款歧义）。

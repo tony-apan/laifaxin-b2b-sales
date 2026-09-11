@@ -129,3 +129,38 @@ class SequenceNameRuleTest(unittest.TestCase):
         idx = src.index("if not _name_ok")
         tail = src[idx:idx + 400]
         self.assertIn("sys.exit(2)", tail, "命名不符必须 fail-closed exit 2")
+
+
+class SpecsDocPerRoundConsistencyTest(unittest.TestCase):
+    """★规格文档不得再把每轮模板数写回 10（2026-09-11 用户拍板 10→4）。
+
+    代码改走 tmap_grid 后会拒绝旧命名，但**文档**若仍写「每轮 10 封」，
+    主 AI 会照文档生成 10 档/讲给用户听——属"代码对、文档错"的静默漂移。
+    这里把 docs 与真源锁在一起。
+    """
+
+    # 明确不允许出现的旧表述（正文规则行；括号里的历史注记/命名示例除外）
+    STALE_PATTERNS = (
+        "每轮 10 封", "每轮10封", "12 步都用同一批 10 模板",
+        "每步 ≥10 封", "每步≥10封", "template_ids 10个", "传 10 个",
+    )
+
+    DOCS = ("specs/sequence-config.md", "specs/operations-sop.md",
+            "specs/node-playbook.md", "RULES.md", "SKILL.md")
+
+    def test_no_stale_per_round_ten(self):
+        offenders = []
+        for rel in self.DOCS:
+            p = ROOT / rel
+            if not p.exists():
+                continue
+            for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+                for pat in self.STALE_PATTERNS:
+                    if pat in line:
+                        offenders.append(f"{rel}:{i} → {pat}")
+        self.assertEqual([], offenders,
+                         f"规格文档仍写每轮 10（应统一为 4/整批 48）: {offenders}")
+
+    def test_current_default_still_four(self):
+        """确保本断言与 tmap_grid 当前默认一致（默认改了要同步改这里）。"""
+        self.assertEqual(4, tmap_grid.per_round_count(48))

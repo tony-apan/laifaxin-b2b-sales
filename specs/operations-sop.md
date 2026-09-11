@@ -233,7 +233,7 @@ audience: 人+AI
 ### 模板
 - 本地存储 `templates/rXX-vYY.md`（含 template_id + subject + html + 元信息）
 - **模板效果分析**（template-analysis.md）：每周从后台拉数据回填 opens/replies → 对比哪个模板好 → 迭代
-- 每步 ≥10 封（template_ids 10个）
+- 每步 4 封（template_ids 4 个，互不相同）
 
 ### 序列
 - 命名：`[产品]-[语言]-[轮数]轮[每轮封数]封-[策略]`（★名字里的「N轮M封」必须与实际一致——当前 12轮4封；不符则 build_sequence 拒绝建序列）
