@@ -61,11 +61,15 @@ if [ "$CREDENTIALS_STDIN" -eq 1 ]; then
     LOGIN_OUT=$(printf '%s' "$CRED_BLOB" | python3 "$KB/tools/check_login.py" --credentials-stdin --gate-mode 2>&1)
     LOGIN_RC=$?
     [ -n "$LOGIN_OUT" ] && printf '        └─原始输出(仅供 AI，禁转述): %s\n' "$(printf '%s' "$LOGIN_OUT" | head -1)"
-    if [ "$LOGIN_RC" -eq 0 ]; then
+    # ★复审 F-09R：rc=1 可能是脚本自身崩溃（Python 未捕获异常=1）——先排除，
+    #   否则会把"工具坏了"说成"您的钥匙失效"，害用户白重登
+    if printf '%s' "$LOGIN_OUT" | grep -q "Traceback"; then
+      bad "登录检查工具自身出错了（不是您的问题），AI 需要先排查"; note_block env 9
+    elif [ "$LOGIN_RC" -eq 0 ]; then
       ok "账号钥匙有效，登录检查通过"
     else
       case "$LOGIN_RC" in
-        2) bad "收到的内容不是账号钥匙的格式（用户可能粘错了东西），让用户重新复制一次"; note_block login 3 ;;
+        2) bad "收到的内容不是账号钥匙的格式（用户可能粘错了东西），让用户重新复制一次"; note_block format 3 ;;
         3) bad "平台没响应（网络/接口临时问题），不是账号问题"; note_block net 5 ;;
         *) bad "账号钥匙失效或不可用（换设备登录/重新登录都会让旧钥匙作废）"; note_block login 3 ;;
       esac
@@ -79,11 +83,13 @@ elif [ -n "$TOKEN" ] || [ -n "$ORG" ]; then
     LOGIN_OUT=$(python3 "$KB/tools/check_login.py" --token "$TOKEN" --org "$ORG" --gate-mode 2>&1)
     LOGIN_RC=$?
     [ -n "$LOGIN_OUT" ] && printf '        └─原始输出(仅供 AI，禁转述): %s\n' "$(printf '%s' "$LOGIN_OUT" | head -1)"
-    if [ "$LOGIN_RC" -eq 0 ]; then
+    if printf '%s' "$LOGIN_OUT" | grep -q "Traceback"; then
+      bad "登录检查工具自身出错了（不是您的问题），AI 需要先排查"; note_block env 9
+    elif [ "$LOGIN_RC" -eq 0 ]; then
       ok "账号钥匙有效，登录检查通过"
     else
       case "$LOGIN_RC" in
-        2) bad "收到的内容不是账号钥匙的格式，让用户重新复制一次"; note_block login 3 ;;
+        2) bad "收到的内容不是账号钥匙的格式，让用户重新复制一次"; note_block format 3 ;;
         3) bad "平台没响应（网络/接口临时问题），不是账号问题"; note_block net 5 ;;
         *) bad "账号钥匙失效或不可用（换设备登录/重新登录都会让旧钥匙作废）"; note_block login 3 ;;
       esac
@@ -102,12 +108,15 @@ if [ "$CREDENTIALS_STDIN" -eq 1 ] && [ -z "$TOKEN" ] && [ -z "$ORG" ]; then
     WS_OUT=$(printf '%s' "$CRED_BLOB" | python3 "$KB/tools/workspace_guard.py" --credentials-stdin --require-verified 2>&1)
     WS_RC=$?
     [ -n "$WS_OUT" ] && printf '        └─原始输出(仅供 AI，禁转述): %s\n' "$(printf '%s' "$WS_OUT" | head -1)"
-    if [ "$WS_RC" -eq 0 ]; then
+    # ★F-09：rc=1 也可能是脚本自身崩溃（Python 未捕获异常=1）——先排除，别把工具故障说成"您连错空间"
+    if printf '%s' "$WS_OUT" | grep -q "Traceback"; then
+      bad "核对工具自身出错了（不是您的问题），AI 需要先排查"; note_block env 9
+    elif [ "$WS_RC" -eq 0 ]; then
       ok "工作空间核对通过"
     else
       case "$WS_RC" in
         1) bad "钥匙有效但连到的不是要用的那个工作空间（会存错地方，禁止开始写操作）"; note_block ws 2 ;;
-        2) bad "收到的内容不完整/格式不对，让用户重新复制一次"; note_block login 3 ;;
+        2) bad "收到的内容不完整/格式不对，让用户重新复制一次"; note_block format 3 ;;
         3) bad "平台没响应，这次没核对上（不是账号问题）"; note_block net 5 ;;
         5) bad "这次没能判定（可能是钥匙已失效或平台未返回依据）——不等于空间错了，也不等于通过"; note_block unverified 6 ;;
         *) bad "平台没给出判定字段，这次没能核对（不等于通过，也不等于失败）"; note_block unverified 6 ;;
@@ -121,12 +130,14 @@ elif [ -n "$TOKEN" ] && [ -n "$ORG" ]; then
   WS_OUT=$(python3 "$KB/tools/workspace_guard.py" --token "$TOKEN" --org "$ORG" --require-verified 2>&1)
   WS_RC=$?
   [ -n "$WS_OUT" ] && printf '        └─原始输出(仅供 AI，禁转述): %s\n' "$(printf '%s' "$WS_OUT" | head -1)"
-  if [ "$WS_RC" -eq 0 ]; then
+  if printf '%s' "$WS_OUT" | grep -q "Traceback"; then
+    bad "核对工具自身出错了（不是您的问题），AI 需要先排查"; note_block env 9
+  elif [ "$WS_RC" -eq 0 ]; then
     ok "工作空间核对通过"
   else
     case "$WS_RC" in
       1) bad "钥匙有效但连到的不是要用的那个工作空间（会存错地方，禁止开始写操作）"; note_block ws 2 ;;
-      2) bad "收到的内容不完整/格式不对，让用户重新复制一次"; note_block login 3 ;;
+      2) bad "收到的内容不完整/格式不对，让用户重新复制一次"; note_block format 3 ;;
       3) bad "平台没响应，这次没核对上（不是账号问题）"; note_block net 5 ;;
       5) bad "这次没能判定（可能是钥匙已失效或平台未返回依据）——不等于空间错了，也不等于通过"; note_block unverified 6 ;;
       *) bad "平台没给出判定字段，这次没能核对（不等于通过，也不等于失败）"; note_block unverified 6 ;;
@@ -171,6 +182,10 @@ case "$BLOCK" in
     echo "⚠️ 检查没通过：您给的信息是有效的，但它连到的**不是您想用的那个工作空间**，我怕客户存错地方。"
     echo "您只需要做一件事：在来发信网页右上角切换到您要用的那个空间，再重新执行一次复制命令，把两行**回复我**。"
     echo "（这次只做了检查：没有搜索客户、没有保存、没有扣点。）" ;;
+  format)
+    echo "⚠️ 我收到的内容好像没复制全（缺了一段）。"
+    echo "您只需要做一件事：回浏览器把那条复制命令再执行一次，把复制到的两行整段**回复我**。"
+    echo "（不用重新登录，也不用改格式。）" ;;
   login)
     echo "⚠️ 检查没通过：您给的登录信息用不了了（可能已过期；在别的设备登录过也会让它失效）。"
     echo "您只需要做一件事：回浏览器重新执行一次复制命令，把新复制到的两行**回复我**。"
@@ -184,7 +199,8 @@ case "$BLOCK" in
   profile)
     echo "ℹ️ 在正式开始前，我需要您先看一眼产品资料整理得对不对（我会把要点列给您，您回复确认或修改就行）。" ;;
   env)
-    echo "ℹ️ 我这边的准备工作还差一点（我来处理，**您不用管**）；处理完我再请您继续。**请您**先等我一下。" ;;
+    echo "ℹ️ 我这边的准备工作还差一点（我来处理，**您不用管**），处理完我再请您继续。"
+    echo "目前没有动您任何数据：没搜索、没保存、没发送。**请您**先等我一下。" ;;
   *)
     echo "✅ 检查全部通过，咱们可以往下走了。" ;;
 esac

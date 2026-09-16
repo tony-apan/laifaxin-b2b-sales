@@ -477,7 +477,10 @@ class FailureReportingDisciplineTest(unittest.TestCase):
     )
     # 内部行话（面向用户时禁止）
     JARGON = ("落点", "凭据", "rc=", "[PASS]", "[FAIL]", "校验未通过",
-              "复核失败", "退出码", "workspace", "isOrg")
+              "复核失败", "退出码", "workspace", "isOrg",
+              # ★复审 F-11R1 补：token 对小白是黑话；失败/连接场景不该出现
+              #   （T-token引导卡例外——那张卡必须展示一键复制命令，见下方专项断言）
+              "token", "orgId", "accesstoken")
 
     def user_blocks(self, name):
         text = (TEMPLATES / name).read_text(encoding="utf-8")
@@ -584,5 +587,221 @@ class FailureReportingDisciplineTest(unittest.TestCase):
                          "空输入不得误报成『钥匙失效』（会让用户白重登）")
         self.assertIn("不是您的账号有问题", result.stdout,
                       "空输入场景必须明说不是用户账号问题")
-        self.assertNotIn("check_login.py", result.stdout.split("给用户看的这一段")[-1],
-                         "白话段不得出现工具名")
+        plain = result.stdout.split("给用户看的这一段")[-1]
+        self.assertNotIn("check_login.py", plain, "白话段不得出现工具名")
+        # ★复审 F-11R3 补：白话段整体扫行话与工具名（原先只查单个工具名）
+        for word in ("落点", "凭据", "[FAIL]", "[PASS]", "rc=", "workspace_guard",
+                     "gate_check", "onboard_check", ".py", ".sh"):
+            with self.subTest(word=word):
+                self.assertNotIn(word, plain, f"白话段出现内部词/工具名「{word}」")
+
+
+class StepGuidanceTest(unittest.TestCase):
+    """每张交互卡必须"先给引导"（2026-09-11 用户：说人话 **并做好引导**）。
+
+    小白最怕两个时刻：①不知道该做什么 ②点了头之后不知道会发生什么。
+    因此交互卡必须说清「接下来/确认之后会怎样」——不能只在失败时补救。
+    """
+
+    # 交互卡（用户需回复才能推进）→ 必须含"接下来会发生什么"
+    CONFIRM_CARDS = (
+        "S0-产品知识档案.md", "S0-画像方案.md", "S2-客群确认.md", "S3-种子确认.md",
+        "S5-保存确认.md", "S7-模板确认.md", "S9-序列确认.md",
+        "S10-加联系人确认.md", "S12-激活确认.md",
+        "S0a-运营方档案.md", "S0a-网站资料确认.md",
+    )
+    # 描述"之后会发生什么"的表述（任一即可）
+    NEXT_RE = re.compile(
+        r"确认之后|选完之后|回完|回复之后|发完|完成后|接下来|之后我会|"
+        r"之后的流程|做完再把|做完这个再|存完我会|加完会把|通过后进入|马上开始"
+    )
+
+    def first_block(self, name):
+        text = (TEMPLATES / name).read_text(encoding="utf-8")
+        blocks = re.findall(r"```[a-zA-Z]*\n(.*?)```", text, re.S)
+        self.assertTrue(blocks, f"{name} 应有用户话术块")
+        return blocks[0]
+
+    def test_confirm_cards_explain_what_happens_next(self):
+        for name in self.CONFIRM_CARDS:
+            with self.subTest(card=name):
+                block = self.first_block(name)
+                self.assertRegex(block, self.NEXT_RE,
+                                 f"{name} 没说清『接下来/确认之后会发生什么』——小白点了头不知道会怎样")
+
+    def test_confirm_cards_state_whether_user_must_act(self):
+        """每张交互卡都要明确"要不要您动手"。"""
+        for name in self.CONFIRM_CARDS:
+            with self.subTest(card=name):
+                block = self.first_block(name)
+                self.assertRegex(block, r"您不用做|不用您|请您|需要您|您回|您确认|回复|等您",
+                                 f"{name} 未说明用户是否需要动手")
+
+    def test_process_cards_give_time_estimate(self):
+        """过程卡（S4/S8/S5）必须给时间预期，否则小白干等会焦虑。"""
+        for name in ("S4-审计进行中.md", "S8-模板构建中.md", "S5-保存确认.md"):
+            with self.subTest(card=name):
+                block = self.first_block(name)
+                self.assertRegex(block, r"分钟|小时|稍等|估计|预计|很快",
+                                 f"{name} 缺时间预期")
+
+    def test_activation_card_says_first_email_timing(self):
+        """激活卡是最后一道闸：必须说清"确认之后多久真的会发信"。
+
+        ★2026-09-17 对抗审查 F-03/F-11.1：先前断言用 `|立即生效|按排程发出` 多选，
+        只要块里出现任一词就通过——把"30 分钟"整句删掉或改成"30 天"都能过（漏网）。
+        现在要求**两个必要条件同时成立**：①有明确首封时间预期 ②说明只在工作时段发送
+        （否则周五晚激活的用户会以为 30 分钟内必到而误判出错）。
+        """
+        block = self.first_block("S12-激活确认.md")
+        self.assertRegex(block, r"\d+\s*分钟|按.*时间表",
+                         "S12 应说明激活后首次发送的时间预期（工作时段不能替代首封时间说法）")
+        self.assertRegex(block, r"工作时间|工作日|周一至周五",
+                         "S12 必须限定发送时段（非工作时段激活时首封顺延），否则属过度承诺")
+
+    def test_activation_card_states_real_stop_mechanism(self):
+        """S12 必须写真实停发机制：回复本身不会停，打上询盘标签生效后才停。
+
+        ★对抗审查 F-02（P0）：曾写"有人回复或打上标签会停止跟进"——与
+        `specs/sequence-config.md`「公司触发器=什么都不做」和 S9 卡「禁写自动停发」相悖；
+        会让用户以为不用打标签，导致对已回复买家继续群发。
+        """
+        block = self.first_block("S12-激活确认.md")
+        self.assertRegex(block, r"不会自动停|标签生效后才停|标签.{0,6}生效",
+                         "S12 须写明『回复不会自动停、标签生效才停』")
+        self.assertNotRegex(block, r"有人回复.{0,4}会停止",
+                            "S12 不得声称回复会自动停发（事实错误）")
+
+    def test_s9_does_not_merge_contact_add_into_sequence_confirmation(self):
+        """★对抗审查 F-01（P0）：S9 不得把"加客户"说成同一句确认就做，
+        否则架空 S10 的独立确认闸门（RULES: 人数对账且用户确认后才 contact-add）。"""
+        block = self.first_block("S9-序列确认.md")
+        self.assertRegex(block, r"再确认一次|单独.{0,4}确认|另.{0,4}确认",
+                         "S9 须说明加客户前会再确认一次（不得一次确认做到底）")
+        # ★复审 F-11R2 补禁止式：只查存在会被"保留再确认一次 + 同时说会加人"绕过
+        self.assertRegex(block, r"这一步不加入任何客户|不加入任何客户",
+                         "S9 须明确本步不加客户")
+        self.assertNotRegex(block, r"确认之后[^。]{0,10}(?:把客户加进去|加进客户|加入客户)",
+                            "S9 不得把加客户并进建序列同一步（架空 S10 确认闸门）")
+
+    def test_profile_card_next_step_is_connect_not_inference(self):
+        """★对抗审查 F-04：档案卡不得说"确认后带您推演客群"（应先连接平台）。"""
+        block = self.first_block("S0-产品知识档案.md")
+        self.assertNotRegex(block, r'回[「"]?确认[」"]?.{0,14}推演',
+                            "档案卡确认后应是『连接平台』，不是直接推演客群")
+
+    def test_portrait_card_orders_profile_before_connect(self):
+        """★对抗审查 F-05：画像方案的下一步顺序须为 建档→连接→推演。"""
+        block = self.first_block("S0-画像方案.md")
+        i_prof = min([m.start() for m in re.finditer(r"产品/公司资料", block)] or [10**9])
+        i_conn = block.find("连接来发信账号")
+        i_infer = block.find("推演具体客群")
+        self.assertLess(i_prof, i_conn, "建档应排在连接之前")
+        self.assertLess(i_conn, i_infer, "连接应排在推演客群之前")
+
+    def test_failure_card_covers_all_steps(self):
+        """失败卡必须覆盖"任何步骤卡住"，不能只管连接。"""
+        text = (TEMPLATES / "S0-连接未通过.md").read_text(encoding="utf-8")
+        for kw in ("其他步骤卡住时怎么说", "通用兜底话术", "抽查名单质量",
+                   "开发信没通过检查", "激活失败"):
+            with self.subTest(kw=kw):
+                self.assertIn(kw, text, f"失败卡缺全步骤覆盖：{kw}")
+
+    def test_no_stale_credential_jargon_in_check_login_output(self):
+        """工具对用户输出不得出现 token 等黑话（用户看不懂 token）。"""
+        src = (ROOT / "tools" / "check_login.py").read_text(encoding="utf-8")
+        for m in re.finditer(r'print\(\s*f?["\']([^"\']{8,})["\']', src):
+            raw = m.group(1)
+            # 只查字面文案：剥掉成对的 {表达式}，再截断到残留的左花括号
+            # （正则匹配会在表达式内的引号处提前结束，故残留左括号必须丢掉）
+            s = re.sub(r"\{[^{}]*\}", "", raw)
+            if "{" in s:
+                s = s[:s.index("{")]
+            if not re.search(r"[\u4e00-\u9fff]", s):
+                continue
+            with self.subTest(line=s[:60]):
+                self.assertNotIn("token", s.lower(),
+                                 f"面向用户的输出出现 token：{s[:60]}")
+                self.assertNotIn("凭据", s, f"面向用户的输出出现内部词『凭据』：{s[:60]}")
+
+    def test_no_card_claims_auto_stop_on_reply(self):
+        """★对抗审查 F-02 衍生（2026-09-17）：**任何卡片**都不得声称"回复会自动停发"。
+
+        实测机制（specs/sequence-config.md「公司触发器=什么都不做」）：平台不会因收到回复
+        自动停发，只有「询盘」标签实际生效后才停。Q1-Q5 卡原先写"对方回复后，自动跟进已停止"
+        ——与 S9/S12 口径矛盾，会让用户不再催促打标，对已回复买家继续群发。
+        """
+        BAD = re.compile(r"回复[^。\n]{0,8}(?:自动|即|就)[^。\n]{0,6}(?:停止|停发|已停)")
+        offenders = []
+        for path in sorted(TEMPLATES.glob("*.md")):
+            text = path.read_text(encoding="utf-8")
+            for block in re.findall(r"```[a-zA-Z]*\n(.*?)```", text, re.S):
+                for m in BAD.finditer(block):
+                    seg = m.group(0)
+                    # 允许"不会自动停""不自动停"这类否定表述
+                    if re.search(r"不会|不得|不自动|禁", seg):
+                        continue
+                    offenders.append(f"{path.name}: {seg}")
+        self.assertEqual([], offenders,
+                         f"卡片声称回复会自动停发（事实错误，实际靠『询盘』标签生效后停）: {offenders}")
+
+
+class NoTokenJargonOutsideCredentialCardTest(unittest.TestCase):
+    """★复审 F-11R1：除「T-token引导」卡外，任何卡的用户话术都不得出现 token/orgId/accesstoken。
+
+    T-token引导卡是唯一例外——它必须展示一键复制命令（含 `accesstoken=`/`orgId=`），
+    并提醒"token 等同账号密码"。其余卡片（含失败卡、状态卡、各确认卡）用"登录信息/账号钥匙"白话。
+    """
+
+    EXEMPT = {"T-token引导.md", "README.md"}
+
+    def test_no_token_words_in_other_cards(self):
+        offenders = []
+        for path in sorted(TEMPLATES.glob("*.md")):
+            if path.name in self.EXEMPT:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for bi, block in enumerate(re.findall(r"```[a-zA-Z]*\n(.*?)```", text, re.S), 1):
+                for word in ("token", "orgId", "accesstoken"):
+                    if re.search(word, block, re.IGNORECASE):
+                        offenders.append(f"{path.name} 块{bi}: {word}")
+        self.assertEqual([], offenders,
+                         f"非凭据卡出现 token/orgId/accesstoken（小白看不懂）: {offenders}")
+
+
+class GatePlainTextSingleSourceTest(unittest.TestCase):
+    """★复审 F-07 收口：gate_check 输出的白话段与话术卡必须**逐字一致**（单一真源）。
+
+    gate_check.sh 把白话直接打给 AI 照抄（权威版本），话术卡是同一套话的存档版。
+    两处手抄必然漂移（复审已实测出 env 分支差一句）——这里用机器对账锁死：
+    gate_check 白话段里的每个中文句子，必须能在「连接未通过」或「连接成功」卡里逐字找到。
+    """
+
+    def sentences(self):
+        sh = (ROOT / "tools" / "gate_check.sh").read_text(encoding="utf-8")
+        plain = sh.split("给用户看的这一段")[-1]
+        out = []
+        for s in re.findall(r'echo "(.*?)"(?:\s*;;|\s*$)', plain, re.M):
+            if re.search(r"[\u4e00-\u9fff]", s):
+                out.append(re.sub(r"\s+", "", s).replace("**", ""))
+        return out
+
+    def card_text(self):
+        t = ((TEMPLATES / "S0-连接未通过.md").read_text(encoding="utf-8")
+             + (TEMPLATES / "S0-连接成功.md").read_text(encoding="utf-8"))
+        return re.sub(r"\s+", "", t).replace("**", "")
+
+    def test_every_plain_sentence_exists_in_cards(self):
+        card = self.card_text()
+        missing = [s[:60] for s in self.sentences() if s.strip("*") not in card]
+        self.assertEqual([], missing,
+                         f"gate_check 白话句在话术卡里找不到对应（两处需逐字同步）: {missing}")
+
+    def test_plain_section_has_no_tool_names(self):
+        """白话段本身不得含工具名/行话（AI 会直接照抄，含了就漏给用户）。"""
+        sh = (ROOT / "tools" / "gate_check.sh").read_text(encoding="utf-8")
+        plain = sh.split("给用户看的这一段")[-1]
+        for word in ("workspace_guard", "check_login.py", "gate_check.sh", "onboard_check",
+                     "落点", "凭据", "[FAIL]", "[PASS]", "rc="):
+            with self.subTest(word=word):
+                self.assertNotIn(word, plain, f"白话段含内部词「{word}」")

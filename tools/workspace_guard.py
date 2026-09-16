@@ -204,7 +204,7 @@ def main(argv=None, *, stdin=None, probe=None):
     try:
         token, org = _load_credentials(args, stdin)
     except (Invalid, UnicodeError) as exc:
-        print(f"凭据格式错误：{exc}", file=sys.stderr)
+        print(f"发来的内容不完整或格式不对：{exc}——请把浏览器里一键复制到的两行整段发我，不用拆分。", file=sys.stderr)
         return 2
 
     result = verify_workspace(token, org, probe=probe)

@@ -38,13 +38,33 @@ def mask_identifier(value):
     return "*" * (len(text) - 4) + text[-4:]
 
 
+def plain_platform_message(message):
+    """把平台返回的原始错误翻成人话（用户可能看到；禁止把平台术语原样透出）。
+
+    实测平台会返回「token已失效」「未登录」这类词——"token"对小白是黑话，
+    照抄会让用户以为要自己处理什么技术问题。
+    """
+    text = str(message or "").strip()
+    low = text.lower()
+    if "token" in low and ("失效" in text or "invalid" in low or "expire" in low):
+        return "登录信息已过期"
+    if "未登录" in text or "not login" in low or "unauthorized" in low:
+        return "登录状态已失效"
+    if "过期" in text or "expire" in low:
+        return "登录信息已过期"
+    # ★对抗审查 F-08：无匹配时不得把平台原文/英文透给用户（RULES：英文须先给中文解释）
+    if re.search(r"[A-Za-z]{4,}", text):
+        return "平台未说明具体原因（我来帮您查）"
+    return text or "平台未说明原因"
+
+
 def guide(reason, gate_mode=False):
     if gate_mode:
-        print("登录校验失败：凭据无效或未登录。")
+        print("登录校验失败：账号信息已失效或未登录。")
         return
     print(f"登录校验失败：{reason}")
-    print(f"获取凭据教程：{GUIDE_URL}")
-    print("请把 accesstoken 和 orgId 两行整段直接粘贴到当前聊天框，由 AI 通过程序化 stdin 传入。")
+    print(f"获取登录信息教程：{GUIDE_URL}")
+    print("请把浏览器里一键复制到的两行，整段直接粘贴到当前聊天框发给 AI（不用拆分、不用改格式）。")
 
 
 def _decode_response(body):
@@ -156,7 +176,7 @@ def main(argv=None, *, stdin=None, request=request_once, sleep=time.sleep,
         if not args.credentials_stdin and not (args.token or args.org):
             guide(reason, args.gate_mode)
         else:
-            print(f"凭据格式错误：{reason}", file=sys.stderr)
+            print("发来的内容不完整或格式不对——通常是复制时少了一段。请把浏览器里一键复制到的两行整段发我（不用拆分、不用改格式）。", file=sys.stderr)
         return 2
 
     data = None
@@ -179,7 +199,7 @@ def main(argv=None, *, stdin=None, request=request_once, sleep=time.sleep,
         if isinstance(last_error, PlatformResponseError):
             print("平台返回错误页/非JSON，请稍后重试。", file=sys.stderr)
         elif last_error is not None:
-            print("网络不通或请求超时；这不是凭据格式问题。", file=sys.stderr)
+            print("网络不通或请求超时——不是您粘贴内容的问题，稍后重试即可。", file=sys.stderr)
         else:
             print("平台连续三次返回空或非 JSON 内容，请稍后重试。", file=sys.stderr)
         return 3
@@ -191,11 +211,11 @@ def main(argv=None, *, stdin=None, request=request_once, sleep=time.sleep,
         except OSError:
             count = 1
         if args.gate_mode:
-            print("登录校验失败：凭据无效或未登录。", file=sys.stderr)
+            print("登录校验失败：账号信息已失效或未登录。", file=sys.stderr)
         else:
-            guide(f"凭据无效或未登录（接口返回：{message}）")
+            guide(f"账号信息已失效或未登录（平台提示：{plain_platform_message(message)}）")
             if count >= 2:
-                print(f"这份凭据已连续 {count} 次失效，同一份重试没有意义，请重新获取。")
+                print(f"这份登录信息已连续 {count} 次失效，反复重贴没用——请回浏览器重新复制一次。")
         return 1
 
     if args.gate_mode:
@@ -224,7 +244,7 @@ def main(argv=None, *, stdin=None, request=request_once, sleep=time.sleep,
     print("连接成功，来发信账号状态：")
     print(
         f"   操作用户：{mask_identifier(token.split('&')[1])} | "
-        f"工作空间(orgId)：{mask_identifier(org)}"
+        f"当前操作空间：{mask_identifier(org)}"
     )
     print(f"   账号等级：{vip_label}")
     print(f"   今日查看配额：{daily_limit} 条，已用 {daily_used} 条")
