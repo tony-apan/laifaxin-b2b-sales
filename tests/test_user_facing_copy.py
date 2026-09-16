@@ -451,3 +451,138 @@ class GateBoundaryTest(unittest.TestCase):
                     with self.assertRaises(SystemExit) as ctx:
                         require_approval(aid, "p/x", ("S5",), what="测试")
                 self.assertEqual(1, ctx.exception.code, "审批缺失/无效必须 fail-closed")
+
+
+class FailureReportingDisciplineTest(unittest.TestCase):
+    """失败/停下时的汇报纪律（2026-09-11 用户实测截图后的对抗加固）。
+
+    实测反例：某次 AI 给用户看的是
+      「1. onboard_check.py：通过…  3. gate_check.sh：未通过。登录复核和工作空间落点复核均失败，
+        因此已按规则停止。」
+    ——满屏工具文件名与行话，小白只看懂"失败"，还会误以为**自己账号坏了**
+    （实际只是 AI 还没收到账号钥匙）。这组断言把"工具名不得进用户视野"与
+    "失败必给唯一下一步"锁死，覆盖**任何时刻**（不只模板代码块）。
+    """
+
+    # 工具/脚本名（含去后缀写法）——给用户的任何文本都不得出现
+    TOOL_NAMES = (
+        "onboard_check", "gate_check", "check_login", "workspace_guard",
+        "flow_orchestrator", "check_rules", "gen_templates", "build_sequence",
+        "save_first_n", "contact_add", "activate_sequence", "rebuild_templates",
+        "render_preview", "render_html_preview", "segments_infer", "evidence_validation",
+        "compliance_validation", "finalize_run", "finalize_audit", "update_run_state",
+        "audit_company", "find_threshold", "find_critical", "verify_sequence",
+        "verify_exclude", "wait_save_done", "resolve_schedule", "seed_resolve",
+        "tmap_grid", "tag_add", "delete_all_products",
+    )
+    # 内部行话（面向用户时禁止）
+    JARGON = ("落点", "凭据", "rc=", "[PASS]", "[FAIL]", "校验未通过",
+              "复核失败", "退出码", "workspace", "isOrg")
+
+    def user_blocks(self, name):
+        text = (TEMPLATES / name).read_text(encoding="utf-8")
+        return re.findall(r"```[a-zA-Z]*\n(.*?)```", text, re.S)
+
+    def test_failure_card_exists_and_is_single_source(self):
+        p = TEMPLATES / "S0-连接未通过.md"
+        self.assertTrue(p.exists(), "缺少「连接未通过」卡——AI 失败时没有可照抄的话术")
+        dups = [q.name for q in TEMPLATES.glob("*未通过*.md")]
+        self.assertEqual(["S0-连接未通过.md"], dups, f"失败卡应只有一个真源，实际: {dups}")
+
+    def test_failure_card_blocks_have_no_tool_names_or_jargon(self):
+        for bi, block in enumerate(self.user_blocks("S0-连接未通过.md"), 1):
+            for word in self.TOOL_NAMES + self.JARGON:
+                with self.subTest(block=bi, word=word):
+                    self.assertNotIn(word, block,
+                                     f"失败卡用户话术块出现工具名/行话「{word}」")
+
+    def test_failure_card_covers_the_screenshot_cases(self):
+        """必须覆盖实测四类：没收到 / 用不了 / 连错空间 / 网络问题。"""
+        text = (TEMPLATES / "S0-连接未通过.md").read_text(encoding="utf-8")
+        for kw in ("不是您的账号有问题", "重新执行一次复制命令",
+                   "不是您想用的那个工作空间", "网络或平台临时"):
+            with self.subTest(kw=kw):
+                self.assertIn(kw, text, f"失败卡缺场景：{kw}")
+
+    def test_every_failure_block_says_its_not_users_fault_or_gives_action(self):
+        """每个用户块：要么明说"不是您的问题"，要么给出唯一动作；且都有下一步动作词。"""
+        ACTION = re.compile(r"回复|确认|请您|您不用|什么都不用做|我来处理|我再试")
+        for bi, block in enumerate(self.user_blocks("S0-连接未通过.md"), 1):
+            with self.subTest(block=bi):
+                self.assertRegex(block, ACTION, "失败话术缺明确下一步")
+
+    def test_failure_blocks_declare_no_data_touched(self):
+        """检查类失败必须说明本次没动数据（用户最担心的第二件事）。"""
+        text = (TEMPLATES / "S0-连接未通过.md").read_text(encoding="utf-8")
+        self.assertRegex(text, r"没搜索|没有搜索")
+        self.assertRegex(text, r"没保存|没有保存")
+
+    def test_rules_has_anytime_discipline(self):
+        """RULES 必须有"对用户开口任何时刻"的总纪律（不能只约束模板代码块）。"""
+        text = (ROOT / "RULES.md").read_text(encoding="utf-8")
+        self.assertIn("任何时刻", text, "RULES 缺『对用户开口任何时刻』总纪律")
+        self.assertRegex(text, r"唯一下一步|唯一的下一步",
+                         "RULES 缺『失败必给唯一下一步』要求")
+        self.assertRegex(text, r"是不是您的|跟您有没有关系|不是您的账号|不是用户的问题",
+                         "RULES 缺『先说跟用户有没有关系』要求")
+
+    def test_skill_points_to_failure_card(self):
+        text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("S0-连接未通过", text, "SKILL 未把失败汇报列为必照模板的固化产出")
+
+    def test_card_index_lists_failure_card(self):
+        text = (TEMPLATES / "README.md").read_text(encoding="utf-8")
+        self.assertIn("S0-连接未通过", text, "output-templates 索引未挂失败卡")
+
+    def test_gate_check_emits_user_plain_section(self):
+        """工具自己必须产出可直接照抄的白话段（否则换个 AI 还会照抄工具原文）。"""
+        src = (ROOT / "tools" / "gate_check.sh").read_text(encoding="utf-8")
+        self.assertIn("给用户看的这一段", src, "gate_check 缺『给用户看的这一段』白话段")
+        self.assertIn("禁止原样转述给用户", src, "gate_check 未标注明细行不可转述")
+        # 空输入必须归类为"还差一步"，不得报成失败
+        self.assertIn("[还差一步]", src, "gate_check 缺『还差一步』分类（会把没收到误报成失败）")
+        self.assertIn("不是您的账号有问题", src, "gate_check 白话段缺『不是您的账号』声明")
+
+    def test_workspace_guard_distinguishes_misroute_from_undetermined(self):
+        """★2026-09-11 实测缺陷：钥匙失效时曾报成"您连错空间了"（误导用户去切空间）。
+
+        契约：exit 1 专指确凿误路由；"无法判定"（平台未返回/钥匙失效）用 exit 5。
+        两者对用户的说法完全不同，混用就是把用户往错方向指。
+        """
+        import subprocess, sys
+        # 假凭据 → 探测必然失败 → 无法判定（不是"空间连错"）
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "workspace_guard.py"),
+             "--credentials-stdin", "--require-verified"],
+            input="accesstoken=web.laifaxin.com&fakeuid&fakehash\norgId=999999\n",
+            text=True, capture_output=True, cwd=ROOT, timeout=120,
+        )
+        self.assertEqual(5, result.returncode,
+                         "无法判定必须是 exit 5；用 1 会让上游误报『您连错空间了』")
+        src = (ROOT / "tools" / "workspace_guard.py").read_text(encoding="utf-8")
+        self.assertIn("无法判定", src)
+        self.assertIn("1 与 5 都是", src, "退出码契约须在文档串里写清，供调用方区分")
+
+    def test_gate_check_maps_undetermined_separately(self):
+        """gate_check 对 exit 5 必须说"没能判定/不等于空间错了"，不得说"连错空间"。"""
+        src = (ROOT / "tools" / "gate_check.sh").read_text(encoding="utf-8")
+        self.assertIn("5) bad", src, "gate_check 未单独处理 exit 5")
+        idx = src.index("5) bad")
+        line = src[idx:src.index("\n", idx)]
+        self.assertIn("不等于空间错了", line,
+                      "exit 5 的话术必须排除『空间错了』的误导")
+
+    def test_gate_check_empty_stdin_is_not_failure(self):
+        """★实测复现：空 stdin（=AI 没接到钥匙）不得计入『不通过』。"""
+        import subprocess, sys
+        result = subprocess.run(
+            ["bash", str(ROOT / "tools" / "gate_check.sh"), "--credentials-stdin"],
+            input="", text=True, capture_output=True, cwd=ROOT, timeout=60,
+        )
+        self.assertIn("还差一步", result.stdout, "空输入应报『还差一步』")
+        self.assertNotIn("[FAIL] 账号钥匙失效", result.stdout,
+                         "空输入不得误报成『钥匙失效』（会让用户白重登）")
+        self.assertIn("不是您的账号有问题", result.stdout,
+                      "空输入场景必须明说不是用户账号问题")
+        self.assertNotIn("check_login.py", result.stdout.split("给用户看的这一段")[-1],
+                         "白话段不得出现工具名")

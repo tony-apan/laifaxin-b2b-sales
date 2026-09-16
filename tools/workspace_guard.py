@@ -26,7 +26,15 @@
   python3 tools/workspace_guard.py --credentials-stdin
   python3 tools/workspace_guard.py --credentials-stdin --require-verified
   python3 tools/workspace_guard.py --token <T> --org <orgId>          # AI 内部兼容，禁止面向用户
-输出：exit 0=通过 / 1=落点不匹配或未校验(按 require-verified) / 2=输入格式错 / 3=网络问题
+输出（★2026-09-11 细分，防调用方把"没判出来"误报成"空间错了"）：
+  exit 0 = 通过
+  exit 1 = **确凿误路由**（判为个人空间但 org≠用户UID，或判为企业空间但 org==用户UID）
+  exit 2 = 输入格式错（凭据没读全/格式不对）
+  exit 3 = 网络/接口问题（探测没结果）
+  exit 4 = 无法判定（平台未返回 isOrg），且**未**启用 --require-verified → 仅告警
+  exit 5 = 无法判定（平台未返回 isOrg 或凭据已失效），且启用了 --require-verified → 按阻断处理
+  ⚠️ 1 与 5 都是"不许继续"，但含义不同：1=空间连错（要用户换空间重取），
+     5=这次没判出来（可能是钥匙失效/平台未返回）——**调用方对用户的说法必须分开**。
 """
 import argparse
 import hashlib
@@ -205,8 +213,10 @@ def main(argv=None, *, stdin=None, probe=None):
         return 1
     if not result["verified"]:
         if args.require_verified:
-            print(f"❌ 工作空间校验未通过：{result['reason']}", file=sys.stderr)
-            return 1
+            # ★exit 5（不是 1）：这是"没能判定"，不是"判定为空间错了"——
+            #   混成 1 会让调用方对用户说"您连错空间了"，而实际可能是钥匙已失效。
+            print(f"❌ 工作空间校验未通过（无法判定）：{result['reason']}", file=sys.stderr)
+            return 5
         print(f"⚠️  未校验（不等于通过）：{result['reason']}", file=sys.stderr if args.gate_mode else sys.stdout)
         return 4
     print(f"✅ {result['reason']}")

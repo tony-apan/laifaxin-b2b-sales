@@ -166,7 +166,9 @@ class WorkspaceGuardCliTest(unittest.TestCase):
         lenient, _ = self.run_cli(body)
         self.assertEqual(lenient.returncode, 4, "无法校验应返回 4（未校验），不是 0")
         strict, _ = self.run_cli(body, ["--token", TOKEN, "--org", ENTERPRISE_ORG, "--require-verified"])
-        self.assertEqual(strict.returncode, 1)
+        # ★2026-09-11 细分：无法判定被拦=exit 5（不是 1）——1 专指"确凿连错空间"，
+        #   混用会让上游对用户说"您连错空间了"，而实际可能是钥匙失效。
+        self.assertEqual(strict.returncode, 5, "无法判定须与『空间连错』区分（exit 5 vs 1）")
 
 
 if __name__ == "__main__":
