@@ -805,3 +805,87 @@ class GatePlainTextSingleSourceTest(unittest.TestCase):
                      "落点", "凭据", "[FAIL]", "[PASS]", "rc="):
             with self.subTest(word=word):
                 self.assertNotIn(word, plain, f"白话段含内部词「{word}」")
+
+
+class FinalConfirmStepPresentationTest(unittest.TestCase):
+    """★2026-09-17 用户实测：S12"请您亲自确认"那一步的展示不合格。
+
+    实测反例（用户截图）：AI 现场手搓命令，发出的是
+      "C:\\...\\python.exe" "C:\\...\\flow_orchestrator.py" --resume-s12 ...
+    ＋注解「需在仓库目录下运行才认相对路径。最稳妥：先 cd "C:\\..." 再运行（去掉上面的仓库绝对路径前缀…）」
+    ——绝对路径与"去掉前缀"自相矛盾、让用户在 PowerShell 与 Git Bash 之间二选一、
+    动作混在长段落里（用户原话："让用户做的不突出"、"emoji 呢？？？"）。
+
+    这组断言把"命令由工具产出"和"动作要突出"锁死。
+    """
+
+    CARD = "S12-您亲自确认.md"
+
+    def text(self):
+        return (TEMPLATES / self.CARD).read_text(encoding="utf-8")
+
+    def blocks(self):
+        return re.findall(r"```[a-zA-Z]*\n(.*?)```", self.text(), re.S)
+
+    def test_card_exists_and_is_single_source(self):
+        self.assertTrue((TEMPLATES / self.CARD).exists(), "缺少『请您亲自确认』卡")
+        dups = [p.name for p in TEMPLATES.glob("*亲自确认*.md")]
+        self.assertEqual([self.CARD], dups, f"该卡应只有一个真源，实际: {dups}")
+
+    def test_command_comes_from_tool_not_handwritten(self):
+        """卡里必须要求命令由 `--print-s12-command` 产出（禁止手搓）。"""
+        t = self.text()
+        self.assertIn("--print-s12-command", t, "未要求用工具产出命令（手搓=复现实测事故）")
+        self.assertIn("禁止手搓", t, "未明确禁止手搓命令")
+
+    def test_tool_actually_prints_single_line_absolute_command(self):
+        """工具模式必须真的产出：单行、绝对路径、不含 token、带 --resume-s12。"""
+        import subprocess, sys
+        cmd = [sys.executable, str(ROOT / "tools" / "flow_orchestrator.py"),
+               "--print-s12-command", "--org", "1234567",
+               "--profile", "runs/x/y/product-profile.md",
+               "--seq", "a" * 24,
+               "--compliance-file", "runs/x/y/compliance-check.json"]
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT, timeout=60)
+        self.assertEqual(0, r.returncode, r.stdout + r.stderr)
+        out = r.stdout.strip()
+        self.assertEqual(1, len(out.splitlines()), f"必须单行（用户整段复制）: {out[:120]}")
+        self.assertIn("--resume-s12", out)
+        self.assertIn("flow_orchestrator.py", out)
+        self.assertIn(str(ROOT), out, "路径必须是绝对路径（用户可在任意目录粘贴运行）")
+        self.assertNotIn("accesstoken", out, "命令里不得出现登录密码串")
+        self.assertNotIn("cd ", out, "不得要求用户先 cd（实测反例就栽在这）")
+
+    def test_card_tells_single_terminal_flavor(self):
+        """只点名一种窗口（禁止让小白二选一）。"""
+        t = self.text()
+        self.assertRegex(t, r"单一|只点名一种|PowerShell 窗口 / 终端窗口|按用户系统给一个",
+                         "卡应要求只给一种终端")
+
+    def test_user_steps_are_numbered_with_emoji(self):
+        """用户动作必须逐行编号 + emoji（用户实测：不突出、缺 emoji）。"""
+        blocks = self.blocks()
+        user_block = blocks[0]
+        for mark in ("1️⃣", "2️⃣", "3️⃣", "4️⃣"):
+            with self.subTest(mark=mark):
+                self.assertIn(mark, user_block, f"用户步骤缺 {mark} 编号/emoji")
+
+    def test_user_block_says_what_it_does_not_do(self):
+        """这一步最容易被误解为"要发信了/要扣点了"——必须说明它不做什么。"""
+        b = self.blocks()[0]
+        self.assertRegex(b, r"不会发|不发送|不会扣|不扣点|只是登记",
+                         "须说明这一行命令不发送邮件/不扣点/只登记确认")
+
+    def test_user_block_has_command_placeholder_not_real_command(self):
+        """用户话术里命令是占位符（由 AI 填工具产出），不得内嵌真实脚本名。"""
+        b = self.blocks()[0]
+        self.assertIn("<命令>", b, "命令应以占位符呈现")
+        for bad in ("flow_orchestrator", ".py", "resume-s12", "python3"):
+            with self.subTest(bad=bad):
+                self.assertNotIn(bad, b, f"用户话术块不得内嵌「{bad}」")
+
+    def test_activation_card_distinguishes_two_steps(self):
+        """S12-激活确认 必须区分"您已说确认激活"与"还需您在终端亲自点一次"。"""
+        t = (TEMPLATES / "S12-激活确认.md").read_text(encoding="utf-8")
+        self.assertRegex(t, r"亲自确认|终端|本人在",
+                         "S12 卡未提到最后还有一步需用户亲自确认（会被读成说一声就发信）")

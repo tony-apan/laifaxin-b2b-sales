@@ -58,7 +58,7 @@ S9 SEQUENCE_PENDING: 展示12步(30分/5/15/30天)、时区(★默认纽约)、�
 S9a 固定标签（S9内部子检查，不单独推进operation status）: 「询盘」「不发」账号级一次性标签——build_sequence前先查同名复用，不存在才经绑定审批创建；notSentTags解析失败则S9 fail-closed
 S10 CONTACT_PENDING: 保存finished、标签联系人>0、序列inactive、人数对账且用户确认后才contact-add
 S11 READY_INACTIVE: 输出完整流程和参数；verification-manifest须 `evidence_mode=live`，4份证据必须来自真实线上验证且不含模拟/离线/网络桩/占位标记；simulation只能出报告，禁止推进 S11。正式测试保持inactive，等待用户确认
-S12 ACTIVE: 仅明确“确认激活/激活序列<名称>”才激活。compliance-check须 `evidence_mode=live`，五项均为72小时内真实证据；模拟/离线/网络桩/占位/未实际标记一律拒绝。已到S11的项目用 flow `--resume-s12` 在当前真实TTY只签绑定凭证（不联网、不激活、不重跑S0-S10），再由activate工具完成所有本地闸门后首次联网并回读active。激活前 AI 逐项自查并展示：目标市场规则、名单来源、发送主体信息、实际退订入口、拒收机制；用户只对展示结果做最终确认
+S12 ACTIVE: 仅明确“确认激活/激活序列<名称>”才激活。compliance-check须 `evidence_mode=live`，五项均为72小时内真实证据；模拟/离线/网络桩/占位/未实际标记一律拒绝。已到S11的项目用 flow `--resume-s12` 在当前真实TTY只签绑定凭证（不联网、不激活、不重跑S0-S10），再由activate工具完成所有本地闸门后首次联网并回读active。★**向用户展示这一步照 `output-templates/S12-您亲自确认.md`**（4 步逐行 emoji + 命令由 `flow_orchestrator.py --print-s12-command` 产出、单行绝对路径整段复制；禁止手搓命令、禁止让用户先 cd、禁止 PowerShell/Git Bash 二选一——2026-09-17 用户实测反例）。激活前 AI 逐项自查并展示：目标市场规则、名单来源、发送主体信息、实际退订入口、拒收机制；用户只对展示结果做最终确认
 ERROR_BLOCKED: 异常/参数变/对账不一致时只读检查；恢复须项目内 `recovery-manifest.json` 绑定project/目标状态/72小时内时间/修复原因/验证文件hash+pass，只能回到record.next_state，通用关键词文本不可解锁
 ```
 

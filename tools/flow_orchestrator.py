@@ -50,6 +50,8 @@ ap.add_argument("--skip-preview", action="store_true", help="跳过模板草稿�
 mode = ap.add_mutually_exclusive_group()
 mode.add_argument("--dry-run", action="store_true", help="只读盘点/展示，不写(签名/档案硬闸门不豁免)")
 mode.add_argument("--resume-s12", action="store_true", help="仅从标准项目record的S11/READY_INACTIVE现场确认并签发S12激活凭证；不联网、不执行激活")
+mode.add_argument("--print-s12-command", action="store_true",
+                  help="★只打印『请用户在自己终端粘贴的那一行命令』（单行/绝对路径/按系统选形式）供 AI 原样转发；不联网、不校验、不写凭证")
 # ★写节点实际参数载体(向导拿不到完整参数时不签发可执行凭证, 由这些参数或专门审批命令 grant 补齐绑定)
 ap.add_argument("--save-n", type=int, default=0, help="S5 实际保存条数N(与回复中 前N=xx 等效; 缺→S5只记decision_pending)")
 ap.add_argument("--plan", default="", help="S7 模板计划JSON路径(实际plan; 缺→S7只记decision_pending)")
@@ -60,7 +62,7 @@ ap.add_argument("--task", default="", help="S10 保存任务id(与contact_add --
 ap.add_argument("--compliance-file", default="", help="S12 合规核验JSON(market/list_source/sender_identity/unsubscribe/suppression均pass; 与activate_sequence一致)")
 args = ap.parse_args()
 
-if not args.resume_s12:
+if not (args.resume_s12 or args.print_s12_command):
     missing = [flag for flag, value in (("--token", args.token), ("--nickname", args.nickname), ("--product", args.product)) if not value]
     if missing:
         ap.error("the following arguments are required: " + ", ".join(missing))
@@ -72,6 +74,39 @@ def _standard_profile_path(path, meta):
         return path.resolve() == expected.resolve()
     except OSError:
         return False
+
+
+def print_s12_command():
+    """打印请用户在自己终端粘贴的那一行命令（单行、绝对路径、可在任意目录运行）。
+
+    背景（2026-09-17 用户实测）：S12 要求用户本人在真实终端确认，但此前**没有工具产出这个命令**，
+    AI 只能手搓——结果发出去的命令混着机器绝对路径、相对路径注释和"去掉前缀"这类自相矛盾注解，
+    小白看不懂也不知道自己该干嘛。这里统一由工具产出，AI 只负责原样转发。
+    """
+    py = sys.executable or "python3"
+    script = str((KB / "tools" / "flow_orchestrator.py").resolve())
+    prof = Path(args.profile)
+    prof = prof if prof.is_absolute() else (KB / prof)
+    comp = Path(args.compliance_file)
+    comp = comp if comp.is_absolute() else (KB / comp)
+    line = " ".join([
+        f'"{py}"', f'"{script}"', "--resume-s12",
+        "--org", str(args.org),
+        "--profile", f'"{prof}"',
+        "--seq", str(args.seq),
+        "--compliance-file", f'"{comp}"',
+    ])
+    if os.name == "nt":
+        # PowerShell 里以引号开头的路径必须加调用运算符 &（否则报"意外的标记"）
+        line = "& " + line
+    # 轻提示（不阻断、不影响 stdout 的纯净）：路径不存在时提醒 AI 先自查，
+    # 免得把注定报错的命令发给用户、让用户白跑一趟
+    for label, path in (("产品档案", prof), ("合规核验文件", comp)):
+        if not path.exists():
+            print(f"⚠️（AI 自查用，勿转述）{label}路径不存在：{path}——请先核对再发给用户",
+                  file=sys.stderr)
+    print(line)
+    return 0
 
 
 def resume_s12():
@@ -149,6 +184,9 @@ def resume_s12():
     print(f"✅ S12绑定凭证已签发: {approval_id}；record仍为S11，未执行激活")
     return 0
 
+
+if args.print_s12_command:
+    raise SystemExit(print_s12_command())
 
 if args.resume_s12:
     raise SystemExit(resume_s12())
