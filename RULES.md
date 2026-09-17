@@ -58,7 +58,7 @@ S9 SEQUENCE_PENDING: 展示12步(30分/5/15/30天)、时区(★默认纽约)、�
 S9a 固定标签（S9内部子检查，不单独推进operation status）: 「询盘」「不发」账号级一次性标签——build_sequence前先查同名复用，不存在才经绑定审批创建；notSentTags解析失败则S9 fail-closed
 S10 CONTACT_PENDING: 保存finished、标签联系人>0、序列inactive、人数对账且用户确认后才contact-add
 S11 READY_INACTIVE: 输出完整流程和参数；verification-manifest须 `evidence_mode=live`，4份证据必须来自真实线上验证且不含模拟/离线/网络桩/占位标记；simulation只能出报告，禁止推进 S11。正式测试保持inactive，等待用户确认
-S12 ACTIVE: 仅明确“确认激活/激活序列<名称>”才激活。compliance-check须 `evidence_mode=live`，五项均为72小时内真实证据；模拟/离线/网络桩/占位/未实际标记一律拒绝。已到S11的项目用 flow `--resume-s12 --confirm "<用户原话>"` 只签绑定凭证（不联网、不激活、不重跑S0-S10），再由activate工具完成所有本地闸门后首次联网并回读active。★**用户确认方式=聊天里回一句**（2026-09-17 用户拍板推翻旧的"开终端交互确认"设计：普通用户不认识终端，那是拦路虎，不是安全）。AI 必须传入用户**原话**且含"激活"字样；含糊应答（"好的""可以"）一律拒绝。激活前 AI 逐项自查并展示：目标市场规则、名单来源、发送主体信息、实际退订入口、拒收机制；用户只对展示结果做最终确认
+S12 ACTIVE: 仅明确“确认激活/激活序列<名称>”才激活。compliance-check须 `evidence_mode=live`，五项均为72小时内真实证据；模拟/离线/网络桩/占位/未实际标记一律拒绝。已到S11的项目用 flow `--resume-s12 --confirm "<用户原话>"` 只签绑定凭证（不联网、不激活、不重跑S0-S10），再由activate工具完成所有本地闸门后首次联网并回读active。★**两条路都支持**（2026-09-17 用户要求）：①用户在聊天里说「确认激活」→ AI 执行；②**用户自己去** https://web.laifaxin.com/mailing/sequence 核对并手动打开开关 → 回来告知 → AI 用 `activate_sequence.py --sync-manual` 只读回读确认 active 并同步本地（**不发起平台写操作、不需要审批凭证**，因为平台侧开关是用户亲手开的）。两条路都必须原话含"激活"、seq 与 record 一致；同步路径回读非 active 一律拒绝并保持 S11。★**用户确认方式=聊天里回一句**（2026-09-17 用户拍板推翻旧的"开终端交互确认"设计：普通用户不认识终端，那是拦路虎，不是安全）。AI 必须传入用户**原话**且含"激活"字样；含糊应答（"好的""可以"）一律拒绝。激活前 AI 逐项自查并展示：目标市场规则、名单来源、发送主体信息、实际退订入口、拒收机制；用户只对展示结果做最终确认
 ERROR_BLOCKED: 异常/参数变/对账不一致时只读检查；恢复须项目内 `recovery-manifest.json` 绑定project/目标状态/72小时内时间/修复原因/验证文件hash+pass，只能回到record.next_state，通用关键词文本不可解锁
 ```
 

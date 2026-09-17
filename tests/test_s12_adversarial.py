@@ -28,6 +28,7 @@
 """
 import json
 import hashlib
+import os
 import shutil
 import subprocess
 import sys
@@ -302,3 +303,144 @@ class S12AdversarialTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ManualActivationSyncTest(unittest.TestCase):
+    """★2026-09-17 用户要求：给用户第二条路——自己去网页手动激活，AI 只做核对与同步。
+
+    背景：此前只有"聊天里说一句让 AI 激活"一条路。用户提出"另外可以引导用户去网页上
+    查看下再手动激活"——想亲眼看一遍数据的人应该能自己开开关（透明、可信），
+    AI 不该把这一步垄断。
+
+    契约（`activate_sequence.py --sync-manual`）：
+      · 只读回读平台确认真的 active + 写本地 record；**不发起任何平台写操作、不需要审批凭证**
+        （审批凭证用于授权"AI 代为写平台"；这条路径没有平台写操作）
+      · 仍要求原话含"激活"（登记用户意志）、seq 与 record 一致（防串台）
+      · 回读非 active / 读不到 → 一律拒绝且保持 S11（不猜、不替用户激活）
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="s12sync-"))
+        self.repo = self.tmp / "repo"
+        shutil.copytree(ROOT, self.repo, ignore=shutil.ignore_patterns(
+            ".git", ".local", "runs", "__pycache__"))
+        self.project_dir = self.repo / "runs" / "tony" / "pet-pack"
+        self.project_dir.mkdir(parents=True)
+        (self.project_dir / "product-profile.md").write_text(PROFILE_FIXTURE, encoding="utf-8")
+        self.record = self.project_dir / "operation-record.md"
+        self.write_record("S11")
+        self.bin = self.tmp / "bin"
+        self.bin.mkdir()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def write_record(self, status):
+        self.record.write_text(
+            f"---\noperator_key: tony\nproduct_key: pet-pack\nproject: {PROJECT}\n"
+            f"status: {status}\nsequence_id: {SEQ}\n---\n", encoding="utf-8")
+
+    def status(self):
+        for line in self.record.read_text(encoding="utf-8").splitlines():
+            if line.startswith("status:"):
+                return line.split(":", 1)[1].strip()
+        return ""
+
+    def fake_platform(self, seq_status=None):
+        """模拟平台：给定序列状态（None=接口返回空）。"""
+        payload = "{}" if seq_status is None else json.dumps(
+            {"success": True, "data": {"list": [{"id": SEQ, "status": seq_status}]}})
+        fake = self.bin / "curl"
+        fake.write_text(f'#!/bin/sh\necho \'{payload}\'\n', encoding="utf-8")
+        fake.chmod(0o755)
+
+    def sync(self, confirm="我已在网页激活 皮筏艇找客户", seq=None, record=None, extra=()):
+        env = os.environ.copy()
+        env["PATH"] = str(self.bin) + os.pathsep + env.get("PATH", "")
+        return subprocess.run(
+            [sys.executable, str(self.repo / "tools" / "activate_sequence.py"),
+             "--token", "fake", "--org", ORG, "--seq", seq or SEQ, "--sync-manual",
+             "--record", str(record or self.record), *( ("--confirm", confirm) if confirm is not None else () ),
+             *extra],
+            capture_output=True, text=True, cwd=self.repo, env=env, timeout=90)
+
+    # ---- 正向：用户在网页开好后同步 ----
+    def test_sync_after_manual_activation_advances_local(self):
+        self.fake_platform("active")
+        r = self.sync()
+        self.assertEqual(0, r.returncode, r.stdout + r.stderr)
+        self.assertEqual("S12", self.status(), "平台已 active 时本地应同步为 S12")
+        self.assertIn("未发起任何平台写操作", r.stdout, "应说明本路径没有平台写操作")
+
+    def test_sync_is_idempotent_when_already_s12(self):
+        self.write_record("S12")
+        self.fake_platform("active")
+        r = self.sync()
+        self.assertEqual(0, r.returncode, r.stdout + r.stderr)
+        self.assertIn("无需重复同步", r.stdout)
+
+    # ---- 反向：一律不猜、不改本地 ----
+    def test_sync_rejects_when_platform_still_inactive(self):
+        self.fake_platform("inactive")
+        r = self.sync()
+        self.assertNotEqual(0, r.returncode)
+        self.assertEqual("S11", self.status(), "平台未 active 时本地必须保持 S11")
+        self.assertRegex(r.stdout + r.stderr, r"没生效|未开启|开在别的工作空间",
+                         "应提示用户回去确认开关是否真的开了")
+
+    def test_sync_rejects_when_platform_unreadable(self):
+        self.fake_platform(None)
+        r = self.sync()
+        self.assertNotEqual(0, r.returncode)
+        self.assertEqual("S11", self.status(), "读不到状态时不得改本地")
+
+    def test_sync_requires_activation_word(self):
+        self.fake_platform("active")
+        r = self.sync(confirm="我开好了")
+        self.assertNotEqual(0, r.returncode)
+        self.assertEqual("S11", self.status(), "原话不含'激活'不得同步")
+
+    def test_sync_rejects_interrogative(self):
+        self.fake_platform("active")
+        r = self.sync(confirm="已经激活了吗")
+        self.assertNotEqual(0, r.returncode)
+        self.assertEqual("S11", self.status(), "疑问句不得当授权")
+
+    def test_sync_requires_confirm(self):
+        self.fake_platform("active")
+        r = self.sync(confirm=None)
+        self.assertNotEqual(0, r.returncode)
+        self.assertEqual("S11", self.status())
+
+    def test_sync_rejects_sequence_mismatch(self):
+        self.fake_platform("active")
+        r = self.sync(seq="b" * 24)
+        self.assertNotEqual(0, r.returncode)
+        self.assertEqual("S11", self.status(), "seq 与 record 不一致时不得同步（防串台）")
+
+    def test_sync_requires_record(self):
+        self.fake_platform("active")
+        env = os.environ.copy()
+        env["PATH"] = str(self.bin) + os.pathsep + env.get("PATH", "")
+        r = subprocess.run(
+            [sys.executable, str(self.repo / "tools" / "activate_sequence.py"),
+             "--token", "fake", "--org", ORG, "--seq", SEQ, "--sync-manual",
+             "--confirm", "我已在网页激活"],
+            capture_output=True, text=True, cwd=self.repo, env=env, timeout=90)
+        self.assertNotEqual(0, r.returncode)
+
+    def test_sync_makes_no_write_call_to_platform(self):
+        """★关键：这条路径不得对平台发起任何写请求（只回读）。"""
+        self.fake_platform("active")
+        log = self.tmp / "curl.log"
+        fake = self.bin / "curl"
+        fake.write_text("#!/bin/sh\nprintf '%s\\n' \"$@\" >> " + str(log) + "\n"
+                        "echo '{\"success\":true,\"data\":{\"list\":[{\"id\":\"" + SEQ
+                        + "\",\"status\":\"active\"}]}}'\n", encoding="utf-8")
+        fake.chmod(0o755)
+        r = self.sync()
+        self.assertEqual(0, r.returncode, r.stdout + r.stderr)
+        calls = log.read_text(encoding="utf-8") if log.exists() else ""
+        self.assertIn("sequence-list", calls, "应当只读查询序列状态")
+        self.assertNotIn("sequence-active", calls,
+                         "★该路径不得调用激活接口（开关是用户自己在网页开的）")

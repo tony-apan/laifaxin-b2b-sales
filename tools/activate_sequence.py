@@ -7,6 +7,7 @@
       --compliance-file <合规核验JSON> --record runs/<operator_key>/<product_key>/operation-record.md \
       --confirm "<用户确认激活原话>" --approval <ap-id>
   python3 activate_sequence.py --token <T> --org <orgId> --seq <seqId> --status    # 只读查当前状态
+  python3 activate_sequence.py --token <T> --org <orgId> --seq <seqId> --sync-manual --record <record>  # ★用户在网页手动激活后，同步本地状态（只读平台+改本地）
   python3 activate_sequence.py --token <T> --org <orgId> --seq <seqId> --deactivate [--confirm "<用户原话>"]  # 回滚(降风险)
 铁律(静态红队P0修复):
   - ★禁止自签发审批: S12凭证只能由 flow_orchestrator --resume-s12 --confirm "<用户原话>" 生成（用户亲口说"确认激活"）；approval.py grant 明确拒绝S12。
@@ -20,6 +21,12 @@
   - 激活前确认: 目标序列 id 逐字核对 + 收件人预期（空序列=只测链路不真发）
   - ★激活后必须回读 sequence-list/sequence-details 确认 status:active（防接口假 success, 2026-09-02 ISS-01 恢复实证）
   - deactivate=回滚(降风险方向): 不要求 S12 审批, 但须明确目标回读(当前状态必须回读为 active 才执行); --confirm 给了就必须过否定/犹豫过滤
+  - ★sync-manual（2026-09-17 用户要求）: 用户在平台网页上自己看到序列、亲手开了开关 → 回来同步本地状态。
+    这条路径**不代替审批**，而是承认"用户已用更直接的方式行使了同一意志"：
+    ① 只读回读平台确认真的 active（读不到/非active 一律拒绝，不猜、不替用户激活）
+    ② 仍要求 record 处于 S11、seq 与 record 一致（防串台）
+    ③ 本地只推进 status→S12，不发起任何平台写操作
+    ④ 要求 --confirm <用户原话>（须含"激活"）作为意志凭据；不做审批哈希绑定（平台侧已生效，本地无写操作可授权）
 """
 import json, subprocess, sys, argparse, time, hashlib
 import re as _re
@@ -46,6 +53,7 @@ ap.add_argument("--compliance-file", default="", help="★合规核验JSON(激�
 ap.add_argument("--record", default="", help="项目operation-record；激活推进S12，回滚推进S11")
 ap.add_argument("--status", action="store_true", help="只读查当前状态,不激活")
 ap.add_argument("--deactivate", action="store_true", help="回滚为 inactive（空序列测完须回滚,防后续加联系人即真发;降风险方向,不要求S12审批但须明确目标回读）")
+ap.add_argument("--sync-manual", action="store_true", help="★用户在网页手动激活后同步本地状态：只读回读平台确认active→本地推进S12；不发起任何平台写操作")
 args = ap.parse_args()
 
 def api(path, p, t=60):
@@ -111,6 +119,38 @@ def check_confirm(quote, action_word):
     if action_word not in q and "activate" not in q.lower() and not (action_word == "暂停" and "inactive" in q.lower()):
         return False, f"原话不含'{action_word}'指令"
     return True, ""
+
+# ---- ★手动激活同步模式（用户在平台网页自己开了开关）----
+if args.sync_manual:
+    if not args.record:
+        print("❌ --sync-manual 必须带 --record <operation-record.md>（本地状态要推进到S12）"); sys.exit(2)
+    if not args.confirm.strip():
+        print("❌ --sync-manual 必须带 --confirm \"<用户原话>\"（须含'激活'）——同步本地状态也是登记用户意志"); sys.exit(2)
+    ok_m, why_m = check_confirm(args.confirm, "激活")
+    if not ok_m:
+        print(f"❌ 确认原话校验未过: {why_m}: {args.confirm!r}"); sys.exit(2)
+    try:
+        require_state(args.record, ("S11", "S12")); acquire_project_lock(args.record, "sync_manual_activation")
+    except (ValueError, RuntimeError) as exc:
+        print(f"❌ {exc}"); sys.exit(4)
+    rec = read_meta(args.record)
+    if rec.get("sequence_id", "") != args.seq:
+        print(f"❌ --seq={args.seq} 与 record.sequence_id={rec.get('sequence_id')!r} 不一致——拒绝同步（防串台）"); sys.exit(4)
+    # 只读回读（先校验落点：用户在别的空间激活就等于没生效，必须报出来）
+    preflight(args.token, args.org, dry_run=False, what="同步手动激活状态")
+    st_now = get_status()
+    if st_now is None:
+        print("❌ 平台状态未能回读（接口偶发空——稍等重试）；在读到明确 active 之前不改本地状态"); sys.exit(3)
+    if st_now != "active":
+        print(f"❌ 平台回读状态={st_now}≠active——说明网页上的开关没生效（或还没开/开在了别的工作空间）。")
+        print("   本地状态保持 S11 不变。请回 https://web.laifaxin.com/mailing/sequence 确认该序列已开启后重跑本命令。")
+        sys.exit(3)
+    if read_status(args.record) == "S12":
+        print("ℹ️ 平台已 active 且本地已是 S12——无需重复同步"); sys.exit(0)
+    update_frontmatter(args.record, {"status": "S12", "next_state": ""}, expected_states=("S11", "S12"))
+    print(f"✅ 已确认平台侧 active（序列 {args.seq}），本地状态已同步 → S12")
+    print("   本地未发起任何平台写操作：激活开关是您本人在网页上开的。")
+    sys.exit(0)
 
 # ---- 回滚模式（对抗P0-1: 空序列测完须回滚 inactive; 降风险方向不要求S12审批, 但须明确目标回读）----
 if args.deactivate:

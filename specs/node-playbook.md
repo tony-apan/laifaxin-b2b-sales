@@ -157,6 +157,7 @@ audience: 人+AI
 - **判据（来源）**：`../RULES.md` S12「仅明确确认激活才激活；平台负责发送技术与退订呈现，运营方仍核验目标市场规则、名单来源、发送主体、实际退订入口、拒收名单与数据处理要求」+ 铁律5「发信前」。激活前逐字核对目标序列 id，并验证 notSentTags/上限/步骤。
 - **通过条件**：verify_sequence 已用真实线上状态通过；compliance-check 顶层必须 `evidence_mode:"live"` 并绑定 project/seq/profile/checked_at，五项均 status=pass 且 evidence 含真实 source/checked_at/detail；simulation/mock/stub/离线/网络桩/占位/未实际标记一律拒绝。项目已在 S11 时，使用 `flow_orchestrator.py --resume-s12 --org <ORG_IN_MEMORY> --profile <标准档案> --seq <序列id> --compliance-file <文件> --confirm "<用户原话>"` 签发凭证（用户在聊天里明说"确认激活"即可，无需终端；原话须含"激活"字样）；
   该入口不联网、不激活、不重跑S0-S10，record保持S11。S12禁止approval.py grant，历史/backfilled/工具自签无效。
+  ★**用户在网页自己激活的同步路径（2026-09-17 用户要求）**：引导用户在 https://web.laifaxin.com/mailing/sequence 核对序列（12步/模板/上限/不发送保护）后亲手打开开关 → 用户回来说"我已在网页激活" → 主 AI 用 `activate_sequence.py --sync-manual --org <ORG> --seq <id> --record <record> --confirm "<用户原话>"` 只读回读确认 active 并推进本地 S12；**该路径不发起任何平台写操作、不需要审批凭证**（平台侧开关由用户亲手开启）。回读非 active/读不到 → 拒绝且保持 S11（常见：开关没生效或开在别的工作空间）。
 - **API**：`POST /api/sequences/sequence-active {"id":<seqId>,"active":true}`；工具必须回读 active 防假成功。
 - **脚本**：先用上行 `--resume-s12` 获取与当前参数绑定的 S12 凭证，再由主 AI 内部调用 `activate_sequence.py --seq <id> --project <key> --profile <product-profile> --compliance-file <compliance-check.json> --record <operation-record> --confirm '<与凭证一致的用户原话>' --approval <S12凭证>`；凭据参数不向用户展示。
 - **产出记录**：`.local/approvals.tsv`（激活确认行）；本地运行记录 status→active（不入 Git）。

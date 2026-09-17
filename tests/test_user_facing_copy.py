@@ -837,10 +837,23 @@ class ActivationIsOneChatLineTest(unittest.TestCase):
         self.assertEqual([], offenders, f"卡片仍在要求用户使用终端: {offenders}")
 
     def test_activation_happens_in_chat(self):
-        """激活卡必须明确"回一句话即可、不用开窗口"。"""
+        """激活卡必须给出两条路，且都不需要开终端/粘命令。
+
+        ★2026-09-17 用户要求：①聊天里说一句让我来 ②用户自己去网页手动开启后我同步。
+        两种方式都不涉及终端；"自己去网页"是有意提供的透明选项，不是门槛。
+        """
         self.assertRegex(self.card, r"确认激活", "激活卡未给出用户要回的话")
-        self.assertRegex(self.card, r"不用开任何窗口|不用开窗口|不用粘贴命令",
-                         "激活卡未说明用户不需要开窗口/粘命令")
+        self.assertIn("方式一", self.card, "激活卡未给出'让我来'的方式")
+        self.assertIn("方式二", self.card, "激活卡未给出'您去网页自己开'的方式")
+        # 方式二必须说明去哪、做什么、回来怎么讲
+        self.assertIn("web.laifaxin.com/mailing/sequence", self.card,
+                      "方式二未给出序列页地址（用户找不到地方）")
+        self.assertRegex(self.card, r"我已在网页激活", "方式二未给出用户回来说什么")
+        # ★只查**用户话术块**：AI 要点里"不需要开终端"这类否定说明是合法且必要的
+        block = re.findall(r"```[a-zA-Z]*\n(.*?)```", self.card, re.S)[0]
+        for bad in ("终端", "PowerShell", "命令行", "粘贴命令", ".py", "approval"):
+            with self.subTest(bad=bad):
+                self.assertNotIn(bad, block, f"激活卡用户话术出现终端类要求「{bad}」")
 
     def test_activation_no_longer_mentions_previous_terminal_flow(self):
         """★只查**用户话术块**：AI 要点里"不需要开终端"这类否定说明是合法的。"""
