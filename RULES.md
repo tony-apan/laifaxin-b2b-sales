@@ -19,7 +19,7 @@ audience: 人+AI
 > **★ 新获客项目入口总线**：用户明确选择开始新项目 → 先收昵称+一句话产品并完成 S0/S0a 产品了解与适配判断 → **首次调用来发信平台前，必须运行 `check_login.py`（无 token 才引导用户按[官方教程](https://www.laifa.xin/share/ai/laifaxin-ai-account-connection)获取）** → `bash tools/gate_check.sh`（★bash 脚本，用 `bash` 调用不是 `python3`；闸门未通过**禁止任何保存/模板/序列/contact-add**）→ `flow_orchestrator.py`（向导）。登录检查是平台操作前第一步，不是安装或对话开局第一句；闸门=写操作的唯一通行证。
 > **★ 凭据唯一交付路径**：需要连接平台时，用户只在浏览器执行一键双取，然后把 `accesstoken=` + `orgId=` 两行整段直接粘贴到当前受信任、正在本机操作的主 AI 聊天框。AI **禁止要求用户**设置 TOKEN/ORG 环境变量、创建 `.env`、执行 Python/Shell 命令、拆分或改写参数。仓库工具不主动回显或落盘**原始凭据**，不写 `.env`/日志/持久环境变量、不传子代理；主 AI 通过宿主程序化 stdin 把两行原样交 `check_login.py --credentials-stdin`。
   失效重试只允许在 `.local/token-fail.json` 保存 token 短哈希、次数和时间，不保存原文。宿主不支持程序化 stdin 时，也不得把内部操作甩给用户；可由主 AI 使用内部兼容调用，并如实遵循宿主审计边界。聊天服务是否保存对话取决于其隐私政策。缺任一字段必须停止，禁止从 token 中段回退 orgId。
-> **审批信任边界**：本仓工具防呆，不提供密码学真人证明。它能阻断误操作、参数漂移、旧凭证、非TTY管道和错误状态；无法阻止恶意进程伪造TTY、直接改源码或本地审批/证据文件。S12 必须在受信任AI会话中由用户现场确认，主机级身份签名应由宿主产品提供。
+> **审批信任边界**：本仓工具防呆，不提供密码学真人证明。它能阻断误操作、参数漂移、旧凭证和错误状态；无法阻止恶意进程直接改源码或本地审批/证据文件。S12 必须由用户在受信任的 AI 会话里亲口说出「确认激活」（工具按原话+参数哈希绑定），主机级身份签名应由宿主产品提供。
 > **★ token 中途失效 SOP**：立即停止写操作 → 引导用户在浏览器重新一键双取并把两行整段直接粘贴到当前聊天框 → 主 AI 经 stdin 交 check_login 复验 → 从当前 operation-record 节点继续，勿从 S0 重跑。
 
 ## 🚨 新获客项目的强制流程与状态机（用户明确选择后才进入，禁止安装后自动启动）
@@ -161,7 +161,7 @@ runs/<运营方>/<产品>/
 本地客群总表           L3 全局总表（生成物，跨产品；本地数据，不入 Git）
 runs/INDEX.md          运营方×产品导航卡（生成物，源自 runs.tsv+segments.tsv 汇编）
 ```
-- **运行状态真源与自动推进**：`runs/<operator_key>/<product_key>/operation-record.md` frontmatter 的 `status/next_state/profile_version/profile_sha256` 是换机/新会话当前节点真源。对应工具成功后必须推进：product_profile confirm/declined→S1；客群确认→S2；种子确认→S3；真实live审计→S4；保存确认/完成→S5/S6；模板预览/创建→S7/S8；序列完成→S9；联系人加入→S10；真实live终检inactive→S11；真实live合规+TTY审批+激活回读→S12。失败或对账不一致→ERROR_BLOCKED；只打印 approvals 或 simulation 报告不等于状态完成。
+- **运行状态真源与自动推进**：`runs/<operator_key>/<product_key>/operation-record.md` frontmatter 的 `status/next_state/profile_version/profile_sha256` 是换机/新会话当前节点真源。对应工具成功后必须推进：product_profile confirm/declined→S1；客群确认→S2；种子确认→S3；真实live审计→S4；保存确认/完成→S5/S6；模板预览/创建→S7/S8；序列完成→S9；联系人加入→S10；真实live终检inactive→S11；真实live合规+用户亲口确认的凭证+激活回读→S12。失败或对账不一致→ERROR_BLOCKED；只打印 approvals 或 simulation 报告不等于状态完成。
 - **证据模式信任边界**：`evidence_mode=live` 是防误操作声明，不是密码学来源证明。只允许主 AI 在本轮真实调用平台/验证工具并取得原始输出后写为 live；手工把 simulation 改成 live、伪造关键词或自写 pass 文件均属无效证据。finalizer 的 mode/marker/path/hash/72h 闸门防呆不防恶；独立审查须核对工具输出与调用记录，不能只看 manifest 自称。
 - **当前工具覆盖缺口（完整模拟确认）**：S3 尚无独立 `finalize_seed.py`，种子确认/状态记录仍由 flow/受控状态工具完成；S5 防重复保存规则尚未内置进 `save_first_n.py`，执行前必须由主 AI 查询最近成功 task/标签基线人工判重。这两项不得宣称已自动闭环。
 - **生成链**：L1 详情 → AI 更新后重生成 L2/L3/INDEX（手改生成物无效）；本地运行记录（db/runs.tsv，本地数据，不入 Git）仍是产品级操作真源（不加列，语言从标签前缀读）

@@ -9,7 +9,7 @@
   python3 activate_sequence.py --token <T> --org <orgId> --seq <seqId> --status    # 只读查当前状态
   python3 activate_sequence.py --token <T> --org <orgId> --seq <seqId> --deactivate [--confirm "<用户原话>"]  # 回滚(降风险)
 铁律(静态红队P0修复):
-  - ★禁止自签发审批: S12凭证只能由 flow_orchestrator 当前TTY交互节点生成；approval.py grant 明确拒绝S12。
+  - ★禁止自签发审批: S12凭证只能由 flow_orchestrator --resume-s12 --confirm "<用户原话>" 生成（用户亲口说"确认激活"）；approval.py grant 明确拒绝S12。
     绑定参数schema(本工具按本次实际参数重算并逐字比对, 不信CLI传入的哈希; 须逐字段一致):
       {"project":"<operator_key>/<product_key>","seq":"<序列id>",
        "profile":{"sha256":"<档案文件sha256>","status":"confirmed|declined","version":"<profile_version>"},
@@ -39,7 +39,7 @@ ap.add_argument("--token", required=True)
 ap.add_argument("--org", required=True)
 ap.add_argument("--seq", required=True, help="序列id(激活前逐字核对)")
 ap.add_argument("--confirm", default="", help="用户确认原话（含'确认激活'/'激活'字样且无否定/犹豫才放行）")
-ap.add_argument("--approval", default="", help="★S12凭证id(只能由flow当前TTY节点签发；grant禁止S12)")
+ap.add_argument("--approval", default="", help="★S12凭证id(只能由 flow --resume-s12 --confirm 签发；grant禁止S12)")
 ap.add_argument("--project", default="", help="稳定项目键=<operator_key>/<product_key>(激活必填, 须与profile一致)")
 ap.add_argument("--profile", default="", help="★产品档案路径(激活必填): 须过结构校验, 项目键一致, 其 sha256/status/version 进入审批哈希")
 ap.add_argument("--compliance-file", default="", help="★合规核验JSON(激活必填): market/list_source/sender_identity/unsubscribe/suppression 均pass; 文件sha256进入审批哈希")

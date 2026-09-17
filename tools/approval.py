@@ -160,9 +160,28 @@ def record(project, state, decision, quote, params_hash, status="confirmed"):
 # ---------- 专门审批命令(对应工具执行前按实际参数铸造绑定凭证) ----------
 
 def confirm_quote_ok(quote):
-    """严格正向确认：否定、疑问、等待/取消语义优先拒绝。"""
+    """严格正向确认：否定、疑问、等待/取消语义优先拒绝。
+
+    ★2026-09-17 对抗模拟修复（真缺陷）：原实现用**疑问短语黑名单**
+    （是否/能否/可否/要不要/是不是/确认吗/可以吗）——漏掉最常见的**句尾疑问助词**，
+    实测「真的要激活吗」被当成授权、真的签发了 S12 凭证。
+    现改为规则判定，不再依赖穷举短语：
+      ①任何问号 ②剥尾标点后的句尾疑问助词（吗/呢/么）③疑问代词（为什么/怎么/…）
+      ④A-not-A 疑问式（是否/能不能/行不行/好不好…）
+    """
     q = " ".join(str(quote or "").replace("’", "'").split()).strip()
-    if not q or re.search(r"[?？]", q) or re.search(r"(?:是否|能否|可否|要不要|是不是|确认吗|可以吗)", q):
+    if not q or re.search(r"[?？]", q):
+        return False
+    # ② 句尾疑问助词：先剥掉结尾标点（"要激活吗。" 也应拒绝）
+    if q.rstrip("。.!！~～、,，;；").endswith(("吗", "呢", "么")):
+        return False
+    # ③ 疑问代词（问"为什么/怎么"不是授权）
+    if re.search(r"(?:为什么|为何|怎么|难道|凭什么)", q):
+        return False
+    # ④ A-not-A 疑问式
+    if re.search(r"(?:是否|能否|可否|要不要|是不是|该不该|能不能|可不可以|行不行|好不好|要不要)", q):
+        return False
+    if re.search(r"\b(?:why|how|when|what|who|which|should i|do i|shall i)\b", q, re.I):
         return False
     if re.search(r"(?:^|[，,。；;！？!?\s])(?:否|拒绝|不同意)(?:$|[，,。；;！？!?\s])", q): return False
     if re.search(r"(?:不|别|不要|不用|先不|暂不|尚未|还没|未确认|等等|稍等|考虑|再说|取消|暂停|停止|回滚)", q): return False

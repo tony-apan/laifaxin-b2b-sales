@@ -625,9 +625,9 @@ s12_params = {
     },
     **({"compliance": {"sha256": comp_sha}} if comp_sha else {}),
 }
-record("S12_激活", "decision_pending", "普通flow结束；须完成S11后使用--resume-s12现场确认", s12_params)
-print("  ⚠️ 无论seq/compliance/TTY是否齐全，普通flow均不签发S12凭证")
-print("  必须先由实际工具完成S11并保持READY_INACTIVE，再运行 --resume-s12 现场确认")
+record("S12_激活", "decision_pending", "普通flow结束；须完成S11后由用户在对话里确认，再用--resume-s12 --confirm签发", s12_params)
+print("  ⚠️ 无论seq/compliance是否齐全，普通flow均不签发S12凭证")
+print("  必须先由实际工具完成S11并保持READY_INACTIVE，再由用户在对话里说\"确认激活\"，用 --resume-s12 --confirm \"<用户原话>\" 签发")
 print(f"  参数JSON结构: {S12_SCHEMA}")
 
 print("\n✅ 输出: 见本地运行记录（.local/ 与 runs/<运营方>/<产品>/ 档案，不入 Git）+ 本流程(不激活)\n请在对话里向用户发完整流程待确认。")

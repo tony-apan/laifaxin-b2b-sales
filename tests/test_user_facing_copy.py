@@ -912,3 +912,47 @@ class ActivationIsOneChatLineTest(unittest.TestCase):
         for bad in ("环境变量", "PowerShell", "命令行", "运行下面", "粘贴到"):
             with self.subTest(bad=bad):
                 self.assertNotIn(bad, block, f"S12 用户话术出现机械门槛「{bad}」")
+
+
+class ConfirmationQuoteInterrogativeTest(unittest.TestCase):
+    """★2026-09-17 对抗模拟命中真缺陷：疑问句被当成授权。
+
+    攻击用例：用户说「**真的要激活吗**」——是个问句/犹豫，旧实现却签发了 S12 激活凭证。
+    根因：旧过滤用**疑问短语黑名单**（是否/能否/可否/要不要/是不是/确认吗/可以吗），
+    穷举不全，漏掉最常见的**句尾疑问助词**（吗/呢/么）。
+
+    修复：改为规则判定——①任何问号 ②剥尾标点后的句尾助词 ③疑问代词 ④A-not-A 疑问式
+    ⑤英文疑问词。这样不必再穷举短语。
+    """
+
+    POSITIVE = ("确认激活", "我确认激活", "确认激活 皮筏艇找客户", "确认", "可以", "好的", "没问题")
+    NEGATIVE = (
+        "真的要激活吗", "要激活吗", "激活吗", "这样激活呢", "可以激活么", "要激活吗。",
+        "为什么激活", "怎么激活", "难道要激活", "凭什么激活",
+        "激活行不行", "激活能不能", "是不是要激活", "要不要激活", "should i activate",
+        "不要激活", "先别激活", "确认不激活", "等等再说", "取消", "暂停",
+    )
+
+    def test_interrogatives_rejected(self):
+        import sys
+        sys.path.insert(0, str(ROOT / "tools"))
+        from approval import confirm_quote_ok
+        for q in self.NEGATIVE:
+            with self.subTest(quote=q):
+                self.assertFalse(confirm_quote_ok(q), f"疑问/否定句被当成授权，会误签发凭证：{q!r}")
+
+    def test_positive_still_accepted(self):
+        import sys
+        sys.path.insert(0, str(ROOT / "tools"))
+        from approval import confirm_quote_ok
+        for q in self.POSITIVE:
+            with self.subTest(quote=q):
+                self.assertTrue(confirm_quote_ok(q), f"正常确认被误拒：{q!r}")
+
+    def test_no_phrase_blacklist_regression(self):
+        """禁止退回"短语黑名单"式实现（那种写法必然漏）。"""
+        src = (ROOT / "tools" / "approval.py").read_text(encoding="utf-8")
+        idx = src.index("def confirm_quote_ok")
+        body = src[idx:idx + 1800]
+        self.assertIn("endswith", body, "须用句尾助词规则判定，而非穷举疑问短语")
+        self.assertIn("吗", body, "须覆盖中文句尾疑问助词")
