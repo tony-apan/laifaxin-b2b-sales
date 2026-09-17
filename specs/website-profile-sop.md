@@ -104,7 +104,7 @@ AI 默认最多读取 10 个与当前产品高度相关的公开页面，优先�
 
 公司补丁允许字段：`company_name/website/contact_email/target_markets/default_languages`。禁止修改 `operator_key/nickname`。由于 operator-profile 跨产品共享，v1 只允许在该运营方尚无任何 `operation-record.md` 的 S0/S0a 建档阶段自动导入，且必须**先导入公司补丁、再初始化产品档案**；已有项目后改公司资料，改走现有 `operator_profile.py update`，并由 AI 逐项目评估影响，禁止拿单项目补丁静默影响其他产品。
 
-产品补丁只允许修改 ①到⑧固定字段及其 `source/confidence`。导入后产品档案回到 `draft`、版本递增、旧确认清空；必须按现有 `product_profile.py confirm` 再向用户确认后，才能进入 S2 或被下游使用。
+产品补丁只允许修改 ①到⑧固定字段及其 `source/confidence`。导入后产品档案回到 `draft`、版本递增、旧确认清空；必须按现有 `product_profile.py confirm` 再向用户确认后，才能进入 S2 或被下游使用。★**二次确认只展示变更摘要，不要让用户重看整张表**（2026-09-17 对抗审查）：用户刚批准过补丁内容，再让他核对同样的 8 行纯属重复劳动——改为"新增/修改了 N 条（列出），其余未变，确认吗？"，用户回"确认"即可；只有出现**新增的具体数字/认证**时才需要逐条过目。
 
 ## 6. 原子性、冲突与失效
 

@@ -202,8 +202,9 @@ class CardActionAndSummaryTest(unittest.TestCase):
     ①每张卡结尾必须有明确行动指引（用户知道现在该做什么/不用做什么）
     ②重卡片必须结论先行（表格前先给一句话，别让小白先啃表）"""
 
-    # 交互卡：用户需要行动
-    ACTION_WORDS = re.compile(r"回复|确认|请选|告诉我|选编号|该您|请您|需要您|您可以|您不用|轮到您")
+    # 交互卡：用户需要行动。★2026-09-17 补："我马上开始/我现在开始"这类
+    # "AI 直接推进、用户不用动手"的收尾也算合规（连接成功卡就是这种：连上就继续跑）
+    ACTION_WORDS = re.compile(r"回复|确认|请选|告诉我|选编号|该您|请您|需要您|您可以|您不用|轮到您|我马上开始|我现在开始|马上开始")
 
     # 重卡片（表格 ≥6 行 或 列 ≥6）：必须结论先行
     HEAVY = ("S0-产品知识档案.md", "S2-客群确认.md", "S5-保存确认.md", "S12-激活确认.md")
@@ -956,3 +957,78 @@ class ConfirmationQuoteInterrogativeTest(unittest.TestCase):
         body = src[idx:idx + 1800]
         self.assertIn("endswith", body, "须用句尾助词规则判定，而非穷举疑问短语")
         self.assertIn("吗", body, "须覆盖中文句尾疑问助词")
+
+
+class NoSelfInflictedFrictionTest(unittest.TestCase):
+    """★2026-09-17 用户要求"再审查：有没有存心给用户制造的麻烦"后的防回退断言。
+
+    判据来自项目自己的边界（RULES：审批闸门**防误操作、不防主动篡改**）：
+    用户的合理动作只有三种——聊天里说话、发网址、贴一次浏览器复制的凭据。
+    其余（跑命令/开终端/设变量/改文件/找路径/抄内部编号/读警告墙/重复提供已给过的信息）
+    都是自找的摩擦，会让小白卡住或烦躁。
+
+    每条断言都对应一次真实审查发现（UG-01~UG-06），防止回退。
+    """
+
+    def blocks(self, name):
+        text = (TEMPLATES / name).read_text(encoding="utf-8")
+        return re.findall(r"```[a-zA-Z]*\n(.*?)```", text, re.S)
+
+    # ---- UG-01：连接成功卡不得重复索取已收过的信息 ----
+    def test_connect_success_does_not_reask_nickname_or_product(self):
+        block = self.blocks("S0-连接成功.md")[0]
+        self.assertNotRegex(
+            block, r"告诉我您的落款昵称|您的落款昵称 ?\+|一句话产品（您卖什么",
+            "连接成功卡又在重复索取昵称/产品（这两项在流程开头已收过，T-token卡明令不重复问）")
+
+    def test_index_does_not_say_connect_card_asks_nickname(self):
+        idx = (TEMPLATES / "README.md").read_text(encoding="utf-8")
+        self.assertNotIn("顺带要昵称", idx, "索引仍写连接卡'顺带要昵称'（与不重复问规则矛盾）")
+
+    # ---- UG-04：不得让用户抄内部编号 ----
+    def test_no_internal_id_copy_for_users(self):
+        """用户话术里不得要求抄 f-001 这类内部取证编号。"""
+        for path in sorted(TEMPLATES.glob("*.md")):
+            for bi, block in enumerate(re.findall(r"```[a-zA-Z]*\n(.*?)```",
+                                                  path.read_text(encoding="utf-8"), re.S), 1):
+                with self.subTest(card=path.name, block=bi):
+                    self.assertNotRegex(
+                        block, r"确认导入[^：\n]{0,8}：\s*<?(?:编号|f-\d)",
+                        f"{path.name} 要用户抄内部编号（应让用户按顺序说第几条，编号映射由 AI 做）")
+
+    # ---- UG-03：引导卡不得甩警告墙 ----
+    def test_credential_card_has_no_warning_wall(self):
+        """T-token 引导的提示不得超过 3 条（7 条警告墙会放大畏难心理）。"""
+        block = self.blocks("T-token引导.md")[0]
+        bullet_lines = [l for l in block.splitlines() if l.strip().startswith(("- ", "· "))]
+        self.assertLessEqual(len(bullet_lines), 3,
+                             f"引导卡提示条数 {len(bullet_lines)} 条过多（应 ≤3，其余移到 AI 要点/失败时才讲）")
+
+    # ---- UG-06：环境兜底不得让用户自己装东西 ----
+    def test_env_fallback_marked_ai_only(self):
+        """工具里的"手动装 Python/Homebrew"等兜底必须标注仅 AI 内部执行。"""
+        src = (ROOT / "tools" / "onboard_check.py").read_text(encoding="utf-8")
+        idx = src.index("未找到 python")
+        window = src[idx:idx + 900]
+        self.assertIn("仅供 AI 内部执行", window,
+                      "环境兜底文案未标注'仅 AI 内部'，有被转述给用户的风险")
+        self.assertRegex(window, r"禁止直接转述|勿转述",
+                         "未明确禁止把兜底步骤转述给用户")
+
+    # ---- UG-02：不得虚假承诺 AI 自动盯回复（平台无名单接口）----
+    def test_no_false_promise_of_auto_reply_monitoring(self):
+        """回复监控类措辞不得暗示 AI 能自动发现并打标（平台只给回复总数）。"""
+        for path in sorted(TEMPLATES.glob("*.md")):
+            text = path.read_text(encoding="utf-8")
+            for bi, block in enumerate(re.findall(r"```[a-zA-Z]*\n(.*?)```", text, re.S), 1):
+                with self.subTest(card=path.name, block=bi):
+                    self.assertNotRegex(
+                        block, r"(?:我|我会)[^。\n]{0,6}定期检查回复|自动(?:帮您)?(?:监控|巡检)回复",
+                        f"{path.name} 暗示 AI 能自动盯回复（平台无此接口，属虚假承诺）")
+
+    # ---- UG-05：二次确认必须收窄 ----
+    def test_website_import_second_confirm_is_narrowed(self):
+        """导入后的二次确认须用变更摘要，不得让用户重看整表。"""
+        text = (ROOT / "specs" / "website-profile-sop.md").read_text(encoding="utf-8")
+        self.assertRegex(text, r"变更摘要|只展示变更",
+                         "网站导入二次确认未收窄（用户要重看同样内容=重复劳动）")
