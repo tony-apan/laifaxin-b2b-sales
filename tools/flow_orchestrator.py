@@ -49,9 +49,7 @@ ap.add_argument("--exclude", default="CN,TW,HK,MO")
 ap.add_argument("--skip-preview", action="store_true", help="跳过模板草稿展示(用户说不要看)")
 mode = ap.add_mutually_exclusive_group()
 mode.add_argument("--dry-run", action="store_true", help="只读盘点/展示，不写(签名/档案硬闸门不豁免)")
-mode.add_argument("--resume-s12", action="store_true", help="仅从标准项目record的S11/READY_INACTIVE现场确认并签发S12激活凭证；不联网、不执行激活")
-mode.add_argument("--print-s12-command", action="store_true",
-                  help="★只打印『请用户在自己终端粘贴的那一行命令』（单行/绝对路径/按系统选形式）供 AI 原样转发；不联网、不校验、不写凭证")
+mode.add_argument("--resume-s12", action="store_true", help="从标准项目record的S11/READY_INACTIVE签发S12激活凭证（用户聊天确认即可，配 --confirm <原话>）；不联网、不执行激活")
 # ★写节点实际参数载体(向导拿不到完整参数时不签发可执行凭证, 由这些参数或专门审批命令 grant 补齐绑定)
 ap.add_argument("--save-n", type=int, default=0, help="S5 实际保存条数N(与回复中 前N=xx 等效; 缺→S5只记decision_pending)")
 ap.add_argument("--plan", default="", help="S7 模板计划JSON路径(实际plan; 缺→S7只记decision_pending)")
@@ -59,10 +57,11 @@ ap.add_argument("--tmap", default="", help="S9 模板name→id映射JSON路径(g
 ap.add_argument("--seq", default="", help="S9/S10/S12 序列id(实际序列; 缺→S10/S12只记decision_pending)")
 ap.add_argument("--contact-tags", default="", help="S10 联系人标签id(逗号分隔,与contact_add --tags一致; 缺→S10只记decision_pending)")
 ap.add_argument("--task", default="", help="S10 保存任务id(与contact_add --task一致; 缺→S10只记decision_pending)")
+ap.add_argument("--confirm", default="", help="S12：用户确认原话（逐字；须含'激活'字样）。给了就走非交互路径，用户在自己聊天框里说一句即可，不需要开终端")
 ap.add_argument("--compliance-file", default="", help="S12 合规核验JSON(market/list_source/sender_identity/unsubscribe/suppression均pass; 与activate_sequence一致)")
 args = ap.parse_args()
 
-if not (args.resume_s12 or args.print_s12_command):
+if not args.resume_s12:
     missing = [flag for flag, value in (("--token", args.token), ("--nickname", args.nickname), ("--product", args.product)) if not value]
     if missing:
         ap.error("the following arguments are required: " + ", ".join(missing))
@@ -76,43 +75,14 @@ def _standard_profile_path(path, meta):
         return False
 
 
-def print_s12_command():
-    """打印请用户在自己终端粘贴的那一行命令（单行、绝对路径、可在任意目录运行）。
-
-    背景（2026-09-17 用户实测）：S12 要求用户本人在真实终端确认，但此前**没有工具产出这个命令**，
-    AI 只能手搓——结果发出去的命令混着机器绝对路径、相对路径注释和"去掉前缀"这类自相矛盾注解，
-    小白看不懂也不知道自己该干嘛。这里统一由工具产出，AI 只负责原样转发。
-    """
-    py = sys.executable or "python3"
-    script = str((KB / "tools" / "flow_orchestrator.py").resolve())
-    prof = Path(args.profile)
-    prof = prof if prof.is_absolute() else (KB / prof)
-    comp = Path(args.compliance_file)
-    comp = comp if comp.is_absolute() else (KB / comp)
-    line = " ".join([
-        f'"{py}"', f'"{script}"', "--resume-s12",
-        "--org", str(args.org),
-        "--profile", f'"{prof}"',
-        "--seq", str(args.seq),
-        "--compliance-file", f'"{comp}"',
-    ])
-    if os.name == "nt":
-        # PowerShell 里以引号开头的路径必须加调用运算符 &（否则报"意外的标记"）
-        line = "& " + line
-    # 轻提示（不阻断、不影响 stdout 的纯净）：路径不存在时提醒 AI 先自查，
-    # 免得把注定报错的命令发给用户、让用户白跑一趟
-    for label, path in (("产品档案", prof), ("合规核验文件", comp)):
-        if not path.exists():
-            print(f"⚠️（AI 自查用，勿转述）{label}路径不存在：{path}——请先核对再发给用户",
-                  file=sys.stderr)
-    print(line)
-    return 0
-
-
 def resume_s12():
     """Validate the completed local run and issue only the S12 approval credential."""
-    if not sys.stdin.isatty():
-        print("❌ --resume-s12 只能在当前交互式终端现场确认；stdin管道/自动输入拒绝且不写凭证")
+    # ★2026-09-17 用户拍板：不再要求普通用户开终端。
+    #   用户在自己聊天框里说一句「确认激活 <序列名>」，主 AI 用 --confirm 原样传入即可。
+    #   仍要求：原话非空且含"激活"（防把含糊应答当授权）；所有本地闸门照旧（S11/档案/合规live/哈希绑定）。
+    #   （终端交互路径保留给愿意亲自在终端确认的人；两种入口的校验完全一致。）
+    if not args.confirm and not sys.stdin.isatty():
+        print("❌ 缺 --confirm <用户原话>：请把用户明确说出『确认激活』的原话传入；无原话不签发凭证")
         return 2
     if not _re.fullmatch(r"[0-9a-f]{24}", args.seq or ""):
         print("❌ --resume-s12 必填 --seq，且须为24位小写十六进制序列id")
@@ -174,7 +144,10 @@ def resume_s12():
         "profile": {"sha256": profile_sha, "status": profile_status, "version": profile_meta.get("profile_version", "")},
         "compliance": {"sha256": comp_sha},
     }
-    answer = input(f"\n❓【确认节点 S12_激活】确认激活序列 {args.seq}? 本命令只签发凭证，不激活: ").strip()
+    if args.confirm:
+        answer = args.confirm.strip()
+    else:
+        answer = input(f"\n❓【确认节点 S12_激活】确认激活序列 {args.seq}? 本命令只签发凭证，不激活: ").strip()
     from approval import confirm_quote_ok, record as record_approval, stable_params_hash
     if not (confirm_quote_ok(answer) and "激活" in answer):
         print("✅ 未签发S12可执行凭证；序列仍保持inactive，record仍为S11")
@@ -184,9 +157,6 @@ def resume_s12():
     print(f"✅ S12绑定凭证已签发: {approval_id}；record仍为S11，未执行激活")
     return 0
 
-
-if args.print_s12_command:
-    raise SystemExit(print_s12_command())
 
 if args.resume_s12:
     raise SystemExit(resume_s12())

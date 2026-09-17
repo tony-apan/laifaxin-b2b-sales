@@ -2,7 +2,7 @@
 name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
-version: 0.5.33
+version: 0.5.34
 created: 2026-08-30
 updated: 2026-09-09
 author: "独立审查 agent（对抗判定后落地）"
@@ -51,7 +51,7 @@ flowchart TD
 
 
 > 每步只问当前必需的一件事；用户永远可以用"确认/否/要改"推进。（图为节奏简化：S1 折入 S3 分支、S9a 为内部固定标签步骤、ERROR_BLOCKED 为全局异常兜底——完整状态以 §3 状态机表为准。）
-> **四个必照模板的固化产出**：①登录检查通过 → 按 [S0-连接成功](output-templates/S0-连接成功.md) 展示账号状态卡（SVIP/配额/充值）②保存完成 → 按 [S6-数量账](output-templates/S6-数量账.md) 主动解释数量构成（未知邮箱默认已存；1.4~2.1 邮箱/家属正常）③**检查没通过/流程停下 → 按 [S0-连接未通过](output-templates/S0-连接未通过.md)**：先说"跟您有没有关系"、给**唯一**下一步、说明本次没动数据；**禁止把工具名/退出码/`[FAIL]`/`落点`等原文抛给用户**（2026-09-11 用户实测：小白看到"`gate_check.sh` 未通过"只会以为账号坏了）④**S12 激活前请您亲自确认那一步 → 按 [S12-您亲自确认](output-templates/S12-您亲自确认.md)**（4 步 emoji + 命令占位符，命令由工具产出）。`bash tools/gate_check.sh` 末尾的「给用户看的这一段」已是白话，直接照抄。
+> **三个必照模板的固化产出**：①登录检查通过 → 按 [S0-连接成功](output-templates/S0-连接成功.md) 展示账号状态卡（SVIP/配额/充值）②保存完成 → 按 [S6-数量账](output-templates/S6-数量账.md) 主动解释数量构成（未知邮箱默认已存；1.4~2.1 邮箱/家属正常）③**检查没通过/流程停下 → 按 [S0-连接未通过](output-templates/S0-连接未通过.md)**：先说"跟您有没有关系"、给**唯一**下一步、说明本次没动数据；**禁止把工具名/退出码/`[FAIL]`/`落点`等原文抛给用户**（2026-09-11 用户实测：小白看到"`gate_check.sh` 未通过"只会以为账号坏了）`bash tools/gate_check.sh` 末尾的「给用户看的这一段」已是白话，直接照抄。
 
 ## 1️⃣ 触发场景路由表（用户说什么 → 去哪）
 
@@ -72,7 +72,7 @@ flowchart TD
 | "写开发信 / 模板 / 预览" | 状态机 S7 → `tools/gen_templates.py --preview`；S8 生成后必跑 `tools/check_template_diff.py`（模板**自动归入同名分组**，禁散落"未指定目录"）|
 | "建序列 / 跟进计划" | 主 AI 内部调用 `build_sequence.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> ...`；内存占位不得让用户设置变量或执行命令。其余参数：序列名、tmap、profile、record、纯昵称、项目键、S9审批 |
 | "加联系人 / 进序列" | 主 AI 内部调用 `contact_add.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> ...`；内存占位不得让用户处理。查询失败/active/状态不符均fail-closed，views固定[] |
-| "激活 / 发信" | S12唯一凭证出口：项目必须已真实收口S11 → compliance-check `evidence_mode=live`且五项72h真实证据 → 用 `flow_orchestrator --resume-s12` 当前TTY现场确认，只签绑定凭证、不联网/不激活 → 主AI调用activate并真实回读active。普通flow末尾不得签S12；approval grant也禁止S12 |
+| "激活 / 发信" | S12唯一凭证出口：项目必须已真实收口S11 → compliance-check `evidence_mode=live`且五项72h真实证据 → 用户在聊天里回「确认激活 <序列名>」→ 主AI用 `flow_orchestrator --resume-s12 --confirm "<用户原话>"` 只签绑定凭证（不联网/不激活）→ 主AI调用activate并真实回读active。普通flow末尾不得签S12；approval grant也禁止S12 |
 | "验证这批对不对" | `tools/verify_exclude.py`（排除4区）/ `tools/verify_sequence.py`（12步）/ `tools/check_template_diff.py`（差异≥30%）|
 | "模板重建 / 换模板" | `tools/rebuild_templates.py`（⚠️半自动，顺序铁律见 L-43，需人工分步）|
 | "清空重来" | 危险操作，先用户确认。产品档案清空：`python3 tools/delete_all_products.py`（默认 dry-run，--execute --confirm "DELETE-ALL" 才真删）；联系人/模板清空按 `specs/api-reference.md` 清空工具节封装 |
@@ -130,7 +130,7 @@ flowchart TD
 | S9a FIXED_TAGS（S9内部子检查，不单独推进operation status） | 账号固定标签“询盘/不发”：build_sequence前先查同名，存在复用id，不存在才经绑定审批创建；notSentTags解析失败则S9 fail-closed |
 | S10 CONTACT_PENDING | finished+标签联系人>0+序列 inactive+对账+确认后 contact-add(views:[]) |
 | S11 READY_INACTIVE | 仅 `evidence_mode=live` 的 verification-manifest + 4份真实线上验证证据可正式收口；模拟/离线/网络桩/占位不得说“流程完成”或推进S11。正式收口后输出完整流程与参数，保持inactive，展示用户核实面板六条 |
-| S12 ACTIVE | compliance-check须 `evidence_mode=live` 且五项为72小时内真实证据；模拟/离线/桩/占位拒签凭证和激活。S11项目用 `flow_orchestrator --resume-s12` 当前TTY只签绑定凭证（不联网、不激活），再由activate本地全闸通过后首次联网并回读active |
+| S12 ACTIVE | compliance-check须 `evidence_mode=live` 且五项为72小时内真实证据；模拟/离线/桩/占位拒签凭证和激活。S11项目用 `flow_orchestrator --resume-s12 --confirm "<用户原话>"` 只签绑定凭证（用户聊天里确认即可，不联网、不激活），再由activate本地全闸通过后首次联网并回读active |
 | ERROR_BLOCKED | 异常/参数变/对账不一致 → 只读检查，禁写 |
 
 

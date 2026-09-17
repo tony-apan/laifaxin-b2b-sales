@@ -807,85 +807,108 @@ class GatePlainTextSingleSourceTest(unittest.TestCase):
                 self.assertNotIn(word, plain, f"白话段含内部词「{word}」")
 
 
-class FinalConfirmStepPresentationTest(unittest.TestCase):
-    """★2026-09-17 用户实测：S12"请您亲自确认"那一步的展示不合格。
+class ActivationIsOneChatLineTest(unittest.TestCase):
+    """★2026-09-17 用户拍板：激活不再要求用户开终端。
 
-    实测反例（用户截图）：AI 现场手搓命令，发出的是
-      "C:\\...\\python.exe" "C:\\...\\flow_orchestrator.py" --resume-s12 ...
-    ＋注解「需在仓库目录下运行才认相对路径。最稳妥：先 cd "C:\\..." 再运行（去掉上面的仓库绝对路径前缀…）」
-    ——绝对路径与"去掉前缀"自相矛盾、让用户在 PowerShell 与 Git Bash 之间二选一、
-    动作混在长段落里（用户原话："让用户做的不突出"、"emoji 呢？？？"）。
+    背景：旧设计要求用户在自己电脑上打开 PowerShell/终端、粘贴一行命令、再输入确认。
+    用户判定这是**拦路虎**而非安全（普通用户不认识终端），且与项目自身的威胁模型冲突——
+    README 早已写明"审批闸门用于防误操作，**不用于对抗主动篡改**"；而 TTY 检查既能被
+    主动绕过（pty 包装），又让每个用户在最关键一步付出最高学习成本。
+    同类步骤（S5/S7/S9/S10）全部是"用户聊天里说一句 + 工具绑定原话"，S12 不比它们高危到需要换渠道。
 
-    这组断言把"命令由工具产出"和"动作要突出"锁死。
+    新契约：用户在自己聊天框里回「确认激活 <序列名>」即可；工具仍要求原话**含"激活"**，
+    含糊应答（"好的""可以"）一律拒绝；所有本地闸门（S11/档案/合规live/参数哈希绑定）不变。
     """
 
-    CARD = "S12-您亲自确认.md"
+    def setUp(self):
+        self.card = (TEMPLATES / "S12-激活确认.md").read_text(encoding="utf-8")
 
-    def text(self):
-        return (TEMPLATES / self.CARD).read_text(encoding="utf-8")
+    def test_no_card_asks_user_to_open_a_terminal(self):
+        """任何用户话术卡都不得要求开终端/粘命令（含 PowerShell、cmd、Git Bash 等）。"""
+        BAD = ("PowerShell", "powershell", "终端窗口", "打开终端", "命令行窗口",
+               "Git Bash", "cmd.exe", "粘贴运行", "控制台粘贴")
+        offenders = []
+        for path in sorted(TEMPLATES.glob("*.md")):
+            for bi, block in enumerate(re.findall(r"```[a-zA-Z]*\n(.*?)```", path.read_text(encoding="utf-8"), re.S), 1):
+                for w in BAD:
+                    if w in block:
+                        offenders.append(f"{path.name} 块{bi}: {w}")
+        self.assertEqual([], offenders, f"卡片仍在要求用户使用终端: {offenders}")
 
-    def blocks(self):
-        return re.findall(r"```[a-zA-Z]*\n(.*?)```", self.text(), re.S)
+    def test_activation_happens_in_chat(self):
+        """激活卡必须明确"回一句话即可、不用开窗口"。"""
+        self.assertRegex(self.card, r"确认激活", "激活卡未给出用户要回的话")
+        self.assertRegex(self.card, r"不用开任何窗口|不用开窗口|不用粘贴命令",
+                         "激活卡未说明用户不需要开窗口/粘命令")
 
-    def test_card_exists_and_is_single_source(self):
-        self.assertTrue((TEMPLATES / self.CARD).exists(), "缺少『请您亲自确认』卡")
-        dups = [p.name for p in TEMPLATES.glob("*亲自确认*.md")]
-        self.assertEqual([self.CARD], dups, f"该卡应只有一个真源，实际: {dups}")
-
-    def test_command_comes_from_tool_not_handwritten(self):
-        """卡里必须要求命令由 `--print-s12-command` 产出（禁止手搓）。"""
-        t = self.text()
-        self.assertIn("--print-s12-command", t, "未要求用工具产出命令（手搓=复现实测事故）")
-        self.assertIn("禁止手搓", t, "未明确禁止手搓命令")
-
-    def test_tool_actually_prints_single_line_absolute_command(self):
-        """工具模式必须真的产出：单行、绝对路径、不含 token、带 --resume-s12。"""
-        import subprocess, sys
-        cmd = [sys.executable, str(ROOT / "tools" / "flow_orchestrator.py"),
-               "--print-s12-command", "--org", "1234567",
-               "--profile", "runs/x/y/product-profile.md",
-               "--seq", "a" * 24,
-               "--compliance-file", "runs/x/y/compliance-check.json"]
-        r = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT, timeout=60)
-        self.assertEqual(0, r.returncode, r.stdout + r.stderr)
-        out = r.stdout.strip()
-        self.assertEqual(1, len(out.splitlines()), f"必须单行（用户整段复制）: {out[:120]}")
-        self.assertIn("--resume-s12", out)
-        self.assertIn("flow_orchestrator.py", out)
-        self.assertIn(str(ROOT), out, "路径必须是绝对路径（用户可在任意目录粘贴运行）")
-        self.assertNotIn("accesstoken", out, "命令里不得出现登录密码串")
-        self.assertNotIn("cd ", out, "不得要求用户先 cd（实测反例就栽在这）")
-
-    def test_card_tells_single_terminal_flavor(self):
-        """只点名一种窗口（禁止让小白二选一）。"""
-        t = self.text()
-        self.assertRegex(t, r"单一|只点名一种|PowerShell 窗口 / 终端窗口|按用户系统给一个",
-                         "卡应要求只给一种终端")
-
-    def test_user_steps_are_numbered_with_emoji(self):
-        """用户动作必须逐行编号 + emoji（用户实测：不突出、缺 emoji）。"""
-        blocks = self.blocks()
-        user_block = blocks[0]
-        for mark in ("1️⃣", "2️⃣", "3️⃣", "4️⃣"):
-            with self.subTest(mark=mark):
-                self.assertIn(mark, user_block, f"用户步骤缺 {mark} 编号/emoji")
-
-    def test_user_block_says_what_it_does_not_do(self):
-        """这一步最容易被误解为"要发信了/要扣点了"——必须说明它不做什么。"""
-        b = self.blocks()[0]
-        self.assertRegex(b, r"不会发|不发送|不会扣|不扣点|只是登记",
-                         "须说明这一行命令不发送邮件/不扣点/只登记确认")
-
-    def test_user_block_has_command_placeholder_not_real_command(self):
-        """用户话术里命令是占位符（由 AI 填工具产出），不得内嵌真实脚本名。"""
-        b = self.blocks()[0]
-        self.assertIn("<命令>", b, "命令应以占位符呈现")
-        for bad in ("flow_orchestrator", ".py", "resume-s12", "python3"):
+    def test_activation_no_longer_mentions_previous_terminal_flow(self):
+        """★只查**用户话术块**：AI 要点里"不需要开终端"这类否定说明是合法的。"""
+        block = re.findall(r"```[a-zA-Z]*\n(.*?)```", self.card, re.S)[0]
+        for bad in ("--print-s12-command", "PowerShell", "终端", "ap- 编号", "整段复制", ".py"):
             with self.subTest(bad=bad):
-                self.assertNotIn(bad, b, f"用户话术块不得内嵌「{bad}」")
+                self.assertNotIn(bad, block, f"激活卡用户话术仍残留旧终端流程字样「{bad}」")
 
-    def test_activation_card_distinguishes_two_steps(self):
-        """S12-激活确认 必须区分"您已说确认激活"与"还需您在终端亲自点一次"。"""
-        t = (TEMPLATES / "S12-激活确认.md").read_text(encoding="utf-8")
-        self.assertRegex(t, r"亲自确认|终端|本人在",
-                         "S12 卡未提到最后还有一步需用户亲自确认（会被读成说一声就发信）")
+    def test_obsolete_confirm_card_is_gone(self):
+        self.assertFalse((TEMPLATES / "S12-您亲自确认.md").exists(),
+                         "旧『您亲自确认』卡应已删除（该步骤不复存在）")
+
+    def test_tool_accepts_in_chat_confirmation_without_tty(self):
+        """工具必须能在非终端环境（AI 代跑、stdin 为管道）用 --confirm 签发凭证。"""
+        import subprocess, sys
+        r = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "flow_orchestrator.py"),
+             "--resume-s12", "--confirm", "确认激活 测试序列",
+             "--org", "1", "--profile", "runs/none/x/product-profile.md",
+             "--seq", "a" * 24, "--compliance-file", "runs/none/x/c.json"],
+            input="", capture_output=True, text=True, cwd=ROOT, timeout=60)
+        # 档案不存在 → 应在闸门处失败（exit 4），而不是在 TTY 检查处 exit 2
+        self.assertEqual(4, r.returncode,
+                         f"应因档案闸门失败(4)，而不是终端检查失败(2)：{r.stdout}{r.stderr}")
+        self.assertNotIn("只能在当前交互式终端", r.stdout + r.stderr,
+                         "工具仍拒绝非终端环境（旧 TTY 限制未移除）")
+
+    def test_tool_still_requires_the_activation_word(self):
+        """含含糊应答的原话不得签发凭证。"""
+        src = (ROOT / "tools" / "flow_orchestrator.py").read_text(encoding="utf-8")
+        idx = src.index("def resume_s12")
+        body = src[idx:idx + 6000]
+        self.assertIn('"激活" in answer', body, "仍须要求原话含『激活』字样")
+        self.assertIn("confirm_quote_ok", body, "仍须过滤否定/犹豫/疑问句")
+
+    def test_tool_rejects_empty_confirmation_without_tty(self):
+        """没给原话、又不是终端 → 明确报错且不写凭证。"""
+        import subprocess, sys
+        r = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "flow_orchestrator.py"),
+             "--resume-s12", "--org", "1", "--profile", "runs/none/x/product-profile.md",
+             "--seq", "a" * 24, "--compliance-file", "runs/none/x/c.json"],
+            input="", capture_output=True, text=True, cwd=ROOT, timeout=60)
+        self.assertEqual(2, r.returncode, r.stdout + r.stderr)
+        self.assertIn("--confirm", r.stdout + r.stderr, "报错须告诉 AI 要传用户原话")
+
+    def test_threat_model_documented_as_mistake_prevention_not_tamper_proof(self):
+        """README 必须继续写明审批闸门是防误操作、不防主动篡改（避免后人再加重机械门槛）。"""
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertRegex(readme, r"防误操作.*不用于对抗主动篡改|不用于对抗主动篡改",
+                         "README 未声明威胁模型边界")
+
+    def test_no_mechanical_gate_added_for_activation(self):
+        """★反过度设计保障（2026-09-17 用户判定旧 TTY 设计为拦路虎）：
+
+        激活是"防误操作"场景，不是"防对抗篡改"场景（README 已声明威胁模型边界）。
+        不得为激活再引入：终端/命令/环境变量/手工编辑文件等任何形式的手动机械门槛。
+        用户唯一动作 = 在聊天里说出确认激活。
+        """
+        import subprocess, sys
+        src = (ROOT / "tools" / "flow_orchestrator.py").read_text(encoding="utf-8")
+        idx = src.index("def resume_s12")
+        body = src[idx:idx + 8000]
+        for bad in ("isatty():\n        print(\"❌ --resume-s12 只能在", "print_s12_command"):
+            with self.subTest(bad=bad[:40]):
+                self.assertNotIn(bad, body, f"激活路径疑似又引入机械门槛: {bad[:40]}")
+        # 用户侧：不得要求开窗口/粘命令/设变量（在 S12 卡用户话术块内）
+        card = (TEMPLATES / "S12-激活确认.md").read_text(encoding="utf-8")
+        block = re.findall(r"```[a-zA-Z]*\n(.*?)```", card, re.S)[0]
+        for bad in ("环境变量", "PowerShell", "命令行", "运行下面", "粘贴到"):
+            with self.subTest(bad=bad):
+                self.assertNotIn(bad, block, f"S12 用户话术出现机械门槛「{bad}」")

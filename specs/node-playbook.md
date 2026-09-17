@@ -155,7 +155,7 @@ audience: 人+AI
 
 ### S12 ACTIVE（仅用户明确确认 + 技术可用性与运营合规核验）
 - **判据（来源）**：`../RULES.md` S12「仅明确确认激活才激活；平台负责发送技术与退订呈现，运营方仍核验目标市场规则、名单来源、发送主体、实际退订入口、拒收名单与数据处理要求」+ 铁律5「发信前」。激活前逐字核对目标序列 id，并验证 notSentTags/上限/步骤。
-- **通过条件**：verify_sequence 已用真实线上状态通过；compliance-check 顶层必须 `evidence_mode:"live"` 并绑定 project/seq/profile/checked_at，五项均 status=pass 且 evidence 含真实 source/checked_at/detail；simulation/mock/stub/离线/网络桩/占位/未实际标记一律拒绝。项目已在 S11 时，使用 `flow_orchestrator.py --resume-s12 --org <ORG_IN_MEMORY> --profile <标准档案> --seq <序列id> --compliance-file <文件>`，仅在当前真实TTY由用户现场确认签发凭证；
+- **通过条件**：verify_sequence 已用真实线上状态通过；compliance-check 顶层必须 `evidence_mode:"live"` 并绑定 project/seq/profile/checked_at，五项均 status=pass 且 evidence 含真实 source/checked_at/detail；simulation/mock/stub/离线/网络桩/占位/未实际标记一律拒绝。项目已在 S11 时，使用 `flow_orchestrator.py --resume-s12 --org <ORG_IN_MEMORY> --profile <标准档案> --seq <序列id> --compliance-file <文件> --confirm "<用户原话>"` 签发凭证（用户在聊天里明说"确认激活"即可，无需终端；原话须含"激活"字样）；
   该入口不联网、不激活、不重跑S0-S10，record保持S11。S12禁止approval.py grant，历史/backfilled/工具自签无效。
 - **API**：`POST /api/sequences/sequence-active {"id":<seqId>,"active":true}`；工具必须回读 active 防假成功。
 - **脚本**：先用上行 `--resume-s12` 获取与当前参数绑定的 S12 凭证，再由主 AI 内部调用 `activate_sequence.py --seq <id> --project <key> --profile <product-profile> --compliance-file <compliance-check.json> --record <operation-record> --confirm '<与凭证一致的用户原话>' --approval <S12凭证>`；凭据参数不向用户展示。

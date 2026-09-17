@@ -11,7 +11,7 @@ approvals.tsv 列(8列, 换机兼容): id / project_id / state / decision / user
   - 铸造端: flow_orchestrator 确认节点(参数齐全时) 或专门审批命令:
       python3 tools/approval.py grant --project <operator_key>/<product_key> --state S10_加联系人 \
           --quote "<用户确认原话>" --params-file <实际参数.json>
-    ★S12禁止grant，只能由flow_orchestrator当前TTY交互节点签发。
+    ★S12禁止grant，只能用flow_orchestrator --resume-s12 --confirm 签发（校验更全：S11/档案/合规live/参数绑定）。
     参数JSON须与工具端绑定schema逐字段一致(工具不认路径类字段, 见各工具docstring)
 用法(在写工具内):
   import sys; sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -238,7 +238,7 @@ def main(argv=None):
         print(f"(未找到 {args.id})"); raise SystemExit(1)
     # grant
     if str(args.state).upper().startswith("S12"):
-        print("❌ S12 激活凭证禁止通过 approval.py grant 铸造；只能在 flow_orchestrator 的当前交互式S12节点由用户现场确认生成")
+        print("❌ S12 激活凭证禁止通过 approval.py grant 铸造；用 flow_orchestrator --resume-s12 --confirm \"<用户原话>\" 签发（会一并校验 S11/档案/合规live 并绑定参数哈希）")
         raise SystemExit(2)
     obj = _load_params(args)
     if args.decision == "confirm" and not confirm_quote_ok(args.quote):
