@@ -143,7 +143,7 @@ if args.sync_manual:
         print("❌ 平台状态未能回读（接口偶发空——稍等重试）；在读到明确 active 之前不改本地状态"); sys.exit(3)
     if st_now != "active":
         print(f"❌ 平台回读状态={st_now}≠active——说明网页上的开关没生效（或还没开/开在了别的工作空间）。")
-        print("   本地状态保持 S11 不变。请回 https://web.laifaxin.com/mailing/sequence 确认该序列已开启后重跑本命令。")
+        print("   本地状态保持 S11 不变。请回 https://web.laifaxin.com/marketing/sequences 确认该序列已开启后重跑本命令。")
         sys.exit(3)
     if read_status(args.record) == "S12":
         print("ℹ️ 平台已 active 且本地已是 S12——无需重复同步"); sys.exit(0)

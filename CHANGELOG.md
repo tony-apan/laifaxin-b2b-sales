@@ -2,6 +2,39 @@
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
 
+## [v0.5.38] - 2026-09-17
+
+**修复 3 处错误的平台链接**（用户实测序列页 404 后全量核对平台 JS 路由表）。
+
+- **事故（用户截图）**：S12 卡引导用户去 `https://web.laifaxin.com/mailing/sequence` 手动激活，
+  用户点开是 **「抱歉，页面未找到」404**——小白会以为系统坏了。
+- **根因**：这些链接是历史版本写的，**平台改版后路径变了**，而**没有任何测试校验链接真实性**，
+  所以错了很久没被发现。
+- **全量核对**（真值来源：`web.laifaxin.com` 首页 → `/assets/index-*.js` bundle 里的路由对象
+  `pt={...marketing:{sequences:"/marketing/sequences"}...setting:{sequence:"/settings/sequence"}...}`；
+  平台是 SPA，未登录 HTTP 一律 200，只有客户端渲染 404，**所以不能靠状态码判断，必须查路由表**）：
+
+| 我们原来写的 | 判定 | 平台真值 |
+|---|---|---|
+| `/mailing/sequence` | ❌ 404 | **`/marketing/sequences`**（智能跟进计划/序列） |
+| `/mailing/send` | ❌ 404 | **`/marketing/tasks`**（邮件群发） |
+| `/settings/time-plan` | ❌ 404 | **`/settings/sequence`**（计划时间） |
+| `/search/saved-tasks` | ✅ 正确 | 已保存任务 |
+| `/search/refine-search` | ✅ 正确 | AI数据库搜索 |
+| `/settings/templets` | ✅ 正确 | 邮件模板 |
+
+- **修正范围**（两仓）：`RULES.md`、`SKILL.md`（含平台页面路由表 4 行）、`specs/node-playbook.md`、
+  `output-templates/S11-完成汇报.md`、`output-templates/S12-激活确认.md`、
+  `tools/activate_sequence.py`（--sync-manual 的提示文案）；知识仓另修 3 个历史采集脚本。
+- **新增 `PlatformLinkTruthTest`（3 项）**，把平台路由真值表固化进测试：
+  - `test_no_dead_platform_paths`：任何文件出现已废弃路径 → 失败（**用户不会再点到 404**）
+  - `test_all_platform_urls_are_known_truth`：出现未经验证的新平台路径 → 失败（**防瞎猜**，
+    须先核对 JS 路由表再写入真值表）
+  - `test_sequence_page_link_is_marketing_sequences`：序列页地址必须是实测正确的那个
+  - 扫描时排除测试目录（本文件要写出废弃路径作为反面样例，扫自己会自指误判）
+- **变异验证 2/2 命中**：①把序列链接改回 404 旧地址 → 4 项断言失败 ②瞎写一个新路径 → 真值表断言失败。
+- 测试 351 → **354**（+3），两仓全绿。
+
 ## [v0.5.37] - 2026-09-17
 
 **激活新增第二条路：用户自己去网页手动开启**（用户要求："另外可以引导用户去网页上查看下再手动激活"）。

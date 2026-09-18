@@ -846,8 +846,9 @@ class ActivationIsOneChatLineTest(unittest.TestCase):
         self.assertIn("方式一", self.card, "激活卡未给出'让我来'的方式")
         self.assertIn("方式二", self.card, "激活卡未给出'您去网页自己开'的方式")
         # 方式二必须说明去哪、做什么、回来怎么讲
-        self.assertIn("web.laifaxin.com/mailing/sequence", self.card,
-                      "方式二未给出序列页地址（用户找不到地方）")
+        # ★2026-09-17 修：旧值 mailing/sequence 是 404（用户实测），真值 /marketing/sequences
+        self.assertIn("web.laifaxin.com/marketing/sequences", self.card,
+                      "方式二未给出正确的序列页地址（用户会点到 404）")
         self.assertRegex(self.card, r"我已在网页激活", "方式二未给出用户回来说什么")
         # ★只查**用户话术块**：AI 要点里"不需要开终端"这类否定说明是合法且必要的
         block = re.findall(r"```[a-zA-Z]*\n(.*?)```", self.card, re.S)[0]
@@ -1045,3 +1046,88 @@ class NoSelfInflictedFrictionTest(unittest.TestCase):
         text = (ROOT / "specs" / "website-profile-sop.md").read_text(encoding="utf-8")
         self.assertRegex(text, r"变更摘要|只展示变更",
                          "网站导入二次确认未收窄（用户要重看同样内容=重复劳动）")
+
+
+class PlatformLinkTruthTest(unittest.TestCase):
+    """★平台链接真值表（2026-09-17 用户实测 404 后建立）。
+
+    事故：S12 卡引导用户去旧序列页地址（见下方 DEAD 表）手动激活，
+    用户点开是 **404 页面未找到**——小白会以为系统坏了。
+    根因：这些链接是历史版本写的，平台改版后路径变了（旧 `/mailing/*` 已不存在），
+    而**没有任何测试校验链接真实性**，所以错了很久没人发现。
+
+    真值来源：web.laifaxin.com 首页 → `/assets/index-*.js` bundle 里的路由对象
+    （`pt={...marketing:{sequences:"/marketing/sequences"}...setting:{sequence:"/settings/sequence"}...}`）。
+    平台是 SPA，未登录也能拿到路由表（HTTP 一律 200，只有客户端才渲染 404，所以不能靠状态码判断）。
+
+    本测试把已知真值固化，任何人再写旧路径/瞎猜路径都会被拦下。
+    """
+
+    # 平台真实路由（JS bundle 提取；值为中文界面名称）
+    TRUTH = {
+        "/marketing/tasks": "邮件群发",
+        "/marketing/tracks": "邮件追踪",
+        "/marketing/sequences": "智能跟进计划（序列）",
+        "/search/saved-tasks": "已保存任务",
+        "/search/refine-search": "AI数据库搜索",
+        "/settings/templets": "邮件模板",
+        "/settings/sequence": "计划时间",
+        "/settings/signatures": "邮件签名",
+        "/settings/tags": "标签管理",
+        "/settings/accounts": "邮箱账号",
+        "/settings/product-profile": "产品档案",
+        "/contacts/contacts": "联系人",
+        "/reports/overview": "数据总览",
+    }
+    # 已废弃路径（平台改版前存在，现在 404）——出现即失败
+    DEAD = (
+        "/mailing/sequence", "/mailing/send", "/mailing/tracks",
+        "/settings/time-plan", "/settings/templates", "/search/tasks",
+    )
+
+    def all_platform_urls(self):
+        """扫全仓平台链接。
+
+        ★排除测试目录：本文件要**写出**废弃路径作为反面样例（DEAD 表 + 事故说明），
+        扫自己会把断言用的字符串误判成"仓库里有 404 链接"（自指）。
+        真正的检查对象是文档/工具/卡片里**会给用户看**的链接。
+        """
+        import re as _re
+        urls = set()
+        for base in (ROOT / "output-templates", ROOT / "tools", ROOT / "specs"):
+            for path in base.rglob("*"):
+                if path.is_file() and path.suffix in (".md", ".py", ".sh"):
+                    urls.update(_re.findall(r"https://web\.laifaxin\.com/[A-Za-z0-9/_-]*",
+                                            path.read_text(encoding="utf-8", errors="ignore")))
+        for name in ("RULES.md", "SKILL.md", "README.md", "INDEX.md"):
+            f = ROOT / name
+            if f.exists():
+                urls.update(_re.findall(r"https://web\.laifaxin\.com/[A-Za-z0-9/_-]*",
+                                        f.read_text(encoding="utf-8", errors="ignore")))
+        return sorted({u for u in urls if "/api/" not in u})
+
+    def test_no_dead_platform_paths(self):
+        """★任何文件都不得再出现已废弃的平台路径（用户点了会看到 404）。"""
+        offenders = []
+        for u in self.all_platform_urls():
+            path = u.replace("https://web.laifaxin.com", "").rstrip("/")
+            if path in self.DEAD:
+                offenders.append(path)
+        self.assertEqual([], offenders,
+                         f"出现平台已废弃路径（用户会点到 404）: {offenders}")
+
+    def test_all_platform_urls_are_known_truth(self):
+        """所有平台链接必须能在真值表里找到（防瞎猜新路径）。"""
+        unknown = []
+        for u in self.all_platform_urls():
+            path = u.replace("https://web.laifaxin.com", "").rstrip("/")
+            if path not in self.TRUTH and path not in ("", "/"):
+                unknown.append(path)
+        self.assertEqual([], unknown,
+                         f"发现未经验证的新平台路径（须先核对 JS 路由表再写入真值表）: {unknown}")
+
+    def test_sequence_page_link_is_marketing_sequences(self):
+        """序列页（手动激活入口）必须是 /marketing/sequences——用户实测的正确地址。"""
+        card = (TEMPLATES / "S12-激活确认.md").read_text(encoding="utf-8")
+        self.assertIn("/marketing/sequences", card, "序列页地址不对")
+        self.assertNotIn("/mailing/sequence", card, "序列页仍是 404 旧地址")
