@@ -1084,6 +1084,22 @@ class PlatformLinkTruthTest(unittest.TestCase):
         "/mailing/sequence", "/mailing/send", "/mailing/tracks",
         "/settings/time-plan", "/settings/templates", "/search/tasks",
     )
+    # ★平台界面名称真值（JS bundle 侧栏菜单提取，2026-09-18）
+    #   用途：告诉用户"去平台哪里看"时，界面名必须与平台一致，否则用户找不到入口。
+    UI_TRUTH = (
+        "AI 数据库", "搜公司域名", "搜公司名称", "客户保存记录",
+        "联系人", "智能跟进计划", "邮件群发", "邮件追踪",
+        "邮件模板", "计划时间", "产品档案", "数据总览", "数据分析",
+    )
+    # 我们曾错用的界面名（平台无此名 → 用户按图索骥找不到）
+    UI_DEAD = (
+        "营销报告",     # 平台无此页；送达/阅读/点击在「邮件追踪」或计划详情里看
+        "模板库",       # 真值=「邮件模板」（"模板库"是内部泛称，不能当界面路径指给用户）
+        "已保存任务",   # 真值=「客户保存记录」
+    )
+    # 说明：不把「AI 数据库搜索」列为死名——平台菜单是「AI 数据库 🔥」，
+    # 该短语以真名开头（用户搜"AI 数据库"能找到），且它是本仓内部方法名
+    # （"AI 数据库搜索链三步"，见 RULES/SKILL/node-playbook），非导航指令。
 
     def all_platform_urls(self):
         """扫全仓平台链接。
@@ -1125,6 +1141,30 @@ class PlatformLinkTruthTest(unittest.TestCase):
                 unknown.append(path)
         self.assertEqual([], unknown,
                          f"发现未经验证的新平台路径（须先核对 JS 路由表再写入真值表）: {unknown}")
+
+    def test_no_dead_ui_names_in_user_facing_text(self):
+        """★2026-09-18 对抗检查：用户话术/文档里不得出现平台没有的界面名。
+
+        用户拿着我们写的"去营销报告看数据"去平台找——没有这个页面，直接卡住。
+        （实测：真值是「邮件追踪」/「智能跟进计划」；「模板库」真值=「邮件模板」；
+          「已保存任务」真值=「客户保存记录」；「AI 数据库搜索」真值=「AI 数据库」）
+        """
+        import re as _re
+        offenders = []
+        for base in (TEMPLATES, ROOT / "specs"):
+            for path in sorted(base.glob("*.md")):
+                text = path.read_text(encoding="utf-8")
+                for name in self.UI_DEAD:
+                    if name in text:
+                        offenders.append(f"{path.name}: {name}")
+        # 顶层文档同样检查（SKILL 是 AI 的路由表）
+        for name in ("SKILL.md", "RULES.md", "README.md"):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            for dead in self.UI_DEAD:
+                if dead in text:
+                    offenders.append(f"{name}: {dead}")
+        self.assertEqual([], offenders,
+                         f"出现平台不存在的界面名（用户会找不到入口）: {offenders}")
 
     def test_sequence_page_link_is_marketing_sequences(self):
         """序列页（手动激活入口）必须是 /marketing/sequences——用户实测的正确地址。"""

@@ -2,7 +2,7 @@
 name: laifaxin-b2b-sales
 title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载）"
 description: "外贸获客技能入口：触发路由、必备前置、状态机判据、铁律摘要、新会话三步走、文件地图。用户说找客户/获客/开发信/保存客户/建序列/来发信即走本入口；细节一律指向 RULES.md 与 specs/，禁止凭本摘要跳步。"
-version: 0.5.38
+version: 0.5.39
 created: 2026-08-30
 updated: 2026-09-09
 author: "独立审查 agent（对抗判定后落地）"
@@ -138,9 +138,9 @@ flowchart TD
 登录 web.laifaxin.com 后，告诉用户直接打开：
 | 看什么 | 页面 | 链接 |
 |---|---|---|
-| 邮件模板（整批，默认 48 个）| 模板库 | https://web.laifaxin.com/settings/templets |
+| 邮件模板（整批，默认 48 个）| 设置 → 邮件模板 | https://web.laifaxin.com/settings/templets |
 | 序列（12 步计划/inactive 状态）| 智能跟进 | https://web.laifaxin.com/marketing/sequences |
-| 保存的客户任务 | 已保存任务 | https://web.laifaxin.com/search/saved-tasks |
+| 保存的客户任务 | 搜客引擎 → 客户保存记录 | https://web.laifaxin.com/search/saved-tasks |
 | 发信设置 | 邮件营销 | https://web.laifaxin.com/marketing/tasks |
 | 时区计划 | 计划时间 | https://web.laifaxin.com/settings/sequence |
 | 联系人/标签 | 登录后左侧菜单「联系人」 | （按菜单进，搜标签名即得）|

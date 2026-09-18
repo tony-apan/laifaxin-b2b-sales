@@ -36,7 +36,7 @@ if not isinstance(steps,list) or not steps:
 print(f"步骤数: {len(steps)}")
 if len(steps)!=12:
     print(f"❌ 终检失败: 步骤数={len(steps)}≠12——序列步数错乱,不得激活"); sys.exit(1)
-# 模板库 name→id（拉够页,覆盖超300模板场景）
+# 邮件模板 name→id（拉够页,覆盖超300模板场景）
 tplset=set()
 for pg in range(1,8):
     lst=api("mailbox/templates-list",{"current":pg,"pageSize":100,"filter":{},"sort":{}}).get("list",[])
@@ -54,5 +54,5 @@ for s in steps:
     if bad or (wmode,wt)!=exp:
         ok=False
         print(f"  ⚠️ step{step}: 坏id={bad} wait={wt}")
-print(f"✅ 全部{len(steps)}步: template_ids均24hex+在模板库+wait(step1=30分/step2=5天/step3=15天/step4+=30天)正确" if ok else "❌ 终检失败——不得激活")
+print(f"✅ 全部{len(steps)}步: template_ids均24hex+在邮件模板库+wait(step1=30分/step2=5天/step3=15天/step4+=30天)正确" if ok else "❌ 终检失败——不得激活")
 sys.exit(0 if ok else 1)
