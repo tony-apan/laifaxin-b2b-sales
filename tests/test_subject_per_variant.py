@@ -96,6 +96,23 @@ class SubjectPerVariantTest(unittest.TestCase):
         self.assertRegex(src, r"标题重复|sub_dupes",
                          "差异工具未单独查标题重复（只比正文=假阴性）")
 
+    def test_rejects_variable_or_html_in_subject(self):
+        """★标题纯文案（规格既有规则，工具此前从未校验）：含 {变量} 或 HTML → 拒绝。"""
+        for bad in ["Has {联系人:名称}", "Has <b>bold</b>", "Var lfxFieldVeriable x"]:
+            d = [["R01", "破冰", [bad, "B", "C", "D"], "angle"]]
+            r = self.run_plan_gate(d, ["v1", "v2", "v3", "v4"])
+            with self.subTest(bad=bad):
+                self.assertEqual(2, r.returncode, f"标题含变量/HTML 未拦: {bad}")
+                self.assertIn("纯文案", r.stdout + r.stderr)
+
+    def test_tool_docs_describe_new_format(self):
+        """★对抗复查补：工具自身的 docstring/--help 必须写新格式——
+        AI 照 help 写 plan，写旧格式会被校验拒掉=白跑一趟。"""
+        src = (TOOLS / "gen_templates.py").read_text(encoding="utf-8")
+        self.assertNotIn('"主题纯文案"', src,
+                         "工具文档仍写旧格式（单字符串标题）——会误导 AI 生成被拒的 plan")
+        self.assertIn("逐变体主题", src, "工具文档未写明新格式（逐变体标题列表）")
+
     def test_specs_document_the_rule(self):
         text = (ROOT / "specs" / "sequence-config.md").read_text(encoding="utf-8")
         self.assertIn("标题必须逐变体不同", text, "规格未写明该规则")

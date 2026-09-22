@@ -11,7 +11,8 @@
   python3 gen_templates.py --token <T> --org <orgId> --prefix "英-皮筏艇-" --suffix=-RT --name Tony \
       --profile runs/<operator_key>/<product_key>/product-profile.md --plan <plan.json> --approval <ap-id> --project <operator_key>/<product_key> [--preview]
   生成后必跑 tools/check_template_diff.py --prefix 实测差异(模板差异实测（工具级）)
-  plan JSON = {"profile_sha256": "<当前档案sha256>", "directions": [["R01","中文名","主题纯文案","正文轮次句"], ...],
+  plan JSON = {"profile_sha256": "<当前档案sha256>",
+               "directions": [["R01","中文名",["逐变体主题1","逐变体主题2",...],"正文轮次句"], ...],   ★第3位=标题列表(每变体一个,互不相同,跨轮也不重;纯文案禁{变量}/HTML)
                "variants": ["正文变体句", ...], "claims": [{"exact_text":"...","source":"...","profile_field":"⑤","evidence_text":"档案字段中的原文"}](出现高风险事实时必填)}
 退出码: 0=成功 1=审批/模板创建失败 2=输入校验失败(昵称/plan结构/哈希不匹配/claims) 4=产品档案闸门(draft/缺失/结构错)
 """
@@ -42,7 +43,7 @@ ap.add_argument("--out", default="", help="可选: 落盘 name→id 映射 JSON(
 ap.add_argument("--record", default="", help="项目 operation-record.md；创建全部成功后自动推进 status=S8,next_state=S9")
 ap.add_argument("--approval", default="", help="★审批凭证id(审批闸门·工具级): .local/approvals.tsv 或编排器输出")
 ap.add_argument("--project", required=True, help="稳定项目键=<operator_key>/<product_key>；须与 --profile frontmatter 一致(审批project匹配)")
-ap.add_argument("--plan", default="", help="★模板计划JSON文件路径(必填,生产路径唯一文案来源): {\"profile_sha256\":..,\"directions\":[[\"R01\",\"中文名\",\"主题纯文案\",\"正文轮次句\"],...],\"variants\":[...],\"claims\":[...]}")
+ap.add_argument("--plan", default="", help="★模板计划JSON文件路径(必填,生产路径唯一文案来源): {\"profile_sha256\":..,\"directions\":[[\"R01\",\"中文名\",[\"逐变体主题1\",\"逐变体主题2\",...],\"正文轮次句\"],...],\"variants\":[...],\"claims\":[...]}——directions 第3位=逐变体标题列表(互不相同,跨轮不重,纯文案)")
 ap.add_argument("--plan-name", default="", help="--plan 时的产品名(仅用于展示/提示,如 皮筏艇-经销商; 默认取 --product)")
 args = ap.parse_args()
 if not args.prefix.strip() or not args.suffix.strip():
@@ -58,7 +59,7 @@ if not _nick_ok:
 
 if not args.plan:
     print("❌ 缺 --plan <模板计划JSON>——内置 PRODUCTS 事实文案字典已删除,生产路径一律由 --plan 提供计划(防止未经用户确认/溯源的事实文案上线)。")
-    print('   plan JSON: {"profile_sha256":"<当前档案sha256>","directions":[["R01","中文名","主题纯文案","正文轮次句"],...],"variants":["正文变体句",...],"claims":[...](有高风险事实时必填)}')
+    print('   plan JSON: {"profile_sha256":"<当前档案sha256>","directions":[["R01","中文名",["逐变体主题1","逐变体主题2",...],"正文轮次句"],...],"variants":["正文变体句",...],"claims":[...](有高风险事实时必填)}')
     raise SystemExit(2)
 
 def load_plan(path):
@@ -115,6 +116,16 @@ def load_plan(path):
         print(f"❌ --plan 跨轮标题重复 {len(dup_subj)} 条——同一联系人会在不同轮看到同一个标题(像重复发信)。修 plan 后重跑：")
         for s in dup_subj[:5]:
             print(f"   - {s[:90]}")
+        raise SystemExit(2)
+    # ★标题纯文案（specs「标题不插变量」）：标题含变量标记/HTML 标签 → 拒绝
+    #   （既有欠账顺手补上：此前规格写了但工具从未校验；标题插变量会导致平台标题预览异常）
+    bad_subj = [(d[0], s) for d in directions for s in
+                ([x.strip() for x in d[2]] if isinstance(d[2], (list, tuple)) else [d[2].strip()])
+                if re.search(r"\{[^}]*\}|<[^>]+>|lfxFieldVeriable", s)]
+    if bad_subj:
+        print("❌ 标题必须纯文案（不得含 {变量} 或 HTML 标签——变量只放正文，见 sequence-config「标题不插变量」）：")
+        for rnd, s in bad_subj[:5]:
+            print(f"   - [{rnd}] {s[:80]}")
         raise SystemExit(2)
     plan_sha = hashlib.sha256(plan_bytes).hexdigest()
     return directions, variants, plan, plan_sha
