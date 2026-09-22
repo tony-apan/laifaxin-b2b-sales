@@ -29,7 +29,8 @@ def _load_namespace():
     for name in ("_CTA_MARK_RE", "_GENERIC_CTA_RE", "_ADVANTAGE_RE",
                  "_CTA_KW_QUOTED_RE", "_CTA_KW_BARE_RE", "_CTA_KW_STOPWORDS", "_YESNO_CTA_RE"):
         exec(_extract(rf"^{name} = .*?(?=\n\n|\n# |\ndef )"), ns)
-    for func in ("_cta_keyword", "check_four_elements"):
+    # ★2026-09-18：check_four_elements 现在按变体展开标题，需一并加载 subjects_of
+    for func in ("subjects_of", "_cta_keyword", "check_four_elements"):
         exec(_extract(rf"^def {func}\(.*?(?=\ndef |\n# ----------)"), ns)
     return ns
 
@@ -76,7 +77,9 @@ class FourElementsGateTest(unittest.TestCase):
     def run_gate(self, variants, directions=None):
         """返回 exit code；通过（未抛 SystemExit）返回 None。"""
         directions = directions or [
-            [f"R{i:02d}", f"方向{i}", f"{i} packaging subject", self.GOOD_DIRECTION] for i in range(1, 13)
+            [f"R{i:02d}", f"方向{i}",
+             [f"{i} packaging subject v{v}" for v in range(1, 11)],   # ★逐变体标题（新格式）
+             self.GOOD_DIRECTION] for i in range(1, 13)
         ]
         NS["DIRECTIONS"] = directions
         NS["VARIANTS"] = variants

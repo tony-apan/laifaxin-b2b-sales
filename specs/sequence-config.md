@@ -77,6 +77,19 @@ audience: 人+AI
 **★生成后确认清单**（与 RULES 四类固定清单#3「邮件模板」**并集适用**——本清单不替代固定清单的语言一致/spam 词等项）：①每档 5-8 封跨轮样例（渲染视图）②CTA 类型分布表 ③与其它档差异说明 ④事实核验清单（数字/背书逐项属实）
 （技术规则：变量 code 包裹/标题纯文案/差异≥30% Jaccard≤0.70/12×4 网格；v2 批次写入 `--plan` 的 directions，计划必须绑定当前 product-profile hash；高风险事实逐句 claims+evidence_text 溯源。生产路径不再使用内置 PRODUCTS 字典。）
 
+### ★标题必须逐变体不同（2026-09-18 用户实测拍板）
+
+用户实测发现：同一轮 4 个变体的**标题完全一样**（如 R01 的 V02/V03/V06 主题都是 `Headwear OEM for your collections`）——收件人最先看到的就是标题，标题相同 = 看不出差异，等于白做了「同轮不重复」的正文差异化。
+
+**规则**：
+- `plan.directions` 第 3 位必须是**标题列表**（按变体顺序），**不是单个字符串**：
+  ```json
+  ["R01","破冰",["Headwear OEM for your collections","Private label caps, made to your specs","Your next headwear line, sampled free","Caps & beanies: MOQ-friendly OEM"],"正文轮次句..."]
+  ```
+- **同轮内**各变体标题必须互不相同；**跨轮**也不得重复（同一联系人会在不同轮收到，重名像在重复发同一封）
+- 标题仍**不插变量、不加粗**（纯文案）
+- 工具已强制：`gen_templates.py` 在计划加载阶段就拒绝「只给一个标题但有多个变体」「同轮标题重复」「跨轮标题重复」；`check_template_diff.py` 除正文相似度外**单独查标题重复**（旧版只比 html，标题全同也判达标=假阴性）
+
 ### 每轮 4 封（4 个不同模板）
 - 同轮内 4 封也**不同**（不同切入点/痛点的变体）
 - 用 `template_ids` 传 4 个**互不相同**的模板 id

@@ -66,6 +66,27 @@ for i in range(len(tpls)):
         if sim>maxsim: maxsim=sim; worst=(a["name"],b["name"])
         if sim>0.70: bad.append((round(sim,2),a["name"],b["name"]))
 print(f"最大相似度: {maxsim:.2f} ({worst[0] if worst else '-'} vs {worst[1] if worst else '-'})")
+
+# ★2026-09-18 用户实测补：标题维度必须单独查——旧版只比 html，
+#   同轮变体标题完全一致（"同一个步骤，标题一致"）却判"差异达标"（假阴性）。
+subs = [(t["name"], (t.get("subject") or "").strip()) for t in tpls]
+seen = {}
+sub_dupes = []
+for nm, s in subs:
+    if not s:
+        print(f"❌ 模板 {nm} 标题为空——标题是收件人最先看到的内容，不能缺")
+        sys.exit(1)
+    if s in seen:
+        sub_dupes.append((seen[s], nm, s))
+    else:
+        seen[s] = nm
+if sub_dupes:
+    print(f"❌ 标题重复 {len(sub_dupes)} 对（同轮变体/跨轮标题相同=收件人看不出差异）：")
+    for a_, b_, s in sub_dupes[:8]:
+        print(f"   {a_}  vs  {b_}  →  「{s[:70]}」")
+    print("提示: plan 的 directions 第 3 位须给**逐变体**标题列表，且跨轮不得重复")
+    sys.exit(1)
+print(f"✅ {len(subs)} 个标题互不相同")
 if bad:
     print(f"❌ 相似度>0.70 的 {len(bad)} 对（差异<30%违例），示例:")
     for s,a,b in bad[:8]: print(f"  {s} | {a} vs {b}")

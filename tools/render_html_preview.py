@@ -156,10 +156,16 @@ def main(argv=None):
     variant_idx = parse_selection(args.variants, len(variants)) if args.variants else [1]
 
     cards = []
+    def subject_of(d, vi):
+        """逐变体标题（兼容旧的单标题字符串）。"""
+        spec = d[2]
+        return spec[vi - 1] if isinstance(spec, (list, tuple)) else spec
+
     for ri in round_idx:
-        rnd, zh, subject, angle = directions[ri - 1][:4]
+        d = directions[ri - 1]
+        rnd, zh, angle = d[0], d[1], d[3]
         for vi in variant_idx:
-            cards.append(build_card(f"{rnd}-V{vi:02d}", zh, subject, angle, variants[vi - 1], args.name))
+            cards.append(build_card(f"{rnd}-V{vi:02d}", zh, subject_of(d, vi), angle, variants[vi - 1], args.name))
 
     out_path = Path(args.out) if args.out else plan_path.parent / "preview.html"
     out_path.write_text(PAGE.format(cards="\n".join(cards)), encoding="utf-8")

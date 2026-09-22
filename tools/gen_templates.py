@@ -74,13 +74,30 @@ def load_plan(path):
     except Exception as e:
         print(f"❌ --plan 读取失败: {path} -> {e}"); raise SystemExit(2)
     if not isinstance(plan, dict) or not isinstance(plan.get("directions"), list) or not isinstance(plan.get("variants"), list):
-        print(f'❌ --plan JSON 结构无效(应为 {{"profile_sha256":..,"directions": [[轮次号,中文名,主题纯文案,正文轮次句],...], "variants": [正文变体句,...], "claims": [...]}}): {path}'); raise SystemExit(2)
+        print(f'❌ --plan JSON 结构无效(应为 {{"profile_sha256":..,"directions": [[轮次号,中文名,[逐变体主题...],正文轮次句],...], "variants": [正文变体句,...], "claims": [...]}}): {path}'); raise SystemExit(2)
     directions, variants = plan["directions"], plan["variants"]
     if not directions or not variants:
         print(f"❌ --plan 内容为空: directions/variants 至少各 1 条: {path}"); raise SystemExit(2)
     for i, d in enumerate(directions):
-        if not isinstance(d, (list, tuple)) or len(d) < 4 or not all(isinstance(x, str) and x.strip() for x in d[:4]):
-            print(f"❌ --plan directions[{i}] 无效(应为 [轮次号,中文名,主题纯文案,正文轮次句] 四项字符串): {d!r}"); raise SystemExit(2)
+        if not isinstance(d, (list, tuple)) or len(d) < 4:
+            print(f"❌ --plan directions[{i}] 无效(应为 [轮次号,中文名,[逐变体主题...],正文轮次句]): {d!r}"); raise SystemExit(2)
+        # ★2026-09-18 用户实测：同轮各变体标题必须不同（否则收件人看到"同一个步骤、标题一致"）
+        subj = d[2]
+        if isinstance(subj, (list, tuple)):
+            if not all(isinstance(x, str) and x.strip() for x in subj):
+                print(f"❌ --plan directions[{i}] 的主题列表含空值/非字符串: {subj!r}"); raise SystemExit(2)
+            if len(subj) != len(variants):
+                print(f"❌ --plan directions[{i}] 主题数={len(subj)} 与变体数={len(variants)} 不一致——"
+                      f"须为每个变体各给一个标题(标题是收件人最先看到的东西，同轮不能共用)"); raise SystemExit(2)
+            if len({s.strip() for s in subj}) != len(subj):
+                print(f"❌ --plan directions[{i}] 主题重复——同轮 {len(subj)} 个变体标题必须互不相同: {subj!r}"); raise SystemExit(2)
+        elif isinstance(subj, str) and subj.strip():
+            if len(variants) > 1:
+                print(f"❌ --plan directions[{i}] 只给了一个标题，但有 {len(variants)} 个变体——"
+                      f"同轮各变体标题必须不同(收件人最先看到标题；同标题=看不出差异)。"
+                      f"请把第 3 位改成标题列表，如 [\"标题A\",\"标题B\",...]"); raise SystemExit(2)
+        else:
+            print(f"❌ --plan directions[{i}] 主题无效(应为字符串或字符串列表): {subj!r}"); raise SystemExit(2)
     for i, v in enumerate(variants):
         if not isinstance(v, str) or not v.strip():
             print(f"❌ --plan variants[{i}] 无效(应为非空字符串): {v!r}"); raise SystemExit(2)
@@ -88,6 +105,17 @@ def load_plan(path):
         print("❌ --plan 轮次号重复: directions 每项第 0 位(如 R01)须唯一"); raise SystemExit(2)
     if "signature" in plan:
         print("❌ plan 不允许 signature 字段——签名只能来自 --name(纯昵称),渲染固定为 <p>{昵称}</p> (exit 2)"); raise SystemExit(2)
+    # ★跨轮标题也不得重复：同一收件人在不同轮看到同一标题=像在重复发同一封
+    all_subjects = []
+    for d in directions:
+        subj = d[2]
+        all_subjects.extend([s.strip() for s in subj] if isinstance(subj, (list, tuple)) else [subj.strip()])
+    dup_subj = sorted({s for s in all_subjects if all_subjects.count(s) > 1})
+    if dup_subj:
+        print(f"❌ --plan 跨轮标题重复 {len(dup_subj)} 条——同一联系人会在不同轮看到同一个标题(像重复发信)。修 plan 后重跑：")
+        for s in dup_subj[:5]:
+            print(f"   - {s[:90]}")
+        raise SystemExit(2)
     plan_sha = hashlib.sha256(plan_bytes).hexdigest()
     return directions, variants, plan, plan_sha
 
@@ -125,6 +153,20 @@ RISK_RE = re.compile(
     re.IGNORECASE,
 )
 
+def subjects_of(d):
+    """把某轮的标题规范化为列表（兼容单字符串）。"""
+    spec = d[2]
+    return list(spec) if isinstance(spec, (list, tuple)) else [spec]
+
+
+def subject_for(d, vi):
+    """取第 d 轮第 vi 个变体(1-based)的标题。"""
+    spec = d[2]
+    if isinstance(spec, (list, tuple)):
+        return spec[vi - 1]
+    return spec
+
+
 def _sentences(text):
     """切句前剥掉 <b>/</b> 排版标签（四要素铁律要求加粗，但标签不属于句子内容）。"""
     text = re.sub(r"</?b>", "", text or "")
@@ -135,7 +177,9 @@ def _risky_hits():
     """扫描用户可见文案(主题/正文轮次句/变体句)中含高风险事实的句子。轮次号(R01)与中文主题名不参与。"""
     hits = []
     for d in DIRECTIONS:
-        for where, text in ((f"{d[0]}/主题", d[2]), (f"{d[0]}/正文轮次句", d[3])):
+        _pairs = [(f"{d[0]}/主题V{vi:02d}", s) for vi, s in enumerate(subjects_of(d), 1)]
+        _pairs.append((f"{d[0]}/正文轮次句", d[3]))
+        for where, text in _pairs:
             for s in _sentences(text):
                 if RISK_RE.search(s):
                     hits.append((where, s))
@@ -151,7 +195,7 @@ def _all_user_sentences():
     exact_text 归一化后必须等于某一段的归一化全文（即 exact_text=整段原文），或为空由调用方报错。"""
     sents = set()
     for d in DIRECTIONS:
-        for text in (d[2], d[3]):
+        for text in (*subjects_of(d), d[3]):
             if str(text or "").strip():
                 sents.add(_normalize_claim_sentence(text))
     for body in VARIANTS:
@@ -352,7 +396,18 @@ def check_plan_duplicates():
         for d in ddupes[:3]:
             print(f"   - {d[:90]}")
         raise SystemExit(2)
-    print(f"  ✅ plan 去重预检: {len(VARIANTS)} 变体 + {len(DIRECTIONS)} 轮次句均无重复")
+    # ★标题维度（2026-09-18）：轮内各变体 + 跨轮均不得重复（已在 load_plan 拦，这里再自证一次）
+    subs = []
+    for d in DIRECTIONS:
+        spec = d[2]
+        subs.extend([s.strip() for s in spec] if isinstance(spec, (list, tuple)) else [spec.strip()])
+    sdupes = sorted({s for s in subs if subs.count(s) > 1})
+    if sdupes:
+        print(f"❌ plan 标题重复 {len(sdupes)} 条——同轮/跨轮标题相同会看不出差异。修 plan 后重跑：")
+        for s in sdupes[:3]:
+            print(f"   - {s[:90]}")
+        raise SystemExit(2)
+    print(f"  ✅ plan 去重预检: {len(VARIANTS)} 变体 + {len(DIRECTIONS)} 轮次句 + {len(subs)} 个标题均无重复")
 
 
 def check_four_elements():
@@ -362,7 +417,8 @@ def check_four_elements():
     issues = []
     samples = []
     for d in DIRECTIONS:
-        samples.append((f"{d[0]}", d[2], d[3]))
+        for _vi, _s in enumerate(subjects_of(d), 1):
+            samples.append((f"{d[0]}-V{_vi:02d}", _s, d[3]))
     for vi, body in enumerate(VARIANTS, 1):
         samples.append((f"V{vi:02d}", "", body))
     for loc, subj, text in samples:
@@ -395,7 +451,8 @@ def check_four_elements():
                     issues.append(f"[{loc}] CTA回复关键词「{kw}」过长——应为 1-2 个单词的短词（如 CATALOG/DATA/YES）")
     # 视觉扫读：整封（钩子段+卖点段+CTA段，不含落款）≤120 词
     for d in DIRECTIONS:
-        full_text = re.sub(r"<[^>]+>", " ", f"{d[2]} {d[3]} {VARIANTS[0]}")
+        _longest_subj = max(subjects_of(d), key=len)
+        full_text = re.sub(r"<[^>]+>", " ", f"{_longest_subj} {d[3]} {VARIANTS[0]}")
         words = len(re.findall(r"[A-Za-z0-9']+", full_text))
         if words > 120:
             issues.append(f"[{d[0]}] 整封词数={words}（上限120）——超长=移动端折叠=CTA不可见")
@@ -408,7 +465,9 @@ def check_four_elements():
 
 def preview():
     print("★ 渲染视图预览(收件人看到):")
-    for rnd, zh, subj, angle in DIRECTIONS[:5]:
+    for d in DIRECTIONS[:5]:
+        rnd, zh, angle = d[0], d[1], d[3]
+        subj = subject_for(d, 1)
         h = html_for(rnd, zh, subj, angle, VARIANTS[0])
         t = re.sub(r'<code[^>]*>\{联系人:([^}]+)\}</code>', lambda m: '【' + m.group(1) + '】', h)
         t = re.sub(r'<[^>]+>', '\n', t)
@@ -553,8 +612,10 @@ args.foid = ensure_folder()  # S8: 模板必须归入分组(禁散落未指定�
 
 print(f"生成 {DISPLAY} {len(DIRECTIONS)}x{len(VARIANTS)}={len(DIRECTIONS)*len(VARIANTS)} (签名={SIGN}, 每轮/每变体正文句不同):")
 results = {}
-for rnd, zh, subj, angle in DIRECTIONS:
+for d in DIRECTIONS:
+    rnd, zh, angle = d[0], d[1], d[3]
     for vi, body in enumerate(VARIANTS, 1):
+        subj = subject_for(d, vi)   # ★逐变体标题（同轮不共用）
         nm = f"{args.prefix}{rnd}-{zh}-V{vi:02d}{args.suffix}"
         tid = add(nm, subj, html_for(rnd, zh, subj, angle, body))
         results[nm] = tid

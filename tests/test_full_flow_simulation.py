@@ -290,7 +290,11 @@ class FullFlowSimulationTest(unittest.TestCase):
         for i, word in enumerate(("orbit", "harbor", "cedar", "quartz", "maple", "signal", "velvet", "anchor", "cobalt", "meadow", "summit", "willow"), 1):
             angle = " ".join(word + suffix for suffix in ("lane", "crest", "field", "point", "mark", "path", "view", "work", "craft", "scope"))
             # 轮次句含加粗产品词+实体优势（四要素：整封 2-4 处加粗、优势具体化；不用数字避免触发事实闸门）
-            directions.append([f"R{i:02d}", f"方向{i}", f"{word} packaging discussion",
+            # ★2026-09-18：第 3 位改为**逐变体标题列表**（同轮 4 个变体标题必须互不相同，
+            #   跨轮也不得重复——用户实测"同一个步骤，标题一致"是错的）
+            subjects = [f"{word} packaging — {v} view".replace("view", v)
+                        for v in ("sourcing", "quality", "leadtime", "design")]
+            directions.append([f"R{i:02d}", f"方向{i}", subjects,
                                f"Are your <b>packaging</b> SKUs locked in? We build <b>seam</b> construction. {angle}"])
         variants = []
         claims = []
