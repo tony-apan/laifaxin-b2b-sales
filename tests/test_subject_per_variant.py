@@ -105,6 +105,34 @@ class SubjectPerVariantTest(unittest.TestCase):
                 self.assertEqual(2, r.returncode, f"标题含变量/HTML 未拦: {bad}")
                 self.assertIn("纯文案", r.stdout + r.stderr)
 
+    def test_rejects_skin_deep_angle_titles(self):
+        """★2026-09-18 用户拍板『标题要多角度』：不只是字面不同，角度也要不同。
+
+        三类"假差异"必须拦：
+        ①编号堆砌（Subject 1/2/3/4）②同框架换一个词（Caps OEM→Hats OEM）③同句换数字
+        真多角度（产品线/打样/交期产能/趋势各写一面）必须放行。
+        """
+        cases = [
+            ("编号堆砌", [["R01","破冰",["Subject 1","Subject 2","Subject 3","Subject 4"],"a"]], True),
+            ("同框架换皮", [["R01","破冰",["Caps OEM for your brand","Hats OEM for your brand",
+                                        "Beanies OEM for your brand","Scarves OEM for your brand"],"a"]], True),
+            ("同句换数字", [["R01","破冰",["Caps from 1 factory","Caps from 2 factory",
+                                        "Caps from 3 factory","Caps from 4 factory"],"a"]], True),
+            ("真多角度", [["R01","破冰",["Headwear OEM for your collections",
+                                      "Free sampling on your next caps order",
+                                      "15-day lead time, 3000 pcs MOQ",
+                                      "Recycled fabrics trending in EU headwear"],"a"]], False),
+        ]
+        for name, dirs, should_reject in cases:
+            r = self.run_plan_gate(dirs, ["v1", "v2", "v3", "v4"])
+            rc, out = r.returncode, r.stdout + r.stderr
+            with self.subTest(case=name):
+                if should_reject:
+                    self.assertEqual(2, rc, f"「{name}」未被拦（假差异放行）")
+                    self.assertRegex(out, r"多角度|角度雷同|堆砌", "报错须解释要真多角度")
+                else:
+                    self.assertNotEqual(2, rc, f"「{name}」被误拦: {out[:200]}")
+
     def test_tool_docs_describe_new_format(self):
         """★对抗复查补：工具自身的 docstring/--help 必须写新格式——
         AI 照 help 写 plan，写旧格式会被校验拒掉=白跑一趟。"""

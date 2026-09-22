@@ -62,6 +62,32 @@ if not args.plan:
     print('   plan JSON: {"profile_sha256":"<当前档案sha256>","directions":[["R01","中文名",["逐变体主题1","逐变体主题2",...],"正文轮次句"],...],"variants":["正文变体句",...],"claims":[...](有高风险事实时必填)}')
     raise SystemExit(2)
 
+def subjects_of(d):
+    """把某轮的标题规范化为列表（兼容单字符串）。"""
+    spec = d[2]
+    return list(spec) if isinstance(spec, (list, tuple)) else [spec]
+
+
+def subject_for(d, vi):
+    """取第 d 轮第 vi 个变体(1-based)的标题。"""
+    spec = d[2]
+    if isinstance(spec, (list, tuple)):
+        return spec[vi - 1]
+    return spec
+
+
+def _words(s):
+    """标题词袋（小写、去 HTML、按非字母数字切分）——与 check_template_diff 同口径。"""
+    s = re.sub(r"<[^>]+>", " ", (s or "")).lower()
+    return {w for w in re.findall(r"[^\W_]+", s, flags=re.UNICODE) if w}
+
+
+def _jaccard(a, b):
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
 def load_plan(path):
     """读取 --plan 模板计划JSON: {"profile_sha256":..,"directions":[[轮次号,中文名,主题,正文轮次句],...],"variants":[..],"claims":[..]}
     返回 (directions, variants, plan_dict, plan_sha256); 无效(读不到/JSON错/结构错)→ 明确报错 exit 2,绝不静默兜底。"""
@@ -92,6 +118,30 @@ def load_plan(path):
                       f"须为每个变体各给一个标题(标题是收件人最先看到的东西，同轮不能共用)"); raise SystemExit(2)
             if len({s.strip() for s in subj}) != len(subj):
                 print(f"❌ --plan directions[{i}] 主题重复——同轮 {len(subj)} 个变体标题必须互不相同: {subj!r}"); raise SystemExit(2)
+            # ★2026-09-18 用户要求：标题要多角度——不只是字面不同，语义/角度也要不同。
+            #   用词袋 Jaccard 卡"换皮标题"（编号堆砌 Subject 1/2/3、同框架换一个词）：
+            #   两两相似度 >0.60 视为同角度换皮，拒绝（正文同标准是 0.70，标题短、词少，阈值更严）。
+            bad_pair = None
+            best = 0.0
+            for x in range(len(subj)):
+                for y in range(x + 1, len(subj)):
+                    sim = _jaccard(_words(subj[x]), _words(subj[y]))
+                    best = max(best, sim)
+                    if sim > 0.60 and bad_pair is None:
+                        bad_pair = (subj[x], subj[y], sim)
+            if bad_pair:
+                print(f"❌ --plan directions[{i}] 标题角度雷同（相似度 {bad_pair[2]:.2f}>0.60）："
+                      f"「{bad_pair[0][:50]}」 vs 「{bad_pair[1][:50]}」")
+                print(f"   ★标题要多角度——每个变体从不同侧面写（如 产品线/材质工艺/交期产能/打样政策/市场趋势），"
+                      f"禁止编号堆砌(Subject 1/2/3)或同框架换一个词(Caps OEM→Hats OEM)")
+                raise SystemExit(2)
+            # ★骨架检查（拦"编号堆砌"）：去掉数字后剩余词序列完全一致 = 同一模板填不同编号，
+            #   词袋 Jaccard 拦不住它（数字算不同词），必须单独查。
+            skeletons = [tuple(w for w in _words(s) if not w.isdigit()) for s in subj]
+            if len(set(skeletons)) != len(skeletons):
+                print(f"❌ --plan directions[{i}] 标题是编号堆砌（去掉数字后完全相同）：{list(subj)!r}")
+                print("   ★标题要多角度——从不同侧面写实质内容，不是同一句话换个编号")
+                raise SystemExit(2)
         elif isinstance(subj, str) and subj.strip():
             if len(variants) > 1:
                 print(f"❌ --plan directions[{i}] 只给了一个标题，但有 {len(variants)} 个变体——"
@@ -163,20 +213,6 @@ RISK_RE = re.compile(
     r"认证|食品级|免费|折扣|库存|稀缺|产能|价格|交期|优惠|现货|清仓|质保|保修|担保|合规",
     re.IGNORECASE,
 )
-
-def subjects_of(d):
-    """把某轮的标题规范化为列表（兼容单字符串）。"""
-    spec = d[2]
-    return list(spec) if isinstance(spec, (list, tuple)) else [spec]
-
-
-def subject_for(d, vi):
-    """取第 d 轮第 vi 个变体(1-based)的标题。"""
-    spec = d[2]
-    if isinstance(spec, (list, tuple)):
-        return spec[vi - 1]
-    return spec
-
 
 def _sentences(text):
     """切句前剥掉 <b>/</b> 排版标签（四要素铁律要求加粗，但标签不属于句子内容）。"""

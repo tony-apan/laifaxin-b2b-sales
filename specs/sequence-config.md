@@ -87,6 +87,7 @@ audience: 人+AI
   ["R01","破冰",["Headwear OEM for your collections","Private label caps, made to your specs","Your next headwear line, sampled free","Caps & beanies: MOQ-friendly OEM"],"正文轮次句..."]
   ```
 - **同轮内**各变体标题必须互不相同；**跨轮**也不得重复（同一联系人会在不同轮收到，重名像在重复发同一封）
+- **★标题要多角度（2026-09-18 用户拍板）**：互不相同≠达标——每个变体从**不同侧面**写（产品线/材质工艺/交期产能/打样政策/市场趋势…）。**编号堆砌**（Subject 1/2/3）、**同框架换一个词**（Caps OEM→Hats OEM）、**同句换数字**都是假差异，工具会用词袋相似度>0.60与去数字骨架检查拒绝
 - 标题仍**不插变量、不加粗**（纯文案）
 - 工具已强制：`gen_templates.py` 在计划加载阶段就拒绝「只给一个标题但有多个变体」「同轮标题重复」「跨轮标题重复」；`check_template_diff.py` 除正文相似度外**单独查标题重复**（旧版只比 html，标题全同也判达标=假阴性）
 
