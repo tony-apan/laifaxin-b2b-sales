@@ -176,7 +176,16 @@ def main(argv=None, *, stdin=None, request=request_once, sleep=time.sleep,
         if not args.credentials_stdin and not (args.token or args.org):
             guide(reason, args.gate_mode)
         else:
-            print("发来的内容不完整或格式不对——通常是复制时少了一段。请把浏览器里一键复制到的两行整段发我（不用拆分、不用改格式）。", file=sys.stderr)
+            _reason = str(exc)
+            if "orgId line is missing" in _reason:
+                print("您发的只有第一行（账号钥匙），缺了第二行（工作空间编号）——这两行缺一不可，"
+                      "只有第一行我没法确认会把客户存进哪个空间。", file=sys.stderr)
+                print("请用我之前给您的完整复制命令重新复制一次（一条命令就能同时拿到两行），整段发我。", file=sys.stderr)
+            elif "accesstoken line is missing" in _reason:
+                print("您发的只有第二行（工作空间编号），缺了第一行（账号钥匙）——这两行缺一不可。", file=sys.stderr)
+                print("请用我之前给您的完整复制命令重新复制一次（一条命令就能同时拿到两行），整段发我。", file=sys.stderr)
+            else:
+                print("发来的内容不完整或格式不对——通常是复制时少了一段。请把浏览器里一键复制到的两行整段发我（不用拆分、不用改格式）。", file=sys.stderr)
         return 2
 
     data = None

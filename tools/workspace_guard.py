@@ -204,7 +204,13 @@ def main(argv=None, *, stdin=None, probe=None):
     try:
         token, org = _load_credentials(args, stdin)
     except (Invalid, UnicodeError) as exc:
-        print(f"发来的内容不完整或格式不对：{exc}——请把浏览器里一键复制到的两行整段发我，不用拆分。", file=sys.stderr)
+        _r = str(exc)
+        if "orgId line is missing" in _r:
+            print("您发的只有第一行（账号钥匙），缺了第二行（工作空间编号）——两行缺一不可。请用完整复制命令重新复制一次（一次拿两行）整段发我。", file=sys.stderr)
+        elif "accesstoken line is missing" in _r:
+            print("您发的只有第二行（工作空间编号），缺了第一行（账号钥匙）——两行缺一不可。请用完整复制命令重新复制一次（一次拿两行）整段发我。", file=sys.stderr)
+        else:
+            print(f"发来的内容不完整或格式不对：{exc}——请把浏览器里一键复制到的两行整段发我，不用拆分。", file=sys.stderr)
         return 2
 
     result = verify_workspace(token, org, probe=probe)

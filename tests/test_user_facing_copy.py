@@ -1171,3 +1171,48 @@ class PlatformLinkTruthTest(unittest.TestCase):
         card = (TEMPLATES / "S12-激活确认.md").read_text(encoding="utf-8")
         self.assertIn("/marketing/sequences", card, "序列页地址不对")
         self.assertNotIn("/mailing/sequence", card, "序列页仍是 404 旧地址")
+
+
+class BothValuesRequiredTest(unittest.TestCase):
+    """★2026-09-18 用户实测：外部工具教用户只复制 accesstoken（单取命令）。
+
+    风险链：用户照外部命令只拿到 token → 若 AI 继续推进 → 缺 orgId 无法确认工作空间
+    → 静默写错空间（历史事故同款）。加固四层：
+    ①工具区分"缺哪一半"并给白话（位置说法：第一行/第二行）
+    ②T-token 卡警告"别的命令只复制一半"
+    ③失败卡点名该场景
+    ④RULES 规定处置：不继续、不让用户跑第二条单取命令、重展示完整双取命令
+    """
+
+    def test_tool_distinguishes_which_half_missing(self):
+        """只发 token / 只发 orgId → 白话必须说清缺哪行（用"第一行/第二行"位置说法）。"""
+        import subprocess, sys
+        for blob, expect in (("accesstoken=web.laifaxin.com&u&h\n", "第一行"),
+                             ("orgId=123456\n", "第二行")):
+            r = subprocess.run(
+                [sys.executable, str(ROOT / "tools" / "check_login.py"), "--credentials-stdin"],
+                input=blob, text=True, capture_output=True, timeout=60)
+            with self.subTest(blob=blob.strip()):
+                self.assertEqual(2, r.returncode, "缺一半必须拒绝")
+                self.assertIn(expect, r.stderr, f"须用位置说法指明缺的是{expect}")
+                self.assertIn("两行", r.stderr, "须引导重新拿两行")
+
+    def test_token_card_warns_about_half_copy_commands(self):
+        """T-token 卡必须警告"别的命令可能只复制一半"。"""
+        block = re.findall(r"```[a-zA-Z]*\n(.*?)```",
+                           (TEMPLATES / "T-token引导.md").read_text(encoding="utf-8"), re.S)[0]
+        self.assertRegex(block, r"只复制 ?accesstoken|只拿了一半",
+                         "卡未警告单取命令（用户被外部工具教坏后无从判断）")
+        self.assertIn("完整命令", block, "须指向完整命令")
+
+    def test_rules_prescribe_handling_for_token_only(self):
+        """RULES 必须规定：只发一段→不继续、禁第二条单取命令、重展示完整命令。"""
+        text = (ROOT / "RULES.md").read_text(encoding="utf-8")
+        self.assertIn("用户只发一段", text, "RULES 缺处置规则")
+        self.assertIn("只取 orgId", text, "RULES 未禁止让用户跑第二条单取命令")
+
+    def test_failure_card_names_the_half_copy_case(self):
+        text = (TEMPLATES / "S0-连接未通过.md").read_text(encoding="utf-8")
+        self.assertRegex(text, r"只收到了账号钥匙|只复制一半",
+                         "失败卡未点名『只发一半』场景")
+        self.assertIn("完整复制命令", text, "须引导用完整命令")

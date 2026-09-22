@@ -60,6 +60,10 @@ def parse_credentials(blob, max_bytes=8192):
             raise Invalid("credential value is empty, null, or contains whitespace/control characters")
         found[canonical] = value
     if set(found) != {"token", "org"}:
+        if "token" in found and "org" not in found:
+            raise Invalid("orgId line is missing (only accesstoken was provided)")
+        if "org" in found and "token" not in found:
+            raise Invalid("accesstoken line is missing (only orgId was provided)")
         raise Invalid("exactly one token and one org key are required")
     segments = found["token"].split("&")
     if len(segments) != 3 or not all(segments):
