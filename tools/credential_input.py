@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Strict parser for the two-line credential handoff format."""
+"""Strict parser for the two-line credential handoff format.
+
+值本身保持严格（禁空白/控制字符/null/多段 token）；但真实用户会手拼粘贴
+（2026-09-23 真机截图：`accesstoken:` 键独占一行、值在下一行；`orgId：z44422` 全角冒号），
+旧解析器只认 `key=value` 单行，把这些打成 "unknown line"，AI 随之反复索要用户已给的值。
+故分隔符与分行做容错：`=`/`:`/`：` 均可；键可独占一行、值取下一非空行；键大小写不敏感；
+键值首尾空白剥掉。解析失败的兜底原则不变：宁可拒绝也不猜值。
+"""
 
 import unicodedata
 
@@ -10,10 +17,26 @@ class Invalid(ValueError):
 
 _ALIASES = {
     "accesstoken": "token",
-    "TOKEN": "token",
-    "orgId": "org",
-    "ORG": "org",
+    "token": "token",
+    "orgid": "org",
+    "org": "org",
 }
+
+_SEPARATORS = ("=", ":", "：")
+
+
+def _alias_for(key):
+    canonical = _ALIASES.get(key) or _ALIASES.get(key.lower())
+    return canonical
+
+
+def _split_line(line):
+    """按第一个合法分隔符切开；返回 (key, value, had_separator)，均已 strip。"""
+    for sep in _SEPARATORS:
+        if sep in line:
+            key, _, value = line.partition(sep)
+            return key.strip(), value.strip(), True
+    return line.strip(), "", False
 
 
 def _decode(blob, max_bytes):
@@ -45,20 +68,33 @@ def parse_credentials(blob, max_bytes=8192):
     """Return ``(token, org_id)`` from exactly one token/org key pair."""
     text = _decode(blob, max_bytes)
     found = {}
-    for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+    pending = None  # 已见键、等下一非空行作为值的槽位
+    for raw_line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        line = raw_line.strip()
         if not line:
             continue
-        if "=" not in line:
-            raise Invalid("unknown non-empty credential line")
-        key, value = line.split("=", 1)
-        canonical = _ALIASES.get(key)
-        if canonical is None:
-            raise Invalid("unknown credential key")
+        key, value, had_separator = _split_line(line)
+        if pending is not None:
+            if had_separator and _alias_for(key) is not None:
+                # 键后没值、下一行又是键 → 悬空键缺值，禁止把下一个键行吞成值
+                raise Invalid("credential key line is missing its value on the next line")
+            canonical = pending
+            pending = None
+            value = line  # 悬空键的值就是这一整行（已 strip），不再重新切分
+        else:
+            canonical = _alias_for(key)
+            if canonical is None:
+                raise Invalid("unknown credential key" if had_separator else "unknown non-empty credential line")
         if canonical in found:
             raise Invalid("duplicate credential key")
+        if not value:
+            pending = canonical
+            continue
         if not _valid_value(value):
             raise Invalid("credential value is empty, null, or contains whitespace/control characters")
         found[canonical] = value
+    if pending is not None:
+        raise Invalid("credential value is empty, null, or contains whitespace/control characters")
     if set(found) != {"token", "org"}:
         if "token" in found and "org" not in found:
             raise Invalid("orgId line is missing (only accesstoken was provided)")

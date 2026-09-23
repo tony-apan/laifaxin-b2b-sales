@@ -1216,3 +1216,44 @@ class BothValuesRequiredTest(unittest.TestCase):
         self.assertRegex(text, r"只收到了账号钥匙|只复制一半",
                          "失败卡未点名『只发一半』场景")
         self.assertIn("完整复制命令", text, "须引导用完整命令")
+
+
+class AlreadyProvidedNoReAskTest(unittest.TestCase):
+    """★2026-09-23 真机事故：用户已手拼发来 accesstoken+orgId（键一行值一行+全角冒号），
+    AI 解析失败后不依不饶反复索要 orgId、臆断"z44422 是 UID 不是 orgId"、还教用户查浏览器菜单发截图。
+
+    三层加固：①解析器吃真实形状（test_credential_input.py::HandAssembledPasteTest）
+    ②AI 禁止重问已给的值 ③orgId 对错由 workspace_guard 裁决，AI 禁止臆断。
+    本类守 ②③ 的规则文本必须存在（RULES + T-token 卡）。"""
+
+    def test_rules_forbid_re_asking_provided_values(self):
+        """RULES 必须明令：已给的值不重问；格式差异工具已兼容，不得退回用户。"""
+        text = (ROOT / "RULES.md").read_text(encoding="utf-8")
+        self.assertIn("已给的值不重问", text, "RULES 缺『不重问』禁令")
+        self.assertIn("禁止再向用户索要已给过的值", text)
+        self.assertIn("全角冒号", text, "须点名真实事故的格式形状（键值分行/全角冒号）")
+        self.assertIn("改格式", text, "禁止教用户改格式")
+
+    def test_rules_assign_orgid_correctness_to_tool(self):
+        """RULES 必须规定：orgId 对错由工具裁决；个人空间 orgId==UID 合法；禁跑前臆断。"""
+        text = (ROOT / "RULES.md").read_text(encoding="utf-8")
+        self.assertIn("orgId 对错由工具裁决", text)
+        self.assertIn("orgId==用户ID 是合法自洽", text,
+                      "须写明个人工作空间 orgId==UID 合法（AI 臆断的事故根源）")
+        self.assertIn("臆断用户发错", text, "禁止跑工具前臆断值错")
+
+    def test_rules_forbid_user_as_debugger(self):
+        """RULES 必须禁止把用户变调试员（查菜单/发截图/读控制台报错）。"""
+        text = (ROOT / "RULES.md").read_text(encoding="utf-8")
+        self.assertIn("禁止把用户变调试员", text)
+        self.assertIn("屏幕截图", text)
+
+    def test_token_card_carries_the_three_rules(self):
+        """T-token 卡的 AI 要点必须带上三条处置（AI 只看卡也会做对）。"""
+        text = (TEMPLATES / "T-token引导.md").read_text(encoding="utf-8")
+        self.assertIn("已给的值不重问", text)
+        self.assertIn("orgId 对错由工具裁决", text)
+        self.assertIn("不当调试员", text)
+        self.assertIn("isOrg=false 且 org==uid", text,
+                      "卡须写明 workspace_guard 对个人空间的判定口径")
+

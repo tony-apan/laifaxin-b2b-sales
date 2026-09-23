@@ -65,6 +65,70 @@ class CredentialParserTest(unittest.TestCase):
             parse_credentials(b"accesstoken=a&b&c\norgId=\xff")
 
 
+class HandAssembledPasteTest(unittest.TestCase):
+    """★2026-09-23 真机截图：用户手拼粘贴（键独占一行、值在下一行 + 全角冒号）被旧解析器
+    打成 "unknown line"，AI 随之不依不饶反复索要用户已给的 orgId。
+    解析器必须直接吃下这些真实形状——值本身的严格校验不变。"""
+
+    SCREENSHOT_BLOB = (
+        "accesstoken:\n"
+        "web.laifaxin.com&z44422&560437e3f19c7db699da7016f378d4099bcf07df44c2b39aab56fedcd140824b\n"
+        "orgId：z44422\n"
+    )
+
+    def test_screenshot_blob_parses_verbatim(self):
+        """用户截图里的原样三行（键一行+值一行+全角冒号）必须解析成功。"""
+        token, org = parse_credentials(self.SCREENSHOT_BLOB.encode())
+        self.assertEqual(
+            token, "web.laifaxin.com&z44422&560437e3f19c7db699da7016f378d4099bcf07df44c2b39aab56fedcd140824b")
+        self.assertEqual(org, "z44422")
+
+    def test_separator_variants(self):
+        for line in (
+            f"orgId:org-9\naccesstoken={TOKEN}\n",       # 半角冒号+空格
+            f"orgId：org-9\naccesstoken={TOKEN}\n",       # 全角冒号
+            f"ORGID：org-9\nAccessToken={TOKEN}\n",       # 大小写混写
+        ):
+            with self.subTest(line=line.split("\n")[0]):
+                self.assertEqual(parse_credentials(line.encode()), (TOKEN, "org-9"))
+
+    def test_key_on_its_own_line_value_on_next(self):
+        for blob in (
+            f"accesstoken:\n{TOKEN}\norgId=org-9\n",      # 截图同款：token 键值分行
+            f"accesstoken={TOKEN}\norgId:\norg-9\n",      # org 键值分行
+            f"accesstoken：\n  {TOKEN}  \norgId： org-9\n",  # 全角冒号+首尾空白
+            f"accesstoken:\n\n{TOKEN}\n\norgId=org-9\n",  # 中间夹空行
+        ):
+            with self.subTest(blob=blob.encode()):
+                self.assertEqual(parse_credentials(blob.encode()), (TOKEN, "org-9"))
+
+    def test_outer_whitespace_around_key_and_value_is_stripped(self):
+        self.assertEqual(
+            parse_credentials(f"  accesstoken = {TOKEN} \n orgId = org-9 \n".encode()),
+            (TOKEN, "org-9"))
+
+    def test_dangling_key_cannot_swallow_next_key_line(self):
+        """键后无值、下一行又是键 → 必须拒绝（不得把键行吞成值）。"""
+        with self.assertRaises(Invalid):
+            parse_credentials(b"accesstoken:\norgId=org-9\n")
+
+    def test_dangling_key_without_any_value_is_rejected(self):
+        with self.assertRaises(Invalid):
+            parse_credentials(b"accesstoken=a&b&c\norgId:")
+        with self.assertRaises(Invalid):
+            parse_credentials(b"accesstoken:\n")
+
+    def test_strict_value_rules_survive_tolerance(self):
+        """容错只对格式，不对值：空白/控制字符/null 仍然拒绝。"""
+        for blob in (
+            f"accesstoken：\n{TOKEN}\norgId=two words\n",
+            f"accesstoken:{TOKEN}\norgId：x\x00y\n",
+            f"accesstoken:{TOKEN}\norgId：null\n",
+        ):
+            with self.subTest(blob=blob), self.assertRaises(Invalid):
+                parse_credentials(blob.encode())
+
+
 class LoginTest(unittest.TestCase):
     def run_main(self, argv, raw=BLOB.encode(), responses=None, tty=False):
         out, err = io.StringIO(), io.StringIO()
@@ -113,6 +177,19 @@ class LoginTest(unittest.TestCase):
         self.assertIn("登录校验通过", out)
         self.assertNotIn(TOKEN, out + err)
         self.assertEqual(request_mock.call_args.args, (TOKEN, "org-9"))
+
+    def test_stdin_accepts_hand_assembled_paste_verbatim(self):
+        """★2026-09-23：AI 把用户手拼粘贴原样喂 stdin（键一行值一行+全角冒号）也必须走通，
+        平台请求收到正确的 token/org——AI 无需再向用户索要任何东西。"""
+        response = {"success": True, "data": {"vip": 2}}
+        blob = f"accesstoken:\n{TOKEN}\norgId：org-9\n"
+        rc, out, err, request_mock, _, _, _ = self.run_main(
+            ["--credentials-stdin", "--gate-mode"], raw=blob.encode(), responses=[response]
+        )
+        self.assertEqual(rc, 0, out + err)
+        self.assertIn("登录校验通过", out)
+        self.assertEqual(request_mock.call_args.args, (TOKEN, "org-9"))
+        self.assertNotIn(TOKEN, out + err)
 
     def test_success_response_fields_cannot_echo_token(self):
         response = {
