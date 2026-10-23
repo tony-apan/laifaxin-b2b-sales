@@ -20,7 +20,8 @@ from pathlib import Path
 def history_menu_options():
     """从唯一任务菜单读取原始选项，保留编号、emoji、星标与顺序。"""
     card = Path(__file__).resolve().parents[1] / "output-templates" / "S0-任务菜单.md"
-    section = card.read_text(encoding="utf-8").split("## 有旧项目时", 1)[1].split("## 无旧项目时", 1)[0]
+    # 菜单只保留「有旧项目时」一节；按下一个二级标题截断，不依赖已删除的「无旧项目时」
+    section = card.read_text(encoding="utf-8").split("## 有旧项目时", 1)[1].split("\n## ", 1)[0]
     return [line.strip() for line in section.splitlines()
             if re.match(r"\s*[1-4]\. ", line)]
 

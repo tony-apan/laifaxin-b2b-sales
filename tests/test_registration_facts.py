@@ -134,24 +134,20 @@ class TaskMenuFormatTest(unittest.TestCase):
             with self.subTest(line=line.strip()[:30]):
                 self.assertRegex(line, emoji_re, f"菜单项缺 emoji 突出: {line.strip()[:40]}")
 
-    def test_menu_is_state_aware_and_hides_irrelevant(self):
-        """★按状态裁剪：两个菜单（有/无旧项目）各自给 4 项；不得含「更新/换机」。"""
-        blocks = re.findall(r"```[a-zA-Z]*\n(.*?)```", self.path.read_text(encoding="utf-8"), re.S)
-        self.assertEqual(2, len(blocks), "应分别给出「有旧项目」「无旧项目」两个菜单")
-        with_proj, without_proj = blocks
-        # 有旧项目 → 必须出现"继续"；无旧项目 → 不得出现"继续"（列"（无）"是噪音）
-        self.assertIn("继续", with_proj, "有旧项目菜单应含「继续项目」")
-        self.assertNotIn("继续", without_proj, "无旧项目菜单不应出现「继续项目」")
-        # 两份都不得把"更新/换机"当菜单项（刚装完无关；用户主动说才走路由）
-        for name, block in (("有旧项目", with_proj), ("无旧项目", without_proj)):
-            with self.subTest(menu=name):
-                self.assertNotIn("更新系统", block, f"{name}菜单不应含「更新系统」")
+    def test_menu_only_for_history_and_hides_irrelevant(self):
+        """★2026-10-23 用户裁决：任务菜单只在「有旧项目」时出现；新用户直接问昵称+产品。"""
+        text = self.path.read_text(encoding="utf-8")
+        blocks = re.findall(r"```[a-zA-Z]*\n(.*?)```", text, re.S)
+        self.assertEqual(1, len(blocks), "任务菜单只应保留「有旧项目」1 个代码块（新用户不出菜单）")
+        self.assertIn("继续", blocks[0], "有旧项目菜单应含「继续项目」")
+        self.assertIn("有旧项目", text, "标题/说明应写清只在有旧项目时展示")
+        self.assertNotIn("## 无旧项目时", text, "不得再保留「无旧项目时」菜单")
+        self.assertNotIn("更新系统", blocks[0], "菜单不应含「更新系统」")
 
     def test_menu_marks_recommendation(self):
         text = self.path.read_text(encoding="utf-8")
         self.assertIn("⭐推荐", text, "菜单必须标注推荐项")
-        self.assertIn("无旧项目", text, "应区分有无旧项目的推荐")
-        self.assertIn("有旧项目", text)
+        self.assertIn("有旧项目", text, "应写清只在有旧项目时展示")
 
     def test_menu_forbids_inline_compression(self):
         text = self.path.read_text(encoding="utf-8")

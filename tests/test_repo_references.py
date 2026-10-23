@@ -61,27 +61,33 @@ class ReferencedFilesExistTest(unittest.TestCase):
 
 
 class FirstScreenPlainLanguageTest(unittest.TestCase):
-    """首屏是新手看到的第一段话：不许黑话、不许超过 14 行。"""
+    """首屏 = 装好后第一段话（第 0 屏）：只问昵称+产品，不许要数字、不许出菜单。"""
 
     BANNED = ("客群", "划边界", "序列", "点数", "硬门", "审批凭证")
 
-    def _first_block(self):
+    def _blocks(self):
         text = (ROOT / "specs" / "beginner-flow.md").read_text(encoding="utf-8")
-        m = re.search(r"## 一、开场第一屏.*?```[a-z]*\n(.*?)```", text, re.S)
-        self.assertIsNotNone(m, "beginner-flow 缺少开场第一屏代码块")
-        return m.group(1)
+        m = re.search(r"## 一、开场两屏.*?(\Z|## 二、)", text, re.S)
+        self.assertIsNotNone(m, "beginner-flow 缺少「开场两屏」小节")
+        blocks = re.findall(r"```[a-z]*\n(.*?)```", m.group(0), re.S)
+        self.assertEqual(2, len(blocks), "开场两屏应各有 1 个代码块（第 0 屏 / 第 1 屏）")
+        return blocks
 
-    def test_first_screen_has_no_jargon(self):
-        block = self._first_block()
+    def test_install_screen_asks_two_things_only(self):
+        block = self._blocks()[0]
         for word in self.BANNED:
             self.assertNotIn(word, block, f"首屏出现黑话「{word}」")
-
-    def test_first_screen_short_and_actionable(self):
-        block = self._first_block()
+        for must in ("装好了", "怎么称呼您", "卖什么产品", "确认激活"):
+            self.assertIn(must, block, f"第 0 屏缺少「{must}」")
+        for banned in ("只回一个数字", "6 步", "开始新的获客项目"):
+            self.assertNotIn(banned, block, f"第 0 屏不该出现「{banned}」（那是第 1 屏/旧菜单的内容）")
         lines = [l for l in block.splitlines() if l.strip()]
-        self.assertLessEqual(len(lines), 14, f"首屏太长（{len(lines)} 行），新手看不完")
+        self.assertLessEqual(len(lines), 10, f"第 0 屏太长（{len(lines)} 行），新手看不完")
+
+    def test_step1_screen_has_six_steps_and_number(self):
+        block = self._blocks()[1]
         for must in ("找买家", "划范围", "建跟进计划", "当前", "接下来", "只回一个数字"):
-            self.assertIn(must, block, f"首屏缺少「{must}」")
+            self.assertIn(must, block, f"第 1 屏缺少「{must}」")
 
 
 class SaveAuthorizationWordingTest(unittest.TestCase):

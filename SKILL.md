@@ -21,7 +21,8 @@ audience: AI优先
 > **断言分级纪律**：关键断言须标成色——实测✅/引用📚/推断⚠️/假设❓；写操作断言必须实测或小样实测+对账。
 
 ## 🚩 开工第一屏（必读，2026-10-23 用户要求）
-- 新用户第一句先读 specs/beginner-flow.md，按第一节输出「6 步全景 + 当前第几步 + 接下来 + 只需回数字」，之后每次汇报都带这三行。
+- **新用户第一句先问两样**（`output-templates/S0-开场提问.md` C1：怎么称呼您 + 一句话产品），**不出菜单、不要数字**；拿到后立刻按 specs/beginner-flow.md 第 1 屏输出「6 步全景 + 当前第几步 + 接下来 + 只需回数字」，之后每次汇报都带这三行。
+- 只有检测到旧项目才展示 `output-templates/S0-任务菜单.md`「有旧项目时」4 项。
 - 用户视角只有 6 步 + 最后发信开关；内部 S0-S12 编号不要对用户说（对照表见 beginner-flow 第八节）。
 - 确认一律给编号（1/2/3，1=同意继续放第一）；只有发信激活要求回「确认激活」四个字。
 - 第 4 步写邮件前主动邀请：有以前效果好的开发信可以截图发我（1-5 张），只学结构/语气；产品事实仍取产品档案；提炼结果写 runs/运营方/产品/email-style.md。
@@ -66,7 +67,7 @@ flowchart TD
 
 | 用户说（触发词） | 路由到 |
 |------------------|--------|
-| "安装 / 第一次安装 / 学习这个 Skill / 帮我装好" | **只执行安装学习阶段**：下载或识别旧安装→保留 `.local/`/`runs/` 更新→自动准备环境→通读 README/SKILL/RULES/specs→运行 onboard 自检+扫描旧项目→**先按 `output-templates/S0-安装完成汇报.md` 用白话汇报**（装好没/能做什么/哪些要确认/有无旧项目；禁止抛 S0-S12、contact_add.py、status= 等术语，onboard 原始输出只给自己看）→再按 `output-templates/S0-任务菜单.md` 展示菜单（**逐行+emoji突出+⭐推荐+上限4项且按状态裁剪**，禁压成①②③一行、禁列不适用项）并只问“安装完成。你现在想做什么？”；🔴此阶段禁止问产品/市场/官网/昵称/token，不得默认建新项目 |
+| "安装 / 第一次安装 / 学习这个 Skill / 帮我装好" | **只执行安装学习阶段**：下载或识别旧安装→保留 `.local/`/`runs/` 更新→自动准备环境→通读 README/SKILL/RULES/specs→运行 onboard 自检+扫描旧项目→**先按 `output-templates/S0-安装完成汇报.md` 用白话汇报**（装好没/能做什么/哪些要确认/有无旧项目；禁止抛 S0-S12、contact_add.py、status= 等术语，onboard 原始输出只给自己看）→**新用户紧接着按 `output-templates/S0-开场提问.md` C1 只问「昵称 + 产品」，不展示菜单、不要求回数字**；问完立刻给 6 步全景（`specs/beginner-flow.md` 第 1 屏）。**只有检测到旧项目时**才展示 `S0-任务菜单.md`「有旧项目时」的 4 项菜单（逐行+emoji+⭐推荐）。🔴安装阶段除昵称+产品外，禁止索取市场/卖给谁/官网/token，不得默认建新项目 |
 | "新电脑第一次安装" / 环境缺 Python / `python` 找不到 | `specs/environment-setup.md` → `bootstrap.sh --install` 或 Windows `bootstrap.ps1 -Install` → check-only → onboard；完成后回到任务选择，不自动进入 S0。⚠️PowerShell脚本当前仅静态检查、未在全新Windows实机跑完；失败按SOP官方安装兜底 |
 | 新会话（同机） / "接着上次" | `onboard_check.py` 枚举可续接项目并展示任务菜单；**开场按 `output-templates/S0-开场提问.md` 分支**：无历史/读取失败→只问昵称+产品（禁止说"我记得您…"）；有历史→**复用 `S0-任务菜单.md` 四项**（第 1 项填「继续「<产品别名>」（现在：<人话阶段>）」，不另造菜单），用户选继续或说"看看之前做到哪"后才展示产品别名+人话阶段（最多 3 个，超出说"还有 N 个更早的项目"）；再读 operation-record + product-profile 从当前节点继续；无项目也不自动建新项目，仍等待用户选择任务 |
 | "换机 / 换电脑 / 另一台电脑接手" | README「💻 换电脑继续干」完整指令块 + `specs/migration-handoff.md`：旧机迁移 `.local/`+`runs/`+可选本地`db/` → 新机恢复同名路径 → token重新获取 → onboard枚举项目 → 禁止从S0重跑已有项目 |
@@ -206,7 +207,7 @@ flowchart TD
 ## 5️⃣ 新会话 / 换机三步走
 
 1. **环境先就绪**：无 Python 先按 `specs/environment-setup.md` 跑 `bootstrap.sh/bootstrap.ps1`；环境全绿后运行 `python3|py tools/onboard_check.py`，让它枚举可续接项目。
-2. **先让用户选任务**：有项目就报告项目和节点，只有用户选择“继续以前的项目”后，才读取 `operation-record.md` + `product-profile.md` + `reflection/evidence/verify-*` 并从当前节点继续，禁止从 S0 重跑；没有项目仍展示任务菜单，只有用户选择“开始新的获客项目”后才进入新建流程。
+2. **先判分支**：有项目 → 报告项目和人话节点，仅展示 `S0-任务菜单.md`「有旧项目时」4 项，用户选“继续以前的项目”后才读 `operation-record.md` + `product-profile.md` + `reflection/evidence/verify-*` 从当前节点继续，禁止从 S0 重跑；没有项目 → 按 `S0-开场提问.md` C1 只问「昵称 + 产品」，不展示菜单，拿到后直接进入第 1 步。
 3. **换机先恢复本地状态**：按 `specs/migration-handoff.md` 从旧机迁移 `.local/`、`runs/<operator_key>/` 与可选本地 `db/`；token 在新机重新获取；历史 approvals 只作审计，未执行写节点与 S12 必须当前对话重新确认。
 
 ## 6️⃣ 关键文件地图
