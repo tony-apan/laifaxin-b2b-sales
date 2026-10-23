@@ -136,7 +136,8 @@ audience: 人+AI
 
 
 ## ★ 模板事实只能来自已确认产品档案（防不切实际/防编造）
-- **正文具体事实白名单**：认证/标准号、产能、MOQ、交期、价格带、折扣、库存/档期、案例等，只有在当前 `product-profile.md` 为 `status: confirmed` 且该字段有具体 source 时才能使用；模板计划必须绑定 profile hash，并为高风险事实提供 `claims[].exact_text/source/profile_field/evidence_text`，其中 `evidence_text` 必须逐字存在于所指档案字段内容中。
+- **★价格禁令（2026-10-22 用户拍板 A 方案）**：模板正文（R01–R12 全部轮次）**禁止出现任何具体价格、价格区间、FOB/CIF 报价、折扣、cheap/competitive price 类表述**；价格只能由买家回复 CTA 关键词 `PRICE` 主动索取，之后走受控人工回复（引用 confirmed `product-profile` ⑧ 价格带 + 来源），**不得自动发、不得进模板**。生成器须有 no-price 断言：命中 price/pricing/discount/cheap/FOB/CIF/价格/折扣 → exit 2。此条覆盖旧白名单中「价格带」的表述。
+- **正文具体事实白名单**：认证/标准号、产能、MOQ、交期、库存/档期、案例等（**不含价格/折扣**——见下条价格禁令），只有在当前 `product-profile.md` 为 `status: confirmed` 且该字段有具体 source 时才能使用；模板计划必须绑定 profile hash，并为高风险事实提供 `claims[].exact_text/source/profile_field/evidence_text`，其中 `evidence_text` 必须逐字存在于所指档案字段内容中。
 - **没有用户事实**：改写为不含数字、认证、交期、价格、折扣、产能、库存和稀缺承诺的通用价值表达；**禁止拿“行业合理值”冒充用户事实**。
 - **签名区铁律**：邮件末尾最后一个 `<p>` 只能是纯个人昵称；公司名、官网、邮箱、职位、认证、宣传语都不得进入签名区。公司身份信息可以存入 AI 本地档案用于理解企业，但不自动进入邮件。
 - **买者视角**：痛点+利益+行动，3句。
@@ -145,7 +146,7 @@ audience: 人+AI
 > 钩子规范管"第一句"，本节管"剩下的部分"——每封开发信必须同时过 **首句钩子 + 四要素** 双重校验，缺一即打回 S7。
 
 1. **末句 CTA 铁律**：签名前的最后一个内容段**必须是独立的 CTA 段**——一个**具体的、低门槛的、可回复的动作**（回复一个关键词/回答一个是非问题/约一个时间窗）。
-   - ✅ 正例：`Worth a look? Reply "CATALOG" and I'll send our 2026 lineup + FOB price list — no commitment.`
+   - ✅ 正例：`Worth a look? Reply "CATALOG" and I'll send our 2026 product range — no commitment.`
    - ✅ 正例：`Should I send you the <b>drop-stitch</b> spec sheet for your rental fleet — yes or no is enough.`
    - ❌ 违例：无 CTA 段（正文说完就落款）/ 泛 CTA（"feel free to reach out" / "look forward to hearing from you"——没说清回什么）/ CTA 藏在段落中间不独立成段。
 2. **优势具体化铁律**：至少 1 条**可感知的优势**，必须带**数字/实体**（质保年数、交期天数、修复性结构、材料工艺、载重/气压参数），禁止裸能力陈述（"high quality" / "professional team" / "we offer seasonal planning calls"这类没有数字与买家利益绑定的句子=违例）。有 confirmed product-profile 时从档案 ⑧可引用数字取材；无档案时用结构/工艺类**非承诺性**表达（如 repair-friendly construction），不得编数字。
@@ -191,6 +192,12 @@ Tony
 - **事实红线**：钩子里的数字/承诺必须属实——无认证不写标准号、无数据不写百分比、无真实档期不写"名额将满"；假稀缺=违例。
 - **校验**：生成前抽查 3-5 封确认首句=钩子；生成后模板审查清单"买者视角三要素"据此执行。
 
+## ★ 跨轮主题与痛点（2026-10-21 用户拍板）
+- **跨轮主题不许重复**：12 轮的主题（subject）逐轮不同，禁止同一句主题换轮次复用。
+- **痛点轮换**：每轮换一个买家痛点/场景切入，同一痛点不得连续两轮出现；同轮 4 个变体也各自换痛点角度。
+- 与下节「每模板差异度≥30%」并用：方向差异=硬保证；正文相似度仍须 `tools/check_template_diff.py --prefix` 实测（Jaccard≤0.70）。
+- 正文/标题禁标识性内容见 `output-templates/S7-模板确认.md`「正文自检 6 条」。
+
 ## ★ 每模板差异度 ≥30%（★用户要求；方向差异=硬保证，变体差异须实测）
 - 同轮/同序列模板**正文差异度≥30%**（不同痛点/切入/文案），不能重复
 - 防止同质化被拒/风控
@@ -208,3 +215,12 @@ Tony
 ---
 
 > **真实案例演示**：数字与域名为公开仓库作者当时实际运行结果，仅作方法演示，与读者业务无关。
+
+## 模板读取回执（P1）
+
+- 生成模板前，运行记录必须引用 [S7-模板确认.md](../output-templates/S7-模板确认.md)，并记录本次实际读取的模板文件相对路径及其 SHA-256 快照（读取时刻）。
+- 快照只写入本次 run 记录，不进入 S7 面向用户的文案；缺少快照即判定本次未执行。此为文档层判据，不由脚本强制；不追溯或补写历史 runs。
+
+## 智能跟进参数（P2，现态引用）
+
+本节仅引用当前配置，不另立规则：12 步、纽约时区（America/New_York）、全账号每日 30000 封、每家公司每日 5 封、`notSentTags=[询盘,不发]`。

@@ -2,7 +2,7 @@
 title: "问题库（踩坑记录 · Lessons Learned）"
 description: "所有踩过的坑：问题/根因/影响/修复/教训/预防，持续更新，防止再犯"
 created: 2026-08-21
-updated: 2026-09-10
+updated: 2026-10-21
 author: "AI Agent + 运营方"
 source: "实战踩坑记录（2026-08-21 会话）"
 related: [specs/api-reference, methodology/checklists, specs/sequence-config]
@@ -15,6 +15,8 @@ audience: 人+AI
 
 > **目的**：每个踩过的坑都记录成可检索的问题条目——问题/根因/影响/修复/教训/预防。
 > **原则**：宁可记录 100 条看似重复的，也不要漏掉 1 条会再犯的。
+>
+> **入口更正（2026-10-21 V2）**：下文历史条目中的 `save_first_n`/`wait_save_done` 等旧入口均已封停，旧“三页平均”/旧预算公式均为当时记录；现役保存入口为 `save_company_cli.py prepare/confirm/execute`，边界判据为连续5页窗口（实施中，文档作者未实测）。原始事故、用户原话与数字保留，仅加此注与就近更正。
 
 ## 📋 问题索引（速查表）
 
@@ -100,6 +102,8 @@ audience: 人+AI
   2. 工具脚本 contact-add 内置 `views:[]` 默认值 + 数量确认
   3. 操作清单加"加联系人前验证 add 数量"
 
+> **现役方案修订（2026-10-21 V2）**：以上 L-01 事故原文与“先小批量验证”教训保留不改写；该“小批量”只适用于新参数/新字段的隔离沙箱验证，**不适用于缩小用户已确认的保存规模**。真实保存按 confirmed plan 的 N 执行，不自行缩量；来源/数量/预算见 RULES/SKILL 与 S5 卡。
+
 ### L-02 🔴 API 直调保存任务 0 保存（★已破解·纯API可用）
 
 - **问题**：直接调 `refine/company-save` 传 keyword 创建保存任务 → 任务 finished:0，validSave:0
@@ -110,7 +114,7 @@ audience: 人+AI
 - **影响**：试了 9 次 0 保存；生成 9 个垃圾任务
 - **修复**：**纯 API 可用**（不需浏览器）！`refine/company-save` + 完整 payload（selectKeys 从 refine/company-list 的 id 取）→ 实测成功（Whiskit Cat Food → <email>）
 - **教训**：⚠️ **保存 = refine/company-save + selectKeys**；先确认客户有邮箱（emailsCount>0）再保存
-- **预防**：保存工具内置完整 payload（⚠️ 注：旧版批量脚本已 deprecated 未随库分发，现行保存工具=save_first_n.py）
+- **预防**：保存工具内置完整 payload（⚠️ 注：旧版批量脚本已 deprecated 未随库分发；当时保存工具=save_first_n.py，现已被封停，V2 入口为 save_company_cli.py 计划链）
 
 ### L-03 🟡 公司/联系人标签 ID 混用
 
@@ -199,7 +203,7 @@ audience: 人+AI
 - **根因**：refine/company-save 的 selectKeys 数组上限 256
 - **修复**：分批 ≤256（每批 256 家）
 - **教训**：⚠️ 保存批大小 = min(selectKeys 上限 256, 点数预算)
-- **预防**：旧版批量脚本 BATCH=256（⚠️ 注：已 deprecated 未随库分发——现行保存=save_first_n.py 的 front+selectTotal，不翻页收集 id（铁律3）；本条仅作 selectKeys 旧法上限记录）
+- **预防**：旧版批量脚本 BATCH=256（⚠️ 注：已 deprecated 未随库分发——当时保存=save_first_n.py 的 front+selectTotal，不翻页收集 id（铁律3）；本条仅作 selectKeys 旧法上限记录。现役入口为 save_company_cli.py 计划链，旧脚本封停）
 
 ### L-15 🟡 权威 id vs 搜索会话临时 id（★曾误判）
 
@@ -384,7 +388,11 @@ audience: 人+AI
   2. **邮件底部加退订链接** + 发件身份认证（CAN-SPAM/GDPR/CASL）
   3. **冷启动**：单日从几百封/域名起，逐周倍增（不是30000/日）
   4. **去重 + 邮箱验证**（MX/SMTP，防退信）
-  5. **监测**：退信<2-3%、投诉<0.1%
+  5. **监测（★2026-10-21 口径更新，旧「<2-3%」作废）**：
+     前置：退信只有「已经发出去」才有；只在「没有询盘」时才看；保存名单阶段禁止提退信。
+     ≤20% 正常，不用管；20-30% 留意，继续发；>30% 硬性上限 → 只改「邮件内容」；分母=已发送数（不是名单数）。
+     平台侧已代管域名/IP 池（每天更新）与地址有效性验证——AI 禁止把退信归因于「名单差/域名差」，
+     也禁止提 SPF/DKIM/DMARC、变量为空、换服务商、绑定自有邮箱。
 - **教训**：⚠️ **发信前的认证/合规/冷启动/去重 = 必做**（P0），不是可选项
 - **预防**：平台侧缺口整改清单（未随库分发；以 RULES/marketing-rules-2.0 为准）
 
@@ -428,7 +436,7 @@ audience: 人+AI
 
 ### L-35 🟡 记忆锚污染：lessons旧结论须随方法更新删除
 
-- **问题**：lessons 旧版第417行（当时记作"L-417"=**行号引用，非编号教训**）"保存走Playwright界面(不用API)"与L-02(纯API可用)/现行front+selectTotal直接矛盾——旧结论没删，AI被污染（该行即本文件"固化后的行为"第2条，2026-08-29 已改纯API）
+- **问题**：lessons 旧版第417行（当时记作"L-417"=**行号引用，非编号教训**）"保存走Playwright界面(不用API)"与L-02(纯API可用)/当时front+selectTotal直接矛盾——旧结论没删，AI被污染（该行即本文件"固化后的行为"第2条，2026-08-29 已改纯API）
 - **根因**：方法更新(L-28/29破解)后旧记忆锚未删/未标注deprecated
 - **修复**：方法升级时**同步清理旧锚**；review-cycle检查"新旧矛盾"
 - **教训**：⚠️ **记忆库最危险=过时结论残存**；每升一级方法删/更新对应旧锚；引用旧工具(lfx_mass_save)标deprecated

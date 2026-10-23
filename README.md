@@ -13,6 +13,7 @@
 | 你现在想做什么 | 从这里进入 |
 |---|---|
 | 🌟🌟 **第一次使用** | [复制一段话给 AI，马上开始](#quickstart) |
+| 🌱 **AI 装好后的第一页** | [新手一页流程 specs/beginner-flow.md](specs/beginner-flow.md)（6 步、只需回数字） |
 | 🗺️ **先看新项目怎么工作** | [一张图看懂获客流程](#how-it-works) |
 | 🎯 **先判断产品是否适合** | [查看适合与不适合的产品](#fit) |
 | 🔄 **已经在使用** | [更新系统](#update) · [换电脑继续](#migrate) |
@@ -37,7 +38,7 @@ https://github.com/tony-apan/laifaxin-b2b-sales
    不要假设电脑已经安装 Python、Git、curl 或其他依赖；
    严格按照仓库里的环境准备说明自动安装并复查。
 
-3. 通读 README.md、SKILL.md、RULES.md 和相关 specs，
+3. 先读 specs/beginner-flow.md（新手一页流程），再通读 README.md、SKILL.md、RULES.md 和相关 specs，
    将本仓库的 SKILL.md 作为后续执行入口，学会完整流程、确认节点、
    安全边界、网站资料增强和换机续接规则。不要创建另一份重复规则。
 

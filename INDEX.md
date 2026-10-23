@@ -19,12 +19,17 @@ audience: 人+AI
 ## 📖 文档索引（md 主索引，人机导航）
 | 模块 | 文档 | 路径 | 用途 | 状态 |
 |------|------|------|------|------|
+| **新手入口** | beginner-flow.md | specs/beginner-flow.md | 一页看懂 6 步 + 开场卡 + 截图参照 + 资料落仓清单（AI 第一屏必读） | 2026-10-23 |
+| **踩坑台账** | problems-and-fixes.md | specs/problems-and-fixes-2026-10-23.md | 真实问题：现象/根因/处理/对抗审查/固化位置 | 2026-10-23 |
+| **阈值判定** | threshold-probe-spec.md | specs/threshold-probe-spec.md | 70% 达标率与临界页判据 | 现行 |
+| **红队审查** | red-team-review.md | specs/red-team-review.md | 对抗审查协议与缺陷清单 | 现行 |
 | **规则总纲** | RULES.md | `RULES.md` | 唯一真源：强制流程+铁律 | ✅ 唯一真源 |
 | **入口** | 总索引 | `INDEX.md` | 本文件：快速定位 | ✅ |
 | **入口** | README | `README.md` | 百科快速导览 | ✅ |
 | **Skill入口** | SKILL.md | `SKILL.md` | ★触发场景路由表+S0-S12一句话判据+铁律摘要（新AI第一读） | ✅ |
 | **节点手册** | node-playbook | `specs/node-playbook.md` | ★节点判据×API×脚本对照表（执行照抄） | ✅ |
-| **方法-临界** | threshold-method | `specs/threshold-method.md` | AI反思/50页跳/三页平均/找70%临界 | ✅ |
+| **方法-临界** | threshold-method | `specs/threshold-method.md` | AI反思/50页跳/连续5页窗口/找70%临界 | ✅ |
+| **执行-临界探测** | threshold-probe-spec | `specs/threshold-probe-spec.md` | S4-A 执行细则 v3.5：连续5页滑窗/报告证据分离/≤50次预算/四件套契约 | 🟡候选 |
 | **判定-适配度** | product-fit | `specs/product-fit.md` | ★S0 前置：强/条件/弱适配三档（买家盘×决策链×周期×渠道层）+各档打法 | ✅ |
 | **SOP-环境准备** | environment-setup | `specs/environment-setup.md` | ★零 Python bootstrap：跨平台探测→自动安装→复查 | ✅ |
 | **SOP-换机续接** | migration-handoff | `specs/migration-handoff.md` | ★迁移本地状态→项目枚举→从当前节点继续 | ✅ |
