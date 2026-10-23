@@ -21,7 +21,7 @@
 ### M1 读规则生成通行证（GATE）（历史提案，已否决）
 
 ```
-python3 tools/rule_guard.py open
+# （已否决、从未实现：该"规则闸"脚本不存在，不要照着跑）
   → 校验：RULES-CARD.md + CORE-POINTS.md 的 sha256
   → 输出 GATE=<sha12>，含 {files, hashes, ts}
   → 有效期 5 分钟（与 render_guard 一致）

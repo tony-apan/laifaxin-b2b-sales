@@ -222,7 +222,7 @@ flowchart TD
 | 档案（多公司多产品） | `runs/<运营方>/<产品>/`（operation-record/reflection/evidence/**product-profile**/verify-*）+ `runs/_template/` + 本地运行记录（不入 Git）|
 | 问题与教训 | 本地问题登记（`db/issues.tsv`，本地数据不入 Git，open 即待办）/ `lessons/lessons-learned.md`（L-01~L-61；L-44 起为脱敏抽象条目，随库分发）/ `review-cycle.md`（旁观者审查）|
 
-> ⚠️ **执行纪律**：写操作必须带 `--approval <id> --project <operator_key>/<product_key>`；凭证仅 `confirm+confirmed` 可用，并须与工具按实际参数重算的hash一致。modify/pending/backfilled不可授权。S5 另须 confirmed plan/render/ticket 同 binding；数字/字母选择不等于授权。
+> ⚠️ **执行纪律**：写操作必须带 `--approval <id> --project <operator_key>/<product_key>`；凭证仅 `confirm+confirmed` 可用，并须与工具按实际参数重算的hash一致。modify/pending/backfilled不可授权。S5 另须 confirmed plan/render/ticket 同 binding；菜单/列表数字不等于授权，但保存卡写清家数/邮箱数/额度消耗后，用户回「1」即为保存授权（卡面数字必须与 plan 一致）。
 >
 > ⚠️ **写入口纪律（2026-10-21 V2）**：旧 8 个写脚本 + 5 个删库脚本已被 `save_guard.require()` 无条件封条（无任何环境变量后门），禁止再调用；保存只走 `save_company_cli.py` 的 prepare/confirm/execute 计划链，无 confirmed plan 不写；模板/序列/激活必须持 `auth_guard` 票据经 `authorize_write()` 一次性消费。保存成功按 S6 数量账与 `status/reconcile` 对账汇报；旧 `report_text` 校验约定保留为历史，新链路若返回 render 绑定则按其校验，禁止手写 sha。
 >
