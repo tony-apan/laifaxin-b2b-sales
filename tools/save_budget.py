@@ -25,6 +25,16 @@ probe 账簿写明 source=<endpoint.field>；不可用才降级 `benefits/refine
 """
 from __future__ import annotations
 
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
+
 import argparse
 import hashlib
 import json

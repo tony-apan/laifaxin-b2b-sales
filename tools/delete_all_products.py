@@ -3,6 +3,16 @@
 """★清空基础产品档案（product-list 全量 + product-delete id逐个）——用户界面"产品档案"= product-* 不是 inference-product-*
 ⚠️防呆（对齐 delete_all_contacts/tags/templates）: 默认 --dry-run 仅预览; 必须 --execute + --confirm "DELETE-ALL" 才真删。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import hashlib, json, subprocess, time, argparse, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))

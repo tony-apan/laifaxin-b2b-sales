@@ -3,6 +3,16 @@
 """★ 时序守卫：等联系人保存任务 status:finished + 校验标签联系人>0，才可 contact-add 加序列。
 用法: python3 wait_save_done.py --token <TOKEN> --org <orgId> --task <保存任务id> --tag <联系人标签id> --record runs/<operator_key>/<product_key>/operation-record.md --timeout 900
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, sys, time, argparse
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))

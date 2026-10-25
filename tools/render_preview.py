@@ -4,6 +4,16 @@
 用法: python3 render_preview.py --html "<p>Hi <code...>{联系人:名称}</code>...</p>" [--示例名 John]
 输出: 纯文本邮件视图（去掉标签, 变量显示在 {显示名}, 关键词高亮标记）
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import re, argparse, html as htmlmod
 ap=argparse.ArgumentParser(); ap.add_argument("--html",required=True); ap.add_argument("--name",default="John Smith")
 args=ap.parse_args()

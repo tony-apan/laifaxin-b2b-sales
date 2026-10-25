@@ -8,6 +8,16 @@
     --company-tag <tagId> --contact-tag <tagId> --max 3 --profile runs/<operator_key>/<product_key>/product-profile.md \
     --record runs/<operator_key>/<product_key>/operation-record.md --approval ap-xxxx --project <operator_key>/<product_key>
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import argparse, hashlib, json, subprocess, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))

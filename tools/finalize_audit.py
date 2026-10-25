@@ -18,6 +18,16 @@ audit-manifest.json 的 window（并读取 boundary 的逐页数据）：
 兼容说明：window 与四件套其余字段（run_id/source_ref/query_scope/boundary）全缺的历史
 manifest 按兼容模式放行并打印告警；一旦 manifest 声明了其中任一字段，缺 window 即 exit 2。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import argparse
 import datetime
 import hashlib

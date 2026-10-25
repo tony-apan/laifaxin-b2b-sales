@@ -16,6 +16,16 @@
     product-profile——运营方自己的联系邮箱只放运营方档案 contact_email 字段。
 退出码: 0=成功; 1=运行错误(IO等); 2=输入/校验失败(昵称非法·缺确认词·档案结构错·文件缺失);
         3=init 目标已存在(不覆盖)。"""
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import argparse
 import re
 import sys

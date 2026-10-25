@@ -18,6 +18,16 @@
   - 每个 step-save 失败立即中止, 绝不删除旧模板; 全部12步回读验证均指向新模板ID后才删旧模板
 本脚本只重建模板与步骤, 不 contact-add 不激活。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, time, sys, argparse, re, hashlib, shutil
 from pathlib import Path
 

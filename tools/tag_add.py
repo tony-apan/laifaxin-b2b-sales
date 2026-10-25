@@ -6,6 +6,16 @@
   python3 tag_add.py --token <T> --org <orgId> --name "英语-水上运动-经销商" --type company --profile runs/<operator_key>/<product_key>/product-profile.md --approval <绑定凭证> --project <operator_key>/<product_key>
   python3 tag_add.py --token <T> --org <orgId> --list   # 列现有标签(只读,免审批)
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import hashlib, json, subprocess, sys, argparse
 from pathlib import Path
 

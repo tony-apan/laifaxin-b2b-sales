@@ -10,6 +10,16 @@
   3) 每步必须真的绑定模板（template_ids 非空），缺绑定即失败。
   4) 校验核心抽成 `check_sequence(api, seq, allow_active=False)`，build_sequence 建完直接复用同一套逻辑。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import argparse
 import json
 import re

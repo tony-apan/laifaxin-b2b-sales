@@ -33,6 +33,16 @@
     ③ 本地只推进 status→S12，不发起任何平台写操作
     ④ 要求 --confirm <用户原话>（须含"激活"）作为意志凭据；不做审批哈希绑定（平台侧已生效，本地无写操作可授权）
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, sys, argparse, time, hashlib
 import re as _re
 from pathlib import Path

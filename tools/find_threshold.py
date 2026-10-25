@@ -13,6 +13,16 @@
   4. ⚠️ 只往前看，不看已经跌破70%的页后面
 使用 classify 复用 audit 的语义匹配词库，但【必须人工读描述复核】（L-20/21/22）
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, sys
 
 # 与 refine/company-list 请求一致的四区排除（RULES 铁律0；旧版 filters=[] 未排除 CN/TW/HK/MO）

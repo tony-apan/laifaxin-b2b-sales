@@ -19,6 +19,16 @@
 ★S10 加人前只读预检(本工具内, 不写平台): 打印本客群标签下人数/预计加人量/去重说明/序列未激活;
   人数为 0 或标签缺失 → 中文报错 exit 2, 禁止 contact-add(不写平台)。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import hashlib, json, subprocess, sys, time, argparse
 from pathlib import Path
 

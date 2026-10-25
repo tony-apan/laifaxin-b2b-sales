@@ -19,6 +19,16 @@ approvals.tsv 列(8列, 换机兼容): id / project_id / state / decision / user
   binding = {"project": args.project, "seq": args.seq, ...}   # 本次实际参数(工具自算, 不信CLI给的hash)
   require_approval(args.approval, args.project, ("S10",), what="加联系人", expected_hash=stable_params_hash(binding))
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import hashlib, json, os, re, time
 from pathlib import Path
 

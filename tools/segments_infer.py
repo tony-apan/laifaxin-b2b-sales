@@ -5,6 +5,16 @@
   python3 segments_infer.py --token <T> --org <orgId> --product <产品> --rounds 4 --profile runs/<operator_key>/<product_key>/product-profile.md --record runs/<operator_key>/<product_key>/operation-record.md --project <operator_key>/<product_key> --approval <绑定凭证> [--dry-run]
 前提: 该产品已有推理档案(inference-product)；产出后必须: ①空白代理对抗审查 ②AI 五维评分+客群确认 ③重生成 segments.md 与本地数据表（db/segments.tsv，不入库）
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import hashlib, json, subprocess, sys, argparse, time
 from pathlib import Path
 KB = Path(__file__).resolve().parent.parent

@@ -13,6 +13,16 @@
 步长: step1=minute/30, step2=day/5, step3=day/15, step4-12=day/30；
 ★2026-10-23 加固: 建完自动跑 verify_sequence 核心终检（12步+每步绑定模板+状态inactive），失败 exit 2 且不推进状态；S11 仍须再跑 verify_sequence.py 人工终检
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, sys, argparse, re, hashlib
 from pathlib import Path
 

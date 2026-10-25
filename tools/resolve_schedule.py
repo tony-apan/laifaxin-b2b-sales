@@ -7,6 +7,16 @@
   python3 resolve_schedule.py --token <T> --org <orgId> --list                    # 列出全部计划时间模板
 建序列前必须先跑本工具拿 schedule_id（node-playbook S9 / sequence-config 引用）。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, argparse, sys
 ap = argparse.ArgumentParser()
 ap.add_argument("--token", required=True); ap.add_argument("--org", required=True)

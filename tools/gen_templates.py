@@ -22,6 +22,16 @@
                "variants": ["正文变体句", ...], "claims": [{"exact_text":"...","source":"...","profile_field":"⑤","evidence_text":"档案字段中的原文"}](出现高风险事实时必填)}
 退出码: 0=成功 1=审批/模板创建失败 2=输入校验失败(昵称/plan结构/哈希不匹配/claims/价格硬门/网格断言/差异检查未过) 4=产品档案闸门(draft/缺失/结构错)
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, time, sys, argparse, re, hashlib
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))

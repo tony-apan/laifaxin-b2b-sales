@@ -3,6 +3,16 @@
 """S11 本地终检收口：核对三份验证证据与项目状态后推进 READY_INACTIVE。
 不调用平台；线上验证由 verify_sequence / verify_exclude / check_template_diff 先执行并保存输出。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import argparse
 import datetime
 import hashlib

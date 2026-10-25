@@ -10,6 +10,16 @@ gen_templates.py 生成模板前强制校验：样式文件只能是结构描述
 用法: python3 tools/email_style_gate.py --profile runs/<运营方>/<产品>/product-profile 档案
 退出码: 0 = 未提供样式文件或通过；2 = 违规/不可读
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import argparse
 import re
 import sys

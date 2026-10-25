@@ -36,6 +36,16 @@
   ⚠️ 1 与 5 都是"不许继续"，但含义不同：1=空间连错（要用户换空间重取），
      5=这次没判出来（可能是钥匙失效/平台未返回）——**调用方对用户的说法必须分开**。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import argparse
 import hashlib
 import json

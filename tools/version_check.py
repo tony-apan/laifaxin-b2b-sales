@@ -5,6 +5,18 @@
 比较结果缓存 24h（.local/version-check.json），避免每次启动都打 GitHub API（匿名限流 60次/h）。
 失败（无网/限流/文件缺）一律静默返回 None——升级提醒绝不阻塞或干扰获客主流程。
 """
+
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
+
 import json
 import re
 import time

@@ -4,6 +4,16 @@
 ⚠️ templates-list 的 list 项不含 html(只有 subject)——必须再调 template-info(id) 取正文，否则空 html 恒"达标"(假阴性,模板差异实测（工具级）)
 用法: python3 check_template_diff.py --token <TOKEN> --org <orgId> --prefix "英-皮筏艇-" [--limit 48]
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, argparse, re, sys
 ap=argparse.ArgumentParser(); ap.add_argument("--token",required=True); ap.add_argument("--org",required=True)
 ap.add_argument("--prefix",required=True); ap.add_argument("--limit",type=int,default=48,help="本批模板总数=12轮×每轮变体数（默认48=每轮4变体）")

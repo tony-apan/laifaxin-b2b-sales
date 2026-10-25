@@ -10,6 +10,16 @@
 第三方资料边界（静态红队P1）: contact_email 字段允许存运营方自己的邮箱;
 其他任何字段值出现额外邮箱/电话号码/客户·买家·联系人清单标记 → 校验拒绝。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import argparse
 import re
 import sys

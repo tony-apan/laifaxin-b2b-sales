@@ -1,4 +1,5 @@
 """跨平台一致性测试：Windows/macOS 通用入口、行尾、文案与自检行为。"""
+import ast
 import contextlib
 import importlib.util
 import io
@@ -434,6 +435,77 @@ class CrossPlatformTest(unittest.TestCase):
         self.assertNotIn("Traceback", proc.stderr, proc.stderr[-800:])
         self.assertIn("'isOrg': True", proc.stdout)
         self.assertIn("中文工作空间", proc.stdout)
+
+    def test_tools_with_unicode_output_enable_utf8_stdout(self):
+        """含 GBK 不可编码字符的工具，必须定义并调用 _utf8_stdout（AST 检测，覆盖 print/out/别名等任意输出写法）。"""
+        offenders = []
+        for path in sorted((ROOT / "tools").glob("*.py")):
+            text = path.read_text(encoding="utf-8")
+            unencodable = False
+            for ch in set(text):
+                if ord(ch) <= 127:
+                    continue
+                try:
+                    ch.encode("gbk")
+                except UnicodeEncodeError:
+                    unencodable = True
+                    break
+            if not unencodable:
+                continue
+            tree = ast.parse(text)
+            is_entry = any(
+                isinstance(node, ast.If)
+                and isinstance(node.test, ast.Compare)
+                and isinstance(node.test.left, ast.Name)
+                and node.test.left.id == "__name__"
+                for node in tree.body
+            )
+            has_output = any(
+                isinstance(node, ast.Call)
+                and (
+                    (isinstance(node.func, ast.Name)
+                     and node.func.id in {"print", "out", "emit", "log"})
+                    or (isinstance(node.func, ast.Attribute)
+                        and node.func.attr == "write"
+                        and isinstance(node.func.value, ast.Attribute)
+                        and node.func.value.attr in {"stdout", "stderr"})
+                )
+                for node in ast.walk(tree)
+            )
+            if not (is_entry or has_output):
+                continue
+            has_def = any(
+                isinstance(node, ast.FunctionDef) and node.name == "_utf8_stdout"
+                for node in tree.body
+            )
+            called = any(
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "_utf8_stdout"
+                for node in ast.walk(tree)
+            )
+            if not (has_def and called):
+                offenders.append(path.name)
+        self.assertEqual(offenders, [], "缺少 _utf8_stdout 定义或调用：%s" % ", ".join(offenders))
+
+    def test_version_notice_prints_under_ascii_pipe(self):
+        """Windows 管道（ASCII 默认编码）下版本提示必须能打印，不得 UnicodeEncodeError。"""
+        script = (
+            "import importlib.util, sys\n"
+            f"spec = importlib.util.spec_from_file_location('vc', r'{ROOT / 'tools' / 'version_check.py'}')\n"
+            "m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)\n"
+            "m.check_update = lambda force=False: ('0.1.0', '0.2.0', True)\n"
+            "m.print_notice_if_newer()\n"
+        )
+        env = dict(os.environ)
+        env.update({"PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0",
+                    "LC_ALL": "C", "PYTHONIOENCODING": "ascii"})
+        proc = subprocess.run([sys.executable, "-c", script], capture_output=True,
+                              text=True, encoding="utf-8", errors="replace",
+                              env=env, timeout=60)
+        self.assertEqual(proc.returncode, 0, proc.stderr[-800:])
+        self.assertNotIn("Traceback", proc.stderr)
+        self.assertIn("有新版本", proc.stdout)
 
     def test_readme_install_prompt_has_windows_command(self):
         text = (ROOT / "README.md").read_text(encoding="utf-8")
