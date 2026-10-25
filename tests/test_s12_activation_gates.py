@@ -77,18 +77,41 @@ else:
 print(json.dumps(out))
 '''
 
-@unittest.skipUnless(sys.platform != "win32", "fake curl shim 依赖 POSIX 可执行脚本")
+def _install_fake_curl(bin_dir, cwd_dir):
+    """POSIX 用 shell 壳；Windows 编译 curl.exe 放工具 cwd（CreateProcess 先查当前目录）。"""
+    bin_dir = Path(bin_dir)
+    cwd_dir = Path(cwd_dir)
+    fake_py = cwd_dir / "fake_curl.py"
+    fake_py.write_text(FAKE_CURL, encoding="utf-8")
+    if os.name != "nt":
+        curl = bin_dir / "curl"
+        curl.write_text('#!/bin/sh\nexec "%s" "%s" "$@"\n' % (sys.executable, fake_py), encoding="utf-8")
+        curl.chmod(0o755)
+        return
+    try:
+        from test_cross_platform import _WIN_CURL_SHIM_CS
+    except ImportError:
+        from tests.test_cross_platform import _WIN_CURL_SHIM_CS
+    win = Path(os.environ.get("WINDIR", r"C:\Windows"))
+    csc = next((q for q in (
+        win / "Microsoft.NET" / "Framework64" / "v4.0.30319" / "csc.exe",
+        win / "Microsoft.NET" / "Framework" / "v4.0.30319" / "csc.exe",
+    ) if q.exists()), None)
+    if csc is None:
+        raise unittest.SkipTest("Windows 需要 .NET Framework csc.exe 编译 curl 影子")
+    src = cwd_dir / "curl_shim.cs"
+    src.write_text(_WIN_CURL_SHIM_CS, encoding="utf-8")
+    exe = cwd_dir / "curl.exe"
+    subprocess.run([str(csc), "/nologo", "/out:" + str(exe), str(src)],
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, check=True)
+
 class ActivationStructureGateTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.bin = Path(self.tmp.name) / "bin"
         self.bin.mkdir()
-        curl = self.bin / "curl"
-        if os.name == "nt":
-            raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
-        curl.write_text(FAKE_CURL, encoding="utf-8")
-        curl.chmod(0o755)
+        _install_fake_curl(self.bin, Path(self.tmp.name))
         self.log = Path(self.tmp.name) / "curl.log"
 
     def _run(self, mode):
@@ -99,11 +122,12 @@ class ActivationStructureGateTest(unittest.TestCase):
             "LFX_FAKE_MODE": mode,
             "LFX_FAKE_CURL_LOG": str(self.log),
             "PYTHONIOENCODING": "utf-8",
+            "LFX_FAKE_PYTHON": sys.executable,
         })
         return subprocess.run(
             [sys.executable, str(ROOT / "tools" / "activate_sequence.py"),
              "--check-structure", "--token", TOKEN, "--org", ORG, "--seq", SEQ],
-            cwd=str(ROOT), capture_output=True, text=True, env=env, timeout=60,
+            cwd=str(self.tmp.name), capture_output=True, text=True, env=env, timeout=60,
         encoding="utf-8", errors="replace")
 
     def test_good_structure_passes(self):
