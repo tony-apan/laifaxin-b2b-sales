@@ -7,9 +7,17 @@ usage(){
   echo "Deprecated/不安全: --token TOKEN --org ORG（凭据会进入 argv，仅内部兼容）"
 }
 KB="$(cd "$(dirname "$0")/.." && pwd)"
-if command -v python3 >/dev/null 2>&1; then PY=python3
-elif command -v py >/dev/null 2>&1; then PY=py
-elif command -v python >/dev/null 2>&1; then PY=python
+# ★解释器探测：Windows 的 python3 可能是应用商店占位符（退出码 49）。
+# 仅 Windows 实跑验证；macOS/Linux 不多起进程（也避免污染测试替身）。
+_py_usable() {
+  case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*) "$1" -c "import sys" >/dev/null 2>&1 ;;
+    *) return 0 ;;
+  esac
+}
+if command -v python3 >/dev/null 2>&1 && _py_usable python3; then PY=python3
+elif command -v py >/dev/null 2>&1 && _py_usable py; then PY=py
+elif command -v python >/dev/null 2>&1 && _py_usable python; then PY=python
 else PY=""
 fi
 TOKEN=""; ORG=""; CREDENTIALS_STDIN=0; LOGIN_RC=0; MISSING=0

@@ -1,6 +1,7 @@
 """跨平台一致性测试：Windows/macOS 通用入口、行尾、文案与自检行为。"""
 import importlib.util
 import io
+import os
 import shutil
 import subprocess
 import sys
@@ -81,6 +82,62 @@ class CrossPlatformTest(unittest.TestCase):
         text = (ROOT / "tools" / "preflight.sh").read_text(encoding="utf-8")
         for kw in ("command -v python3", "command -v py", "PY="):
             self.assertIn(kw, text, f"preflight.sh 缺解释器探测：{kw}")
+
+    @unittest.skipUnless(shutil.which("bash"), "需要 bash")
+    def test_gate_check_missing_interpreter_is_env_not_login(self):
+        """Windows 商店占位符 python3（退出码 49）且无其他解释器时：
+        必须报「准备工作还差一点」，不得误报「账号钥匙失效」（2026-10-25 Windows 实机回归）。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            tools_dir = root / "tools"
+            tools_dir.mkdir()
+            shutil.copy2(ROOT / "tools" / "gate_check.sh", tools_dir / "gate_check.sh")
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            uname = bin_dir / "uname"
+            uname.write_text("#!/bin/sh\necho MINGW64_NT\n", encoding="utf-8")
+            uname.chmod(0o755)
+            for name in ("python3", "python", "py"):
+                p = bin_dir / name
+                p.write_text("#!/bin/sh\nexit 49\n", encoding="utf-8")
+                p.chmod(0o755)
+            env = dict(os.environ)
+            env["PATH"] = f"{bin_dir}:/usr/bin:/bin"
+            proc = subprocess.run(["bash", str(tools_dir / "gate_check.sh")],
+                                  input="", text=True, capture_output=True,
+                                  env=env, timeout=30)
+            out = (proc.stdout or "") + (proc.stderr or "")
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("准备工作还差一点", out)
+            self.assertNotIn("钥匙失效", out)
+
+    @unittest.skipUnless(shutil.which("bash"), "需要 bash")
+    def test_gate_check_skips_store_stub_and_picks_py(self):
+        """主路径：占位符 python3（退出码 49）被跳过，选中可用的 py。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            tools_dir = root / "tools"
+            tools_dir.mkdir()
+            shutil.copy2(ROOT / "tools" / "gate_check.sh", tools_dir / "gate_check.sh")
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            log = root / "py.log"
+            (bin_dir / "uname").write_text("#!/bin/sh\necho MINGW64_NT\n", encoding="utf-8")
+            (bin_dir / "python3").write_text(
+                "#!/bin/sh\necho 'Python was not found'\nexit 49\n", encoding="utf-8")
+            (bin_dir / "py").write_text(
+                "#!/bin/sh\necho called >> \"$PY_LOG\"\nexec \"$REAL_PYTHON\" \"$@\"\n",
+                encoding="utf-8")
+            for name in ("uname", "python3", "py"):
+                (bin_dir / name).chmod(0o755)
+            env = dict(os.environ)
+            env["PATH"] = f"{bin_dir}:/usr/bin:/bin"
+            env["REAL_PYTHON"] = sys.executable
+            env["PY_LOG"] = str(log)
+            proc = subprocess.run(["bash", str(tools_dir / "gate_check.sh"), "--credentials-stdin"],
+                                  input=b"", capture_output=True, env=env, timeout=30)
+            self.assertNotEqual(0, proc.returncode)  # 临时目录缺必读文档，应失败
+            self.assertTrue(log.is_file() and log.read_text().strip(), "应回退到可用的 py")
 
     def test_readme_install_prompt_has_windows_command(self):
         text = (ROOT / "README.md").read_text(encoding="utf-8")

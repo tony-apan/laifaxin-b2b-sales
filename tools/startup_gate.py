@@ -32,6 +32,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from profile_utils import validate_nickname
+
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LEDGER = ROOT / ".local" / "gate" / "startup.jsonl"
 
@@ -227,6 +229,12 @@ def cmd_ack(nickname: str, product: str) -> int:
     product = (product or "").strip()
     if not nickname or not product:
         print("❌ 登记开工必读需要 --nickname 和 --product（用户第一条回复的两样）", file=sys.stderr)
+        return 2
+    # ★2026-10-25 Windows 对抗：开工门必须和签名闸门同口径，数字「1」/公司名不得登记成昵称
+    ok, why = validate_nickname(nickname)
+    if not ok:
+        print("❌ 昵称不合规：%s" % why, file=sys.stderr)
+        print("（对用户说：昵称请写个人称呼，比如 Tony / 老王；不要写公司名或产品名。）", file=sys.stderr)
         return 2
     try:
         hashes = doc_hashes()

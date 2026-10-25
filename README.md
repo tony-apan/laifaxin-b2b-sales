@@ -67,8 +67,8 @@ https://github.com/tony-apan/laifaxin-b2b-sales
    将本仓库的 SKILL.md 作为后续执行入口，学会完整流程、确认节点、
    安全边界、网站资料增强和换机续接规则。不要创建另一份重复规则。
 
-4. 运行仓库自检工具；发现问题先修复并重新检查。
-   未通过自检，不要开始找客户、保存联系人、创建序列或发信。
+4. 运行安装自检（`tools/onboard_check.py`，Windows 用 `py`）；发现问题先修复并重新检查。
+   未通过安装自检不要开始找客户、保存联系人、创建序列或发信；`preflight` 是维护者发布门，安装时不需要跑。
 
 5. 安装和学习完成后，按 output-templates/S0-install-report.md 用通俗中文告诉我：
    - 装好了没有（环境与自检结果）

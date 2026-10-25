@@ -71,6 +71,17 @@ class StartupGateTest(unittest.TestCase):
             self.assertEqual(r.returncode, 2)
             self.assertFalse(led.is_file())
 
+    def test_ack_rejects_invalid_nickname(self):
+        """开工门必须先过昵称校验（2026-10-25 Windows 对抗：数字「1」曾被登记成功）。"""
+        with tempfile.TemporaryDirectory() as d:
+            env, _, led = make_env(Path(d))
+            for bad in ("1", "老王 公司", "Acme Ltd"):
+                with self.subTest(bad=bad):
+                    r = run(["ack", "--nickname", bad, "--product", "保温杯"], env)
+                    self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+                    self.assertIn("昵称", r.stderr)
+                    self.assertFalse(led.is_file(), "被拒的昵称不得写入账本")
+
     def test_env_override_forbidden_outside_test_mode(self):
         with tempfile.TemporaryDirectory() as d:
             env, _, _ = make_env(Path(d))
