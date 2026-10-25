@@ -194,6 +194,34 @@ def _steps_fixture(template_ids):
     return steps
 
 
+def _install_curl(bin_dir, cwd_dir, body):
+    """POSIX 用 sh 壳；Windows 编译 curl.exe 到工具 cwd（CreateProcess 先查当前目录）。"""
+    bin_dir = Path(bin_dir)
+    cwd_dir = Path(cwd_dir)
+    fake_py = cwd_dir / "fake_curl.py"
+    fake_py.write_text(body, encoding="utf-8")
+    if os.name != "nt":
+        curl = bin_dir / "curl"
+        curl.write_text('#!/bin/sh\nexec "%s" "%s" "$@"\n' % (sys.executable, fake_py), encoding="utf-8")
+        curl.chmod(0o755)
+        return
+    try:
+        from test_cross_platform import _WIN_CURL_SHIM_CS
+    except ImportError:
+        from tests.test_cross_platform import _WIN_CURL_SHIM_CS
+    win = Path(os.environ.get("WINDIR", r"C:\Windows"))
+    csc = next((q for q in (
+        win / "Microsoft.NET" / "Framework64" / "v4.0.30319" / "csc.exe",
+        win / "Microsoft.NET" / "Framework" / "v4.0.30319" / "csc.exe",
+    ) if q.exists()), None)
+    if csc is None:
+        raise unittest.SkipTest("Windows 需要 .NET Framework csc.exe 编译 curl 影子")
+    src = cwd_dir / "curl_shim.cs"
+    src.write_text(_WIN_CURL_SHIM_CS, encoding="utf-8")
+    exe = cwd_dir / "curl.exe"
+    subprocess.run([str(csc), "/nologo", "/out:" + str(exe), str(src)],
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, check=True)
+
 class _RepoCase(unittest.TestCase):
     """隔离仓库副本 + 假 curl + 项目夹具。"""
 
@@ -206,11 +234,7 @@ class _RepoCase(unittest.TestCase):
             ".git", ".local", "runs", "__pycache__", ".pytest_cache"))
         self.bin = self.tmp / "bin"
         self.bin.mkdir()
-        fake = self.bin / "curl"
-        if os.name == "nt":
-            raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
-        fake.write_text(FAKE_CURL, encoding="utf-8")
-        fake.chmod(0o755)
+        _install_curl(self.bin, self.repo, FAKE_CURL)
         self.log = self.tmp / "curl.jsonl"
         self.config = self.tmp / "curl-config.json"
         self.project_dir = self.repo / "runs" / OPERATOR / PRODUCT
@@ -226,6 +250,8 @@ class _RepoCase(unittest.TestCase):
             "LFX_FAKE_CURL_LOG": str(self.log),
             "LFX_FAKE_CURL_CONFIG": str(self.config),
             "PYTHONDONTWRITEBYTECODE": "1",
+            "LFX_FAKE_PYTHON": sys.executable,
+            "PYTHONIOENCODING": "utf-8",
         })
         self.set_config()
 
