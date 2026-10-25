@@ -2,6 +2,7 @@ import io
 import json
 import os
 import pty
+import shutil
 import stat
 import subprocess
 import sys
@@ -416,6 +417,7 @@ class LoginTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
 
 
+@unittest.skipUnless(shutil.which("bash"), "需要 bash（Windows 未装 Git Bash 时跳过）")
 class ShellRoutingTest(unittest.TestCase):
     def run_script(self, name, args=(), input_text=None):
         with tempfile.TemporaryDirectory() as tmp:

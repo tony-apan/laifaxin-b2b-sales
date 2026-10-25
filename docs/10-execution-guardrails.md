@@ -1,9 +1,12 @@
 ---
+doc_id: "docs-10-execution-guardrails"
 title: "执行护栏：让 AI 必须读模板、必须不越权"
 description: "诊断 2026-10-21 实跑中 AI 自创模板/擅自推进的根因，给出机械化（非自觉）的护栏方案与验收标准"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-10-21
 author: "AI Agent + 用户 Tony"
-status: draft
 audience: 人+AI
 ---
 
@@ -95,8 +98,8 @@ P3：换一个 AI 实跑 S2→S5 验收
 
 ## 八、V3-7 汇报留痕与现役写授权（2026-10-21 落地）
 
-1. **旧脚本封条**：8 个旧写脚本（save_first_n/lfx_pipeline/lfx_mass_save*/lfx_save_raft_fixed/wait_save_done/contact_add）+ 5 个删库脚本的 `save_guard.require()` **无条件 SystemExit**，删除 LFX_OFFLINE_TEST/LFX_FAKE_CURL_LOG 双标记豁免；任何环境变量都不能放行。
-2. **现役写授权**：模板/序列/激活类工具（gen_templates/build_sequence/activate_sequence/7 个 create_*）改用 `save_guard.authorize_write(action, payload, ticket)`：校验 ticket.action 一致、payload_hash 绑定、O_EXCL 消费一次；无票/票不符/二次消费一律拒，拒绝路径 http_calls=0。
+1. **旧脚本禁用（部分已加物理封条）**：8 个旧写脚本 + 5 个删库脚本列入禁用清单；其中本仓现存 4 个（save_first_n/contact_add/delete_all_products/wait_save_done）已在最早可执行位置调用 `save_guard.require()`（--help 仍可用、dry-run 也封），但**仍不是安全边界**（可删封条/伪造模块绕过，与 RULES 边界声明一致）；其余旧脚本只是文档层约束。
+2. **现役写授权（按实际分层）**：S5 保存=`save_company_cli.py` 的 plan/confirm/execute + `save_guard` V2 ticket；S10 加人=`contact_add_authorized.py` + `auth_guard.authorize_write(action="sequence")` 票据；模板/序列/激活=`approval.py require_approval()` 审批凭证（参数哈希绑定、confirm+confirmed 才可用；S12 另加原话校验）。`authorize_write()` 当前只覆盖 S10 加人，并非模板/序列/激活。
 3. **唯一保存入口**：`tools/save_company_cli.py` 注入真实 HTTP，内部仍走 `save_company()`；旧保存脚本不再可用。
 4. **汇报留痕**：`save_company()` 成功返回 `report_text = render.output + "\n" + "[render:<sha12>]"`，必须原样发给用户。`verify_report` 校验 30 分钟新鲜度（ts+mtime）、task_id 派生、正文与 render.output 一致；缺后缀/改数字/过期一律拒。
 5. **count 绑定**：`render.count` 必须等于 payload 派生的 count；`save_company()` 不再接受调用方另传 count，防止同一 payload 换 count 伪造新 task_id 重复保存。同一 action+payload 成功一次后落 payload 级 ok 标记，二次保存直接 E_AUTH_REUSED。

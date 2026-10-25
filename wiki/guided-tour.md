@@ -1,13 +1,15 @@
 ---
+doc_id: "wiki-guided-tour"
 title: "新手导览（从零到一）"
 description: "面向人的入门向导：带着一个真实产品（猫粮），一步步走完搜筛存发全流程"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-08-21
 author: "AI Agent + 运营方"
 source: "来发信官方文档 + 实战验证"
 related: [docs/00-overview, docs/08-workflow-ops]
 tags: [wiki, 新手导览, 入门]
-status: verified
 audience: 人
 ---
 

@@ -18,7 +18,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--token", required=True); ap.add_argument("--org", required=True)
 ap.add_argument("--product", required=True, help="产品名(⚠️两套档案命名可能不同L-37:匹配name/zh/en三字段;不确定时--dry-run看,或直接--pid)")
 ap.add_argument("--pid", default="", help="推理档案id直传(免匹配,最稳)")
-ap.add_argument("--rounds", type=int, default=4)
+ap.add_argument("--rounds", type=int, default=4, help="默认发 4 轮推演请求；候选数以平台返回为准（RULES/契约的『默认4个』指展示候选，不由此参数保证）")
 ap.add_argument("--profile", required=True, help="当前产品档案；状态/hash/项目键进入S2审批绑定")
 ap.add_argument("--record", default="", help="项目operation-record；客群生成非空后推进S2,next=S3")
 ap.add_argument("--approval", default="", help="S2 绑定profile+pid+rounds的审批凭证")
@@ -27,6 +27,15 @@ ap.add_argument("--dry-run", action="store_true")
 args = ap.parse_args()
 
 def api(path, p, t=90):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     r = subprocess.run(["curl","-sSL","-m","80","-X","POST",f"https://web.laifaxin.com/api/{path}",
                         "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)],

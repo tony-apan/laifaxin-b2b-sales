@@ -1,13 +1,15 @@
 ---
+doc_id: "specs-operations-sop"
 title: "代运营完整 SOP（规则细化）"
 description: "代运营全流程规则：时区灵活映射/点数预算公式/单页筛选标准/标签规则/网址找相似确认流程/推演固化"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-10-21
 author: "AI Agent + 运营方"
 source: "对抗分析 + 用户要求细化"
 related: [specs/data-structure, specs/sequence-config, docs/08-workflow-ops]
 tags: [SOP, 代运营, 规则, 预算, 时区]
-status: verified
 audience: 人+AI
 ---
 
@@ -159,16 +161,19 @@ audience: 人+AI
 4. 排除中国区（CN/TW/HK/MO 默认；filters 完整 schema）
 5. **记录到 search-log.tsv**（窗口页/均值/判定/边界）
 
-### 保存入口（V2 预期；实施中，文档作者未实测）
+### 保存入口（V2；参数以 `tools/save_company_cli.py --help` 为准）
 ```bash
-python3 tools/save_company_cli.py prepare --project <项目键> --segment-id <Sxx> --generation-id <id> \
-  --selection-id <id> --audit-manifest <manifest> --request <offline-input.json>
+python3 tools/save_company_cli.py prepare --request-file <offline-input.json> [--root <仓库根>] [--out <draft.json>] [--run <执行卡运行标识>]
+# 也可用 --request-json '<JSON文本>' 代替 --request-file（二者只能二选一）
 python3 tools/save_company_cli.py confirm --plan <draft.json> --quote "<用户原话>" --quote-ref <来源>
-python3 tools/save_company_cli.py execute --plan <confirmed.json> --render <render> --ticket <ticket>
+python3 tools/save_company_cli.py execute --plan <confirmed.json> --render <S5V2 render> --ticket-file <ticket.json> [--token <T> --org <orgId>]
+# 也可用 --ticket-json '<JSON文本>' 代替 --ticket-file（二者只能二选一）
 python3 tools/save_company_cli.py status --plan <confirmed.json>
 ```
-- `prepare` 只读本地、不取凭据/不构造 transport；`confirm` 唯一铸票；`execute` 重验同一 binding 后才写。
-- 无 confirmed plan 不写；旧 `save_first_n.py` 继续封停；数字/字母选择不是保存授权。
+- `prepare` 只读本地、不取凭据/不构造 transport；输入用 `--request-file` 或 `--request-json`（二选一）；draft 可写 `--out`，根目录 `--root`，执行卡 `--run`。
+- `execute` 的票据用 `--ticket-file` 或 `--ticket-json`（二选一）；写前有工作空间预检，重验同一 binding 后才写一次。
+- `confirm` 唯一铸票；无 confirmed plan 不写；旧 `save_first_n.py` 继续封停；数字/字母选择不是保存授权。
+- offline-input 最小 JSON schema 与样例见 `specs/save-offline-input.md`。
 
 ---
 
@@ -272,7 +277,7 @@ python3 tools/save_budget.py plan   --project acme/widget --org "$ORG" --b-plan 
 
 ### 模板
 - 本地存储 `templates/rXX-vYY.md`（含 template_id + subject + html + 元信息）
-- **模板效果分析**（template-analysis.md）：每周从后台拉数据回填 opens/replies → 对比哪个模板好 → 迭代
+- **模板效果分析**（见 `templates.md` 模板效果段）：每周从后台拉数据回填 opens/replies → 对比哪个模板好 → 迭代
 - 每步 4 封（template_ids 4 个，互不相同）
 
 ### 序列
@@ -370,9 +375,9 @@ python3 tools/save_budget.py plan   --project acme/widget --org "$ORG" --b-plan 
   - preview → 「先在电脑上看样子，还没上传」
   - 硬门通过 → 「检查通过」
   - 审批凭证/票据 → 「您刚才的确认」
-  - 状态 S9 → 「第 4 步 / 共 6 步」
+  - 状态 S9 → 「第 6 步 / 共 6 步」
 - **每次播报必须有「三步曲」**：①已完成什么 ②现在在做什么 ③接下来做什么 + 大概还要多久。
-- **阶段面板**：播报里给一行「第 X 步 / 共 N 步」，N 固定为 7：1 找客群→2 划边界→3 存客户→4 写邮件→5 建模板→6 建序列→7 加人激活。
+- **阶段面板**：播报里给一行「第 X 步 / 共 6 步」，固定 6 步：1 找买家→2 筛名单→3 存客户→4 写开发信→5 建模板→6 建跟进计划；发信开关单独算「第 7 关」，不计入 6 步。
 - **节奏**：长任务每 **10–30 秒**必须有一条进度（有真实计数就报计数，没有就报阶段节点+心跳）；「3 分钟后再报」不合格。
 
 ## ★邮件模板流程 v2（对抗审查后修正，2026-10-23）
@@ -384,30 +389,16 @@ python3 tools/save_budget.py plan   --project acme/widget --org "$ORG" --b-plan 
   4. 确认后一次批量生成 48 封并**归入同名分组**（分组名=前缀）
   5. 上传后核对：分组内数量、名称唯一、内容逐字一致
   6. 核对通过才推进「第 5 步建模板」为已完成，进入建序列
-- **一次性确认**：用户只确认 1 次（4 封样稿），不允许逐封打扰；改稿也只改被指出的那几封，再一次性重传未建部分。
+- **一次性确认**：用户只确认 1 次（4 封样稿），不允许逐封打扰；改稿也只改被指出的那几封，再一次性重传未建部分。用户回 **1** = 认可并直接建 48 封（不再单独确认模板）；回 **2** = 说改哪封。
 
-## ★一次确认跑完（2026-10-23 用户要求：一气呵成）
-- 用户回一个 **A**，即视为同意把「建序列 → 加联系人 → 设置/终检」连续做完，**中途不再问第二次**。
-- 允许的连续链：S9 建序列 → S10 加联系人 → S11 设置/终检（时区、单日/单家上限、标签、公司触发动作、序列与模板对齐）。
-- **唯一例外：S12 激活发信**。激活会真发 9,400 封邮件、不可撤回，必须用户单独明确说「确认激活」；不得把 A 解释成同意激活。
-- 连续链执行时：每 10–30 秒播报一次「第 X 步 / 共 6 步 + 已加 X / 9,400 家 + 大概还要多久」，不得长时间静默。
+## ★回复点与确认闸门（2026-10-23 契约 v1.0：全流程约 10 次回话）
+- **固定 6 步**：1 找买家（先连账号）→ 2 筛名单 → 3 存客户 → 4 写开发信（本地 4 封样稿）→ 5 批量建 48 封模板 → 6 建跟进计划（建序列 → 加人 → 设置 → 终检）→ 之后单独确认是否激活发信。
+- **用户回数字 5 次**：选买家类型、选起点、认可样稿（第 4 步；第 5 步自动建 48 封模板，同 1 次回复）、建序列、加人。
+- **用户回文字 3 次**：开头昵称+产品、产品资料确认（回「确认」）、保存确认（回「确认保存 前 N 家」，必须带 N）。
+- **粘贴 1 次**：连平台两行（CDP 自动取参成功则 0 次）；**激活原话 1 次**：「确认激活」。
+- **不能打包的硬闸门**：保存客户、建序列、contact-add、激活——各自本节点确认；建模板与第 4 步样稿确认合并（不用回第二次）。禁止「一次 A 全做完」式授权；`build_sequence.py` 与 `contact_add.py` 分别要求 S9、S10 审批。
+- 第 6 步执行时每 10–30 秒播报一次：「第 X 步 / 共 6 步 + 已加 X 家 + 大概还要多久」，不得长时间静默。
 - 任一步失败：停下并用人话报「哪一步失败、影响什么、下一步选什么」，保留原文留证。
-
-## ★流程合并 v3（2026-10-23 用户拍板：6 步 + 2 个确认点）
-- 旧 7 步拆太碎：**「建序列」和「加人+设置」必须合并成同一步**，由用户一次选择（A）后一口气跑完。
-- 固定 6 步：
-  1. 找客群 → 2. 划边界 → 3. 存客户 → 4. 写邮件（本地 4 封样稿）→ 5. 建模板（分组+核对）→ 6. 建序列+加人+设置（一口气）→ 之后单独确认是否激活发信
-- **只有 2 个确认点**：
-  - 确认点 1（第 4 步末）：看 4 封样稿，回 A 确认 / B 指出改哪里。
-  - 确认点 2（第 5 步末）：模板建好并核对完，给一个合并选项 **A = 建序列 + 加人 + 设置一次做完**（不再拆开问）。
-- 第 6 步内部顺序固定：建序列 → 核对 12 轮 × 每轮 4 封 → 加联系人并计数 → 设置（时区/单日上限/单家上限/跳过标签/公司触发）→ 终检 → 报「共 X 家已就绪」。
-- 激活发信是**第 6 步之后**的单独硬门，必须用户明确说「确认激活」。
-
-## 流程 v4（2026-10-23 用户拍板：只在第 5 步确认一次，第 6 步一气呵成）
-- 固定顺序：1 找客群 -> 2 划边界 -> 3 存客户 -> 4 本地写邮件（4 封样稿贴出来给用户看，不打断）-> 5 上传 48 封到同名分组并核对 -> 请用户确认一次「模板没问题」-> 回 A 后第 6 步一气呵成（建序列 + 加人 + 设置 + 终检）。
-- 全流程只有 1 个中途确认点（第 5 步末）；第 6 步内部不再向用户提问。
-- 第 6 步完成后，单独问一次「是否开始发信（激活）」，这是另一个硬门。
-- 第 6 步执行时每 10-30 秒播报：已加 X / 9400 家，预计还剩 Y 分钟。
 
 ## 交付播报格式 v5（2026-10-23 用户要求：短、①②③、可核对）
 1) 每次播报不超过 6 行；工作项一律用 ①②③ 编号，不写表格堆砌。
@@ -417,8 +408,8 @@ python3 tools/save_budget.py plan   --project acme/widget --org "$ORG" --b-plan 
    - 邮件序列：几轮、每轮几封、间隔多久
    - 设置：时区、每天最多几封、同一家最多几封、跳过哪些标签
    - 登录看：https://app.laifaxin.com （用户核对）
-3) 用户核对后：回 a = 开始发信（激活）；有问题直接说，AI 改完再请用户确认。
-4) 激活前必须再确认一次，且激活不是 a 能默认包含的（独立硬门）。
+3) 用户核对后：回「**确认激活**」= 开始发信；有问题直接说，AI 改完再请用户确认。
+4) 激活必须用户亲口回「**确认激活**」，不能用上一条的 a 代替（独立硬门）。
 
 ## ★激活后必须报「什么时候开始发」（2026-10-23 用户要求）
 - 激活成功后立刻回读平台状态，确认 active，再报首发时间。

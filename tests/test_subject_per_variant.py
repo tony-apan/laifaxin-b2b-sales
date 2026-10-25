@@ -25,6 +25,27 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / "tools"
 
+# ★P0-D：gen_templates 现在硬断言 12 轮 × 4 变体（48=12轮×4）。
+# 本文件的标题用例只关心"标题维度"，故把 1~2 条样例轮自动补足到完整网格，
+# 避免样例轮数不足被网格门先行拒绝（补位标题用互不相同的单词，不干扰标题断言）。
+PAD_WORDS = [
+    "aurora", "brass", "copper", "denim", "ember", "frost", "granite", "harbor",
+    "ivory", "jade", "kelp", "lumen", "marble", "nectar", "onyx", "pearl",
+    "quartz", "raven", "slate", "topaz", "umber", "velvet", "willow", "xenon",
+    "yarrow", "zephyr", "alcove", "birch", "cedar", "drift", "elm", "fjord",
+    "glade", "hazel", "iris", "juniper", "kite", "larch", "maple", "nimbus",
+    "oak", "pine", "quill", "reed", "sage", "teak", "vine", "wren",
+]
+
+
+def with_full_grid(directions, variants):
+    """把给定的样例轮补足到 12 轮（每轮标题数=变体数），供 P0-D 网格门通过。"""
+    dirs = [list(d) for d in directions]
+    for r in range(len(dirs) + 1, 13):
+        subj = [PAD_WORDS[(r - 1) * 4 + v] for v in range(len(variants))]
+        dirs.append([f"R{r:02d}", "补充", subj, f"Production idea about {PAD_WORDS[r]}"])
+    return dirs
+
 
 class SubjectPerVariantTest(unittest.TestCase):
     """真跑 gen_templates.py 的 plan 校验（不需要平台，校验在联网之前）。"""
@@ -44,7 +65,7 @@ class SubjectPerVariantTest(unittest.TestCase):
 
     def run_plan_gate(self, directions, variants):
         """跑到 plan 校验为止（无 token 会在更后面才报，plan 错误在其之前 exit 2）。"""
-        plan = self.write_plan(directions, variants)
+        plan = self.write_plan(with_full_grid(directions, variants), variants)
         r = subprocess.run(
             [sys.executable, str(TOOLS / "gen_templates.py"), "--plan", str(plan),
              "--token", "x", "--org", "1", "--product", "demo", "--name", "Tony",

@@ -11,6 +11,7 @@
 本测试锁定：注册引导必须在位；过时数字不得复现；权益口径必须带"以平台实时为准"免责。
 """
 import re
+import shutil
 import unittest
 from pathlib import Path
 
@@ -20,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 USER_DOCS = (
     "README.md", "SKILL.md", "wiki/faq.md",
     "docs/09-mass-outreach-to-precision-follow-up.md",
-    "output-templates/T-token引导.md",
+    "output-templates/T-token-guide.md",
 )
 
 
@@ -38,7 +39,7 @@ class RegistrationGuidanceTest(unittest.TestCase):
         self.assertRegex(text, r"还没有.{0,4}账号|没有账号", "README 应显式覆盖'还没账号'场景")
 
     def test_connect_card_covers_no_account(self):
-        text = read("output-templates/T-token引导.md")
+        text = read("output-templates/T-token-guide.md")
         self.assertIn("免费注册", text, "连接卡必须覆盖'没有账号'")
         self.assertIn("不代办注册", text, "AI 不得代办注册")
 
@@ -48,7 +49,7 @@ class RegistrationGuidanceTest(unittest.TestCase):
         self.assertIn("不代办注册", text, "SKILL 应写明 AI 不代办注册")
 
     def test_registration_is_free_no_prepay(self):
-        for name in ("README.md", "output-templates/T-token引导.md"):
+        for name in ("README.md", "output-templates/T-token-guide.md"):
             with self.subTest(file=name):
                 text = read(name)
                 self.assertRegex(text, r"注册免费|不用先付费|无需先付费",
@@ -105,7 +106,7 @@ class TaskMenuFormatTest(unittest.TestCase):
     """任务菜单格式（2026-09-10 用户拍板）：逐行 + emoji 突出 + 标 ⭐推荐。"""
 
     def setUp(self):
-        self.path = ROOT / "output-templates" / "S0-任务菜单.md"
+        self.path = ROOT / "output-templates" / "S0-task-menu.md"
 
     def test_menu_template_exists(self):
         self.assertTrue(self.path.is_file(), "缺任务菜单展示模板")
@@ -180,7 +181,7 @@ class BeginnerFriendlyReportTest(unittest.TestCase):
     """小白适配（2026-09-10 对抗审查）：安装后先白话汇报，禁抛内部术语。"""
 
     def setUp(self):
-        self.path = ROOT / "output-templates" / "S0-安装完成汇报.md"
+        self.path = ROOT / "output-templates" / "S0-install-report.md"
         self.text = self.path.read_text(encoding="utf-8") if self.path.is_file() else ""
 
     def test_report_template_exists(self):
@@ -219,6 +220,8 @@ class PlainStepMappingTest(unittest.TestCase):
     def setUp(self):
         self.source = (ROOT / "tools" / "onboard_check.py").read_text(encoding="utf-8")
 
+    @unittest.skipUnless(all(shutil.which(t) for t in ("bash", "curl", "grep", "awk")),
+                         "需要 bash/curl/grep/awk（onboard_check 自检前置；Windows 无 Git Bash 时跳过）")
     def test_plain_hint_exists_and_covers_key_nodes(self):
         import importlib.util, tempfile, shutil, subprocess, sys
         # 直接跑函数：白话映射必须真能翻译关键节点（防"表被清空但仍匹配键名"的假通过）
@@ -254,12 +257,12 @@ class PlainStepMappingTest(unittest.TestCase):
     def test_jargon_stays_out_of_user_facing_text(self):
         """README 的安装指令不得再让 AI 汇报'安装目录和当前版本'这种技术项。"""
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("S0-安装完成汇报", readme, "README 安装指令应指向白话汇报模板")
+        self.assertIn("S0-install-report", readme, "README 安装指令应指向白话汇报模板")
         self.assertNotIn("安装目录和当前版本", readme, "README 不应让 AI 汇报技术目录/版本")
 
 
 class ReadmeMenuConsistencyTest(unittest.TestCase):
-    """README 里的菜单说明必须与 S0-任务菜单.md 的 4 项一致（防两处不同步）。"""
+    """README 里的菜单说明必须与 S0-task-menu.md 的 4 项一致（防两处不同步）。"""
 
     def test_readme_does_not_list_six_items(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

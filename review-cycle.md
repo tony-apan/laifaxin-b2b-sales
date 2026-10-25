@@ -1,11 +1,15 @@
 ---
+doc_id: "review-cycle"
 title: "旁观者审查周期（其他AI从旁观者角度审查完善）"
 description: "机制：完成阶段/产品后，由另一AI(或其他agent)从旁观者角度审查记录，审查结果回落issues/lessons。用户强制。"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-29
 author: "AI + 用户对抗"
 tags: [旁观者审查, 红队, 对抗完善, 审查周期]
-status: active
 ---
+
 # 🔍 旁观者审查周期（Review Cycle）
 
 > **★ 目标**：让"当局者迷"变"旁观者清"——每次关键阶段完成后，由**没有参与执行的其他 AI**从旁观者角度审查，发现问题并回落。

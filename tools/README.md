@@ -1,13 +1,15 @@
 ---
+doc_id: "tools-readme"
 title: "工具目录（Tools）"
-description: "知识库配套核心工具脚本：闸门/登录/编排/保存/模板/序列/验证，含固化规则说明"
+description: "目录索引：配套工具清单与固化规则说明，找脚本或确认工具用途时读。"
+type: "readme"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-09-09
 author: "AI Agent + 运营方"
 source: "实战沉淀"
 related: [lessons/fixation, specs/api-reference, docs/08-workflow-ops]
 tags: [工具, 脚本, 自动化]
-status: verified
 audience: AI优先（人可参考）
 ---
 
@@ -40,13 +42,16 @@ audience: AI优先（人可参考）
 | `flow_orchestrator.py` | S0-S12 节点确认向导；S11可用 `--resume-s12` 当前TTY只签凭证 | ✅ resume不联网/不激活/不重跑；登录stdin/API urllib |
 | `approval.py` | 审批凭证模块（`require_approval` 硬闸门 + `record` 记账） | ✅ 凭证在 `.local/approvals.tsv`（不入 Git）|
 | `save_first_n.py` | 保存前 N 条（front + exclude4区 + max3） | ✅ 默认 exclude CN,TW,HK,MO |
-| `wait_save_done.py` | 时序守卫（等保存 finished + 标签联系人>0） | ✅ 双闸，否则禁 contact-add |
+| `wait_save_done.py` | ⛔ **已禁用**（2026-10 起 save_guard 物理封条）；保存对账改走 `save_company_cli.py status/reconcile` | 禁调用；旧文档仍提及属历史遗留 |
 | `gen_templates.py` | 模板生成器（必须 plan+profile，12轮×10变体） | ✅ 签名纯昵称 + profile hash + claims来源 + 24hex |
 | `check_template_diff.py` | 模板差异断言（Jaccard≤0.70，逐模板取真实 html） | ✅ 空 html 恒达标=假阴性 |
 | `rebuild_templates.py` | 重建模板+序列步骤（原型，顺序见 L-43） | ✅ 先建新→改引用→再删旧 |
 | `render_preview.py` | 模板渲染预览（收件人视图，非源码） | ✅ |
 | `build_sequence.py` | S9 建序列一条龙（tz/notSentTags 运行时解析+12步） | ✅ --approval 硬闸门 |
-| `contact_add.py` | S10 加联系人一条龙（时序守卫 + views:[] 铁律） | ✅ views 恒为空数组 |
+| `contact_add_authorized.py` | S10 加联系人**现役通道**（S10 审批 + auth_guard 票据 + 时序守卫 + views:[] 铁律） | ✅ 旧 contact_add.py 仅流程核对 |
+| `version_check.py` | 版本/更新检查（只读） | ✅ 不写平台 |
+| `browser_login.py` | 本机真实 Chrome/Edge 登录取参（隔离 profile、可 `--probe-only/--save-session/--forget`；标准库实现） | ✅ 只读登录页，不写平台 |
+| `session_store.py` | 本机会话凭据存储（0700 目录 / 0600 文件；`--forget` 清除；非安全边界） | ✅ 仅本机 |
 | `tag_add.py` | S5 前置·建标签（中文名 + 同名复用） | ✅ 记录 id(名称) 成对 |
 | `resolve_schedule.py` | 时区计划时间解析（schedule_id 运行时解析） | ✅ 各账号不同，禁止硬编码 |
 | `audit_company.py` | 搜索页精准度审计（词匹配只做趋势初筛） | ✅ 临界须 AI 语义反思 |

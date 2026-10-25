@@ -2,10 +2,10 @@
 doc_id: "lfx-api-dictionary"
 title: "来发信接口字典（排障速查）"
 description: "按用途列接口、要点、常见报错与替代路径；出问题先查本表再下结论。"
-created: "2026-10-22"
-updated: "2026-10-22"
 type: "spec"
-status: "normative"
+status: "active"
+updated: "2026-10-23"
+created: "2026-10-22"
 ---
 
 # 来发信接口字典（出问题先查这张表）
@@ -47,6 +47,17 @@ status: "normative"
 2. 报错先查第 3 节，不要直接说"平台维护/不可用"。
 3. 只有**换完本表所有同用途接口**仍失败，才允许报阻断，并附接口名+原文报错。
 
-## 5. 待补
+## 5. 保存 / 模板 / 序列 / 联系人（按模块）
 
-- 保存/序列/联系人的接口要点（待实测后补入本表）。
+| 模块 | 接口 | 关键参数 | 要点 |
+|---|---|---|---|
+| S5 保存 | `refine/company-save` | 见 `specs/api-reference.md` §4 完整 payload；`selectTotal`+`selectKeys:[]` | 唯一保存通道是 `save_company_cli.py` prepare→confirm→execute；无 confirmed plan 不写；保存后必须 `operation/backend-task-status` 查 finished |
+| S5 保存状态 | `operation/backend-task-status` | `{type:"cluesSave", id:<任务id>}` | 不能只看 company-save 返回；finished 才允许加人 |
+| S5 标签 | `contacts/tags-list` / `contacts/tags-add` | list: type=company/contacts；add: name+type | 同名复用，新建后记录标签 id |
+| S7/S8 模板 | `mailbox/templates-list` / `template-info` / `template-add` / `template-delete` / `templates-folder-list` / `template-folder-add` | list: current+pageSize≥10；add: name+subject+html+foid=<自动分组id>（**不是 "0"**）；folder-add: name | 模板自动归同名分组；每封主题/正文不同；批量删用 template-delete 单删（批量删正文 500 勿用） |
+| S9 序列 | `sequences/sequence-create` / `sequence-save` / `sequence-details` / `step-create` / `step-save` / `step-list` | create: name+channel:"system"；save: id+name+schedule_id+rules；step-create: seqId+step+template_ids+wait_mode+wait_time+senders | 12 步；计划时间用 `settings/sequence/schedule-list` 运行时解析，禁硬编码 |
+| S10 加人 | `sequences/contact-add` | `{seqId, tags:[标签ID], views:[]}` | ★`views` 必须 `[]`；传 `["all"]` 会把全库联系人加入；现役脚本 `contact_add_authorized.py` |
+| S10 对账 | `sequences/contact-list` / `contacts/contacts/show` | seqId+current+pageSize；contacts/show 用 filters 数组 | 加完回读人数，与保存任务标签人数对账 |
+| S12 激活 | `sequences/sequence-list` / `sequence-active` | active: `{id, active:true/false}` | 只有用户原话含「确认激活」才可激活；`--sync-manual` 只读同步 |
+
+> 逐模块完整表（含门禁/要点/证据）见 `specs/module-api-map.md`。

@@ -33,6 +33,14 @@ ap.add_argument("--project", required=True, help="稳定项目键=<operator_key>
 ap.add_argument("--timeout", type=int, default=900, help="等保存任务最大秒数")
 ap.add_argument("--dry-run", action="store_true", help="只打印 payload/时序检查,不写")
 args = ap.parse_args()
+# ★旧脚本物理封条（save_guard.require，2026-10-23）：--help 已在 parse_args 内提前返回；
+# 其余任何写/推进路径（含 dry-run）一律 SystemExit，无环境变量可绕过。
+# 仅防误触/防走神，仍非安全边界（可被删封条/伪造模块绕过）——见 RULES 边界声明。
+try:
+    from save_guard import require as _save_guard_require
+    _save_guard_require()
+except ImportError:
+    raise SystemExit("DEPRECATED: use save_guard")
 if not args.dry_run and not args.record:
     print("❌ 正式 contact-add 必须带 --record <operation-record.md>，否则换机状态无法推进"); sys.exit(2)
 if not args.dry_run:
@@ -55,6 +63,15 @@ preflight(args.token, args.org, dry_run=args.dry_run, what="加联系人入序�
 gots = {}
 
 def api(path, p, t=40):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     cmd = ["curl","-sSL","-m","35","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]

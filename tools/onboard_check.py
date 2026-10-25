@@ -48,9 +48,9 @@ NODE_HINT = {
     "S1": "确认路径 A(有精准网址)/B(标准路径)——自动选择不追问，用户可随时补网址切换",
     "S2": "推演 4 客群(优先读 product-profile.md)并请用户确认 → segments_infer.py 落地",
     "S3": "AI 数据库搜索链三步(预览→id 取域名→域名扩量) → seed_resolve.py，用户确认锚点",
-    "S4": "70% 临界审计(50页跳→三页平均→逐页，AI 语义反思)——审计未完成不能保存",
+    "S4": "抽查名单(100页跳→前后3页→连续5页窗口→跌破往前，AI 语义反思)——审计未完成不能保存",
     "S5": "建标签 tag_add.py → 展示保存参数请用户确认 → save_first_n.py --approval 保存前 N",
-    "S6": "等保存 finished+标签对账 wait_save_done.py → 主动出示数量账(S6-数量账)",
+    "S6": "用 save_company_cli.py status/reconcile 等保存 finished 并标签对账（wait_save_done.py 已禁用）→ 主动出示数量账(S6-数量账)",
     "S7": "模板草稿预览(render_preview.py 渲染后收件人视图)请用户确认后才批量创建",
     "S8": "批量建模板(默认48=12轮×4) + check_template_diff.py 实测差异(≤0.70)，失败回 S7",
     "S9": "resolve_schedule.py 运行时解析时区 → build_sequence.py 建序列(12步/纽约/30000/5/notSentTags)",
@@ -157,7 +157,7 @@ print("   · 渐进索取:每步只问当前必需的一件事;公司名/官网/
 print("   · ★产品资料(卖什么)=必填；卖给谁/卖到哪/自己的官网均选填，缺失时AI先推荐、不阻断、不冒充用户输入")
 print("   · ★自己的网址可走独立website-profile增强：只读公开页→六区候选→用户批准才导入；失败/跳过不影响主线")
 print("   · 落款只用昵称;邮件正文=目标市场语言;标签=语言-行业-角色(客户群体,非产品名)")
-print("★ 安装/学习入口: ①bootstrap准备环境 → ②本脚本自检+扫描旧项目 → ③汇报结果 → ④询问用户想做什么 → ⑤按SKILL路由；不默认进入S0")
+print("★ 安装/学习入口: ①bootstrap准备环境 → ②本脚本自检+扫描旧项目 → ③按 output-templates/S0-install-report.md 白话汇报 → ④新用户按 C1 只问「昵称+产品」、有旧项目才给4项菜单 → ⑤按SKILL路由；不默认进入S0")
 print("")
 print("🔧 环境自检(30秒):")
 # 启动时自动检查新版本（静默失败，绝不阻塞自检）
@@ -266,10 +266,14 @@ if projects:
     print("    4. 📖 先了解完整流程")
     print('   结尾一句：回复编号即可（如「1」）。')
 else:
-    print("   ▶ 本次未检测到旧项目 → 不展示菜单，按 S0-开场提问.md C1 只问两样：")
+    print("   ▶ 本次未检测到旧项目 → 不展示菜单，按 S0-opening-questions.md C1 只问两样：")
     print("     ① 怎么称呼您？（个人昵称，Tony / Iris 这种）")
     print("     ② 您家主要卖什么产品？（一句话）")
     print("   ★新用户不展示菜单、不要求回数字；安装阶段除这两样外不索取市场/卖给谁/官网/token。")
-    print("   ★拿到昵称+产品后立刻给 6 步全景（specs/beginner-flow.md 第 1 屏）+ 3 类买家候选。")
-print("\n🔴 安装/学习阶段到此停止：新用户只问「昵称 + 产品」（见 S0-开场提问.md C1），不再索取市场/官网/token。")
+    print("   ★拿到昵称+产品后先登记开工必读（startup_gate.py ack），再给 6 步全景（specs/beginner-flow.md 第 1 屏）；不推买家类型、不给菜单。")
+print("\n🔴 安装/学习阶段到此停止：新用户只问「昵称 + 产品」（见 S0-opening-questions.md C1），不再索取市场/官网/token。")
 print("   用户选择具体任务后，再按 SKILL.md 对应路由渐进询问；只有选择『开始新的获客项目』才问纯个人昵称 + 一句话产品。")
+
+# ★环境自检失败 → exit 2（AGENTS「未通过不得开始」的真实门）；成功保持 0。
+if not env_ok:
+    sys.exit(2)

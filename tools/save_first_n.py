@@ -18,6 +18,15 @@ from update_run_state import require_state, update_frontmatter
 from workspace_guard import preflight
 
 def api(org, token, path, payload, timeout=120):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     cmd = ["curl","-sSL","-X","POST",f"https://web.laifaxin.com{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {token}",
            "-H", f"uid: {org}",
@@ -39,6 +48,14 @@ def main():
     ap.add_argument("--approval", default="", help="★绑定本次全部保存参数的S5凭证")
     ap.add_argument("--project", required=True, help="稳定项目键=<operator_key>/<product_key>")
     args = ap.parse_args()
+    # ★旧脚本物理封条（save_guard.require，2026-10-23）：--help 已在 parse_args 内提前返回；
+    # 其余任何写/推进路径（含 dry-run）一律 SystemExit，无环境变量可绕过。
+    # 仅防误触/防走神，仍非安全边界（可被删封条/伪造模块绕过）——见 RULES 边界声明。
+    try:
+        from save_guard import require as _save_guard_require
+        _save_guard_require()
+    except ImportError:
+        raise SystemExit("DEPRECATED: use save_guard")
     try: require_state(args.record, ("S4", "S5")); acquire_project_lock(args.record, "save_first_n")
     except (ValueError, RuntimeError) as exc: print(f"❌ {exc}"); raise SystemExit(4)
     profile_path = Path(args.profile)
@@ -85,7 +102,7 @@ def main():
         print(f"✅ 运行状态已推进: {args.record} → S5 (next=S6；任务finished后再推进S6)")
     print("★ 验证: 用 backend-task-status(type=cluesSave, id=<上面task id>) 查 contactSaveCount>0=提邮箱、companySaveCount=公司数")
     print("   ⚠️ 勿用 company-save-list(看不到 contactSaveCount,会误判邮箱0)——见 api-reference")
-    print("📊 数量账(用户问'怎么才存这么点'时照此解释,模板 output-templates/S6-数量账.md):")
+    print("📊 数量账(用户问'怎么才存这么点'时照此解释,模板 output-templates/S6-count-report.md):")
     print(f"   · 每公司上限 {args.max} 个邮箱(防止过度触达) · 平台验真过滤(有效+未知都存) · 跨批去重 · 邮箱异步分批提取")
     print(f"   · 正常水平约 1.4~2.1 邮箱/家;低于 1.0 建议检查锚点纯度(L-46)")
 

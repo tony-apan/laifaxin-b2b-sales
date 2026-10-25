@@ -1,0 +1,38 @@
+name: preflight
+
+on:
+  push:
+    branches: [novice-onboarding, master, main]
+  pull_request:
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run preflight (bash entry)
+        run: bash tools/preflight.sh
+
+  preflight-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run preflight (python entry)
+        run: python tools/preflight.py
+
+  preflight-windows-smoke:
+    runs-on: windows-latest
+    continue-on-error: true  # 证据用：尚未实机验收，不阻断；稳定后再转门
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run preflight on Windows (smoke)
+        run: python tools/preflight.py

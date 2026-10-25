@@ -1,13 +1,15 @@
 ---
+doc_id: "methodology-checklists"
 title: "检查清单（保存前/发信前/计划启动前）"
 description: "三个关键节点的 checklist，照着勾选避免翻车"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-10-21
 author: "AI Agent (DeepSeek) + 用户 Tony"
 source: "来发信官方文档 + 实战验证"
 related: [docs/02-filter-customers, docs/03-save-customers, docs/05-email-marketing]
 tags: [方法论, checklist, 检查清单]
-status: verified
 audience: 人+AI
 ---
 

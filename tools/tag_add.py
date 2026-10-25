@@ -24,6 +24,15 @@ ap.add_argument("--list", action="store_true", help="只列现有标签(免审�
 args = ap.parse_args()
 
 def api(path, p, t=40):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     cmd = ["curl","-sSL","-m","35","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]

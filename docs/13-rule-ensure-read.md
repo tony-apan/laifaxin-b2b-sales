@@ -1,3 +1,12 @@
+---
+doc_id: "docs-13-rule-ensure-read"
+title: "设计：如何确保 AI 读了规则再干（而不是不看直接干）"
+description: "设计草案：用登记、规则压缩与测试确保 AI 先读规则，评估读规则机制时参考。"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
+---
+
 # 设计：如何确保 AI 读了规则再干（而不是不看直接干）
 
 > **状态（2026-10-21）**：M1–M4 是早期 GATE/自检设计，已被审查否定，仅作历史存档；当前方案是“动作前准备展示原文/字段/推导 + 执行时重验依赖”，见下方修正节及 RULES/SKILL。不得把 GATE 或 hash 宣传成“读懂/真人授权/不可伪造”的证明。
@@ -22,7 +31,7 @@
 
 ```
 # （已否决、从未实现：该"规则闸"脚本不存在，不要照着跑）
-  → 校验：RULES-CARD.md + CORE-POINTS.md 的 sha256
+  → 校验：规则速查卡（提案，未落地） + CORE-POINTS.md 的 sha256
   → 输出 GATE=<sha12>，含 {files, hashes, ts}
   → 有效期 5 分钟（与 render_guard 一致）
 ```
@@ -38,7 +47,7 @@
 ### M2 规则压缩成 10 行卡
 
 630 行（CORE 154 + SKILL 223 + RULES 253）没人真读。
-抽出「违反就花钱/花钱或损失信誉」的 10 条 → `RULES-CARD.md`。
+抽出「违反就花钱/花钱或损失信誉」的 10 条 → `规则速查卡（提案，未落地）`。
 
 候选 10 条：
 1. 搜索词 = 平台 query_en 原文（附 product_id + segment_name 来源）

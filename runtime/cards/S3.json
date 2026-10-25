@@ -1,0 +1,26 @@
+{
+  "state": "S3",
+  "title": "搜索与范围",
+  "must_read": [
+    "RULES.md 计数单位/四区排除",
+    "specs/domain-scale-sop.md（整句裁决）"
+  ],
+  "required_fields": [
+    "keyword=query_en 整句",
+    "filters(排除CN/TW/HK/MO)",
+    "pageSize=10"
+  ],
+  "format_rules": {
+    "keyword": "必须整句相等",
+    "pageSize": "10"
+  },
+  "self_check": [
+    "assert_search_keyword 通过",
+    "total 已记录"
+  ],
+  "forbidden": [
+    "片段/单词搜索词",
+    "pageSize 非 10"
+  ],
+  "next": "S4"
+}

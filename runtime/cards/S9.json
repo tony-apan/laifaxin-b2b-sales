@@ -1,0 +1,36 @@
+{
+  "state": "S9",
+  "title": "建序列",
+  "must_read": [
+    "12 步节奏：step1=30分、step2=5天、step3=15天、step4-12=30天",
+    "时区：--tz 按目标市场运行时解析 schedule-list，禁止硬编码 schedule_id",
+    "每日上限：max_emails_per_day=30000 / domain_emails_per_day=5（用户拍板）",
+    "notSentTags：按名运行时解析「询盘」「不发」，禁止硬编码标签 id",
+    "用户确认：建序列须用户原话授权 + S9 审批凭证",
+    "一客群一序列：一个客群只建一条序列，禁止跨客群合并",
+    "specs/sequence-config.md（白名单/CTA/价格禁令/序列命名）"
+  ],
+  "required_fields": [
+    "序列名",
+    "tmap 映射",
+    "产品档案",
+    "审批凭证",
+    "项目键"
+  ],
+  "format_rules": {
+    "name": "[产品]-[语言]-[轮数]轮[每轮封数]封-[策略] 形态",
+    "steps": "12 步固定节奏；step4-12 均为 30 天",
+    "not_sent_tags": "询盘/不发（运行时按名解析）"
+  },
+  "self_check": [
+    "tmap.meta 溯源校验通过（hash/项目/账号/档案）",
+    "12 步按节奏创建完成",
+    "序列回读 status=inactive"
+  ],
+  "forbidden": [
+    "未确认就建",
+    "跨客群合并序列",
+    "硬编码 schedule_id/标签 id"
+  ],
+  "next": "S10"
+}

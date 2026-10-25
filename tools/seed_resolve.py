@@ -25,6 +25,15 @@ if not (args.id or args.keyword or args.company):
     print("❌ 需 --id <32hex id> 或 --keyword <query_en> 或 --company <公司名>"); sys.exit(2)
 
 def api(path, p, t=60):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     r = subprocess.run(["curl", "-sSL", "-m", "55", "-X", "POST", f"https://web.laifaxin.com/api/{path}",
                         "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",
@@ -56,6 +65,9 @@ if args.id:
 if args.keyword:
     print(f'=== AI数据库搜索 keyword="{args.keyword}" 第一页 + 逐条域名 ===')
     d = api("refine/company-list", {"keyword": args.keyword, "current": 1, "pageSize": 10, "filters": [], "logic": "and"})
+    if not d.get("success"):
+        print("❌ 搜索接口未返回成功：%s" % (d.get("message") or d.get("msg") or d), file=sys.stderr)
+        sys.exit(2)
     data = d.get("data") or {}
     lst = data.get("list") or []
     print(f"total: {data.get('total')} | 第一页 {len(lst)} 条\n")
@@ -68,6 +80,9 @@ if args.keyword:
 
 # 兜底: 公司名精确反查
 d = api("search/company-search", {"keyword": args.company, "current": 1, "pageSize": 5})
+if not d.get("success"):
+    print("❌ 精确反查接口未返回成功：%s" % (d.get("message") or d.get("msg") or d), file=sys.stderr)
+    sys.exit(2)
 lst = (d.get("data") or {}).get("list") or []
 print(f"「{args.company}」精确反查（{len(lst)} 条）——同名多司对照国家/行业选:")
 for i, c in enumerate(lst, 1):

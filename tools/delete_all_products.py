@@ -20,6 +20,14 @@ ap.add_argument("--backup-manifest", default="", help="dry-run输出/execute输�
 ap.add_argument("--user-quote", default="", help="用户当前对话明确清空原话（审批凭证中须一致）")
 ap.add_argument("--confirm", default="", help=f"机器防误触短语，必须等于{CONFIRM_PHRASE}")
 args = ap.parse_args()
+# ★旧脚本物理封条（save_guard.require，2026-10-23）：--help 已在 parse_args 内提前返回；
+# 其余任何写/推进路径（含 dry-run）一律 SystemExit，无环境变量可绕过。
+# 仅防误触/防走神，仍非安全边界（可被删封条/伪造模块绕过）——见 RULES 边界声明。
+try:
+    from save_guard import require as _save_guard_require
+    _save_guard_require()
+except ImportError:
+    raise SystemExit("DEPRECATED: use save_guard")
 
 # ★P0-3 修正: store_true+default=True 会让 dry_run 恒 True → 删除分支死代码。改以 --execute 为执行闸。
 if args.execute and args.confirm != CONFIRM_PHRASE:
@@ -27,6 +35,15 @@ if args.execute and args.confirm != CONFIRM_PHRASE:
 executing = args.execute and args.confirm == CONFIRM_PHRASE
 
 def api(path, p, t=40):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     cmd = ["curl", "-sSL", "-X", "POST", f"https://web.laifaxin.com/api/{path}",
            "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",

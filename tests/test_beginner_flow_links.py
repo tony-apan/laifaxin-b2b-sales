@@ -27,9 +27,9 @@ class BeginnerFlowLinkTest(unittest.TestCase):
 
     def test_flow_has_six_steps_and_gates(self):
         t = FLOW.read_text(encoding='utf-8')
-        for key in ('找买家', '划范围', '存客户', '写开发信', '建模板', '建跟进计划'):
+        for key in ('找买家', '筛名单', '存客户', '写开发信', '建模板', '建跟进计划'):
             self.assertIn(key, t, '新手页缺步骤: ' + key)
-        for key in ('确认激活', '回数字', '截图', 'email-style', '内部口径对照', 'S0', 'S12'):
+        for key in ('确认激活', '回编号', '截图', 'email-style', '内部口径对照', 'S0', 'S12'):
             self.assertIn(key, t, '新手页缺要素: ' + key)
 
     def test_flow_referenced_everywhere(self):

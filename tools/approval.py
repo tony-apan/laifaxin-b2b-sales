@@ -52,6 +52,33 @@ def stable_params_hash(params):
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
 
+# ---------- 凭证一次性消费账本（三审 S1-5）----------
+# 同一份 S12 凭证只允许成功激活一次；停发后再激活必须重新走 --resume-s12 由用户新原话签发。
+USED_LEDGER = KB / ".local" / "approvals-used.tsv"
+
+
+def mark_approval_used(approval_id, project="", state="", seq="", note=""):
+    """激活成功后登记该凭证已消费；重复调用幂等（同一 id 只记一次）。"""
+    if not approval_id:
+        return
+    if is_approval_used(approval_id):
+        return
+    if not USED_LEDGER.exists() or USED_LEDGER.stat().st_size == 0:
+        USED_LEDGER.write_text("id\tproject\tstate\tseq\ttime\tnote\n", encoding="utf-8")
+    with open(USED_LEDGER, "a", encoding="utf-8") as fh:
+        fh.write(f"{approval_id}\t{project}\t{state}\t{seq}\t{time.strftime(chr(37)+chr(89)+chr(45)+chr(37)+chr(109)+chr(45)+chr(37)+chr(100)+chr(32)+chr(37)+chr(72)+chr(58)+chr(37)+chr(77)+chr(58)+chr(37)+chr(83))}\t{note}\n")
+
+
+def is_approval_used(approval_id):
+    """该凭证是否已消费过（用独立账本，不修改原 approvals.tsv 审计行）。"""
+    if not approval_id or not USED_LEDGER.exists():
+        return False
+    for line in USED_LEDGER.read_text(encoding="utf-8").splitlines()[1:]:
+        if line.split("\t", 1)[0] == approval_id:
+            return True
+    return False
+
+
 def gen_id(project, state, quote, t=None):
     t = t or time.strftime("%Y-%m-%d %H:%M:%S")
     return "ap-" + hashlib.sha256(f"{project}|{state}|{quote}|{t}".encode()).hexdigest()[:12]
@@ -184,7 +211,9 @@ def confirm_quote_ok(quote):
     if re.search(r"\b(?:why|how|when|what|who|which|should i|do i|shall i)\b", q, re.I):
         return False
     if re.search(r"(?:^|[，,。；;！？!?\s])(?:否|拒绝|不同意)(?:$|[，,。；;！？!?\s])", q): return False
-    if re.search(r"(?:不|别|不要|不用|先不|暂不|尚未|还没|未确认|等等|稍等|考虑|再说|取消|暂停|停止|回滚)", q): return False
+    # ★2026-10-23 三审第7关 S0：原实现「任何 不/考虑 子串」一律拒绝，导致序列名含「不锈钢」的产品
+    #   按 S12 卡原话「确认激活 不锈钢-S04」必被拒死；「我考虑清楚了，确认激活」也被误杀。改为只拦明确否定/拖延短语。
+    if re.search(r"(?:不确认|不激活|不保存|不建|不要|不用|先不|暂不|尚未|还没|未确认|等等|稍等|再考虑|考虑一下|再想想|再说|取消|暂停|停止|回滚|别急|别忙|别激活|别发|别存|别建)", q): return False
     if re.search(r"\b(?:no|not|never|won'?t|don'?t|do not|cannot|can'?t|wait|later|pending|cancel|stop|pause)\b", q, re.I): return False
     return bool(re.search(r"确认|确定|同意|通过|可以|好的|没问题|激活|^是$|^好$|^行$|\b(?:yes|ok|okay|confirm(?:ed)?|approve[de]?|activate)\b", q, re.I))
 
@@ -260,7 +289,9 @@ def main(argv=None):
         print("❌ S12 激活凭证禁止通过 approval.py grant 铸造；用 flow_orchestrator --resume-s12 --confirm \"<用户原话>\" 签发（会一并校验 S11/档案/合规live 并绑定参数哈希）")
         raise SystemExit(2)
     obj = _load_params(args)
-    if args.decision == "confirm" and not confirm_quote_ok(args.quote):
+    numeric_s7 = args.quote.strip() in ("1", "①") and str(args.state).startswith("S7")
+    # 2026-10-23 三审H：S7 卡写明「回 1 = 认可」，该节点允许纯数字 1 作为确认原话；其他节点仍要求明确确认词
+    if args.decision == "confirm" and not (confirm_quote_ok(args.quote) or numeric_s7):
         print("❌ --quote 不是明确正向确认（含否定/犹豫/疑问或缺确认词）——拒绝铸造可授权凭证")
         raise SystemExit(2)
     ph = stable_params_hash(obj)

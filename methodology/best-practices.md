@@ -1,13 +1,15 @@
 ---
+doc_id: "methodology-best-practices"
 title: "最佳实践（各环节最佳做法 + 避坑清单）"
 description: "搜/筛/存/发各环节的最佳做法汇总，含高频翻车点与应对"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-10-21
 author: "AI Agent + 运营方"
 source: "来发信官方文档 + 实战验证"
 related: [docs/01-customer-search, docs/02-filter-customers, docs/03-save-customers, docs/05-email-marketing]
 tags: [方法论, 最佳实践, 避坑]
-status: verified
 audience: 人+AI
 ---
 

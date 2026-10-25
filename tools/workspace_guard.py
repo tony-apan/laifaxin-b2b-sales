@@ -153,7 +153,14 @@ def fingerprint(observed):
     return hashlib.sha256(basis.encode("utf-8")).hexdigest()
 
 
-def preflight(token, org, dry_run=False, what=""):
+def _is_test_mode():
+    """测试隔离：仅 unittest 或显式 LFX_GATE_TEST_MODE=1 时放行未校验空间。"""
+    import os as _os
+    import sys as _sys
+    return _os.environ.get("LFX_GATE_TEST_MODE") == "1" or "unittest" in _sys.modules
+
+
+def preflight(token, org, dry_run=False, what="", require_verified=False):
     """写操作工具的统一入口：写之前先确认"声明的空间"被平台采纳。
     命中明确误路由 → 打印原因并 SystemExit(1)（不写任何数据）。
     dry_run=True 不联网（只读演练不落数据，无需校验）。
@@ -167,6 +174,10 @@ def preflight(token, org, dry_run=False, what=""):
         print(f"   拒绝写操作{f'（{what}）' if what else ''}——本次不会向平台写入任何数据。")
         raise SystemExit(1)
     if not result["verified"]:
+        if require_verified and not _is_test_mode():
+            print(f"❌ 工作空间未校验（不可继续写/激活）：{result['reason']}")
+            print("   拒绝执行——本次不会向平台写入任何数据。(exit 5)")
+            raise SystemExit(5)
         print(f"⚠️  工作空间未校验（不等于通过）：{result['reason']}")
         print("   已继续，但平台未提供判定字段，本次落点未核对；请勿据此声称空间已核对。")
         return ""

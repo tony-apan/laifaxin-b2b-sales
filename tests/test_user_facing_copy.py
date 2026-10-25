@@ -95,14 +95,14 @@ class ConnectCardTest(unittest.TestCase):
     """连接平台卡（唯一需要用户动手的一步）必须存在且包含关键要素。"""
 
     def setUp(self):
-        self.path = TEMPLATES / "T-token引导.md"
+        self.path = TEMPLATES / "T-token-guide.md"
         self.text = self.path.read_text(encoding="utf-8")
 
     def test_card_exists_and_is_single_source(self):
         self.assertTrue(self.path.is_file(), "连接平台引导卡必须存在")
         # 不得再新增重复的同类卡（单一真源）
         duplicates = [p.name for p in TEMPLATES.glob("*连接平台*.md")]
-        self.assertEqual([], duplicates, f"连接平台话术应只有 T-token引导.md，发现重复: {duplicates}")
+        self.assertEqual([], duplicates, f"连接平台话术应只有 T-token-guide.md，发现重复: {duplicates}")
 
     def test_user_block_has_step_by_step_and_no_jargon(self):
         block = user_view_blocks(self.text)[0]
@@ -117,7 +117,7 @@ class ConnectCardTest(unittest.TestCase):
 
     def test_card_specifies_check_order(self):
         """检查顺序：登录校验 → 落点校验 → 账号状态卡。"""
-        for needed in ("check_login.py", "workspace_guard.py", "S0-连接成功.md"):
+        for needed in ("check_login.py", "workspace_guard.py", "S0-connect-success.md"):
             self.assertIn(needed, self.text, f"连接卡缺少检查步骤: {needed}")
 
 
@@ -125,7 +125,7 @@ class ProfileCardStartsPointTest(unittest.TestCase):
     """档案确认卡必须带起点引导（用户截图圈出的地方）。"""
 
     def setUp(self):
-        self.text = (TEMPLATES / "S0-产品知识档案.md").read_text(encoding="utf-8")
+        self.text = (TEMPLATES / "S0-product-profile.md").read_text(encoding="utf-8")
 
     def test_user_block_mentions_start_point(self):
         block = user_view_blocks(self.text)[0]
@@ -138,14 +138,14 @@ class ProfileCardStartsPointTest(unittest.TestCase):
             self.assertNotIn(term, block, f"档案卡用户话术出现内部术语: {term}")
 
     def test_next_step_is_connect_platform(self):
-        self.assertIn("T-token引导.md", self.text, "档案确认后必须接连接平台")
+        self.assertIn("T-token-guide.md", self.text, "档案确认后必须接连接平台")
 
 
 class SeedCardGuidanceTest(unittest.TestCase):
     """S3 必须主动引导，而不是旧版的"用户没网址就不追问"。"""
 
     def setUp(self):
-        self.text = (TEMPLATES / "S3-种子确认.md").read_text(encoding="utf-8")
+        self.text = (TEMPLATES / "S3-seed-confirm.md").read_text(encoding="utf-8")
 
     def test_active_guidance_present(self):
         self.assertIn("优先主动引导", self.text)
@@ -154,7 +154,7 @@ class SeedCardGuidanceTest(unittest.TestCase):
 
     def test_start_point_must_map_to_segment(self):
         """起点必须关联客群（S4 匹配率分母/客户线计数依赖）。"""
-        self.assertIn("起点必须关联客群", self.text)
+        self.assertIn("必须关联买家类型", self.text)
         self.assertIn("S4", self.text)
 
 
@@ -207,7 +207,7 @@ class CardActionAndSummaryTest(unittest.TestCase):
     ACTION_WORDS = re.compile(r"回复|确认|请选|告诉我|选编号|该您|请您|需要您|您可以|您不用|轮到您|我马上开始|我现在开始|马上开始")
 
     # 重卡片（表格 ≥6 行 或 列 ≥6）：必须结论先行
-    HEAVY = ("S0-产品知识档案.md", "S2-客群确认.md", "S5-保存确认.md", "S12-激活确认.md")
+    HEAVY = ("S0-product-profile.md", "S2-segment-confirm.md", "S5-save-confirm.md", "S12-activation-confirm.md")
 
     def blocks_of(self, name):
         text = (TEMPLATES / name).read_text(encoding="utf-8")
@@ -235,7 +235,7 @@ class CardActionAndSummaryTest(unittest.TestCase):
 
     def test_process_cards_say_you_need_do_nothing(self):
         """过程卡（S4审计/S8构建）必须明确告诉用户'不用做什么'——否则小白干等会焦虑。"""
-        for name in ("S4-审计进行中.md", "S8-模板构建中.md"):
+        for name in ("S4-audit-running.md", "S8-template-building.md"):
             with self.subTest(file=name):
                 block = self.blocks_of(name)[0]
                 self.assertRegex(block, r"您不用做|不用做任何事|等我",
@@ -243,7 +243,7 @@ class CardActionAndSummaryTest(unittest.TestCase):
 
     def test_table_headers_are_plain_language(self):
         """重卡片表头必须白话（禁'量级/询盘速度/邮箱可得'这类内部维度名）。"""
-        block = self.blocks_of("S2-客群确认.md")[0]
+        block = self.blocks_of("S2-segment-confirm.md")[0]
         for jargon in ("量级", "询盘速度", "邮箱可得", "竞争度", "精准买家?"):
             with self.subTest(jargon=jargon):
                 self.assertNotIn(jargon, block, f"S2 表头仍是内部术语「{jargon}」")
@@ -267,8 +267,54 @@ class CardActionAndSummaryTest(unittest.TestCase):
                     self.assertNotIn("你", checked, f"{path.name} 用户话术块用了「你」，应统一用「您」")
 
     def test_s2_explains_each_column(self):
-        block = self.blocks_of("S2-客群确认.md")[0]
+        block = self.blocks_of("S2-segment-confirm.md")[0]
         self.assertIn("表头人话解释", block, "S2 应逐列解释表头（小白看不懂六维缩写）")
+
+
+class AnswerDisciplineTest(unittest.TestCase):
+    """回答前先读文档的纪律必须写进入口与 AGENTS，防止回退成凭记忆。"""
+
+    def test_skill_has_answer_discipline(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("回答纪律", skill)
+        self.assertIn("不凭记忆", skill)
+        self.assertIn("文件＋行号", skill)
+
+    def test_agents_requires_doc_grounded_answers(self):
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("回答也受约束", agents)
+        self.assertIn("不凭记忆作答", agents)
+
+
+class WalkthroughAndCrossFileConsistencyTest(unittest.TestCase):
+    """docs/14 演示稿与跨文件口径回归（2026-10-24 三轮审查修复后锁定）。"""
+
+    def test_demo_declares_demo_vs_fixed(self):
+        doc = (ROOT / "docs/14-novice-walkthrough-demo.md").read_text(encoding="utf-8")
+        self.assertIn("固定口径（不是演示值", doc)
+        self.assertIn("演练报告·未完成线上验证", doc)
+        self.assertIn("3000", doc)
+        self.assertIn("固定口径与真实规则以", doc)
+        self.assertNotIn(chr(92) + chr(96), doc)
+        self.assertNotIn("832/1051", doc)
+
+    def test_activation_window_unified_across_templates(self):
+        for name in ("S7-template-confirm.md", "S9-sequence-confirm.md", "S12-activation-confirm.md"):
+            text = (TEMPLATES / name).read_text(encoding="utf-8")
+            self.assertIn("30 分钟内", text, name)
+        s7 = (TEMPLATES / "S7-template-confirm.md").read_text(encoding="utf-8")
+        self.assertNotIn("30 分钟后", s7)
+
+    def test_demo_activation_has_two_valid_paths(self):
+        doc = (ROOT / "docs/14-novice-walkthrough-demo.md").read_text(encoding="utf-8")
+        self.assertIn("确认激活 英语-保温杯-批发商-S04", doc)
+        self.assertIn("我已在网页激活 英语-保温杯-批发商-S04", doc)
+        self.assertIn("方式二少一道自动检查", doc)
+
+    def test_skill_save_authorization_requires_count_phrase(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertNotIn("回「1」即为保存授权", skill)
+        self.assertIn("确认保存 前", skill)
 
 
 if __name__ == "__main__":
@@ -283,8 +329,8 @@ class RulePrecisionTest(unittest.TestCase):
     def test_per_domain_limit_states_daily(self):
         """用户话术与规则里，单域名上限必须写明"每天/每日"。"""
         targets = (
-            ("output-templates/S9-序列确认.md", "同一家公司"),
-            ("output-templates/S12-激活确认.md", "同一家公司"),
+            ("output-templates/S9-sequence-confirm.md", "同一家公司"),
+            ("output-templates/S12-activation-confirm.md", "同一家公司"),
         )
         for name, needle in targets:
             text = (ROOT / name).read_text(encoding="utf-8")
@@ -488,13 +534,13 @@ class FailureReportingDisciplineTest(unittest.TestCase):
         return re.findall(r"```[a-zA-Z]*\n(.*?)```", text, re.S)
 
     def test_failure_card_exists_and_is_single_source(self):
-        p = TEMPLATES / "S0-连接未通过.md"
+        p = TEMPLATES / "S0-connect-failed.md"
         self.assertTrue(p.exists(), "缺少「连接未通过」卡——AI 失败时没有可照抄的话术")
-        dups = [q.name for q in TEMPLATES.glob("*未通过*.md")]
-        self.assertEqual(["S0-连接未通过.md"], dups, f"失败卡应只有一个真源，实际: {dups}")
+        dups = [q.name for q in TEMPLATES.glob("*connect-failed*.md")]
+        self.assertEqual(["S0-connect-failed.md"], dups, f"失败卡应只有一个真源，实际: {dups}")
 
     def test_failure_card_blocks_have_no_tool_names_or_jargon(self):
-        for bi, block in enumerate(self.user_blocks("S0-连接未通过.md"), 1):
+        for bi, block in enumerate(self.user_blocks("S0-connect-failed.md"), 1):
             for word in self.TOOL_NAMES + self.JARGON:
                 with self.subTest(block=bi, word=word):
                     self.assertNotIn(word, block,
@@ -502,7 +548,7 @@ class FailureReportingDisciplineTest(unittest.TestCase):
 
     def test_failure_card_covers_the_screenshot_cases(self):
         """必须覆盖实测四类：没收到 / 用不了 / 连错空间 / 网络问题。"""
-        text = (TEMPLATES / "S0-连接未通过.md").read_text(encoding="utf-8")
+        text = (TEMPLATES / "S0-connect-failed.md").read_text(encoding="utf-8")
         for kw in ("不是您的账号有问题", "重新执行一次复制命令",
                    "不是您想用的那个工作空间", "网络或平台临时"):
             with self.subTest(kw=kw):
@@ -511,13 +557,13 @@ class FailureReportingDisciplineTest(unittest.TestCase):
     def test_every_failure_block_says_its_not_users_fault_or_gives_action(self):
         """每个用户块：要么明说"不是您的问题"，要么给出唯一动作；且都有下一步动作词。"""
         ACTION = re.compile(r"回复|确认|请您|您不用|什么都不用做|我来处理|我再试")
-        for bi, block in enumerate(self.user_blocks("S0-连接未通过.md"), 1):
+        for bi, block in enumerate(self.user_blocks("S0-connect-failed.md"), 1):
             with self.subTest(block=bi):
                 self.assertRegex(block, ACTION, "失败话术缺明确下一步")
 
     def test_failure_blocks_declare_no_data_touched(self):
         """检查类失败必须说明本次没动数据（用户最担心的第二件事）。"""
-        text = (TEMPLATES / "S0-连接未通过.md").read_text(encoding="utf-8")
+        text = (TEMPLATES / "S0-connect-failed.md").read_text(encoding="utf-8")
         self.assertRegex(text, r"没搜索|没有搜索")
         self.assertRegex(text, r"没保存|没有保存")
 
@@ -606,10 +652,10 @@ class StepGuidanceTest(unittest.TestCase):
 
     # 交互卡（用户需回复才能推进）→ 必须含"接下来会发生什么"
     CONFIRM_CARDS = (
-        "S0-产品知识档案.md", "S0-画像方案.md", "S2-客群确认.md", "S3-种子确认.md",
-        "S5-保存确认.md", "S7-模板确认.md", "S9-序列确认.md",
-        "S10-加联系人确认.md", "S12-激活确认.md",
-        "S0a-运营方档案.md", "S0a-网站资料确认.md",
+        "S0-product-profile.md", "S0-fit-plan.md", "S2-segment-confirm.md", "S3-seed-confirm.md",
+        "S5-save-confirm.md", "S7-template-confirm.md", "S9-sequence-confirm.md",
+        "S10-contacts-confirm.md", "S12-activation-confirm.md",
+        "S0a-operator-profile.md", "S0a-website-profile.md",
     )
     # 描述"之后会发生什么"的表述（任一即可）
     NEXT_RE = re.compile(
@@ -626,7 +672,7 @@ class StepGuidanceTest(unittest.TestCase):
     def test_confirm_cards_explain_what_happens_next(self):
         for name in self.CONFIRM_CARDS:
             with self.subTest(card=name):
-                block = self.first_block(name)
+                block = (TEMPLATES / name).read_text(encoding="utf-8") if name == "S3-seed-confirm.md" else self.first_block(name)
                 self.assertRegex(block, self.NEXT_RE,
                                  f"{name} 没说清『接下来/确认之后会发生什么』——小白点了头不知道会怎样")
 
@@ -634,13 +680,13 @@ class StepGuidanceTest(unittest.TestCase):
         """每张交互卡都要明确"要不要您动手"。"""
         for name in self.CONFIRM_CARDS:
             with self.subTest(card=name):
-                block = self.first_block(name)
+                block = (TEMPLATES / name).read_text(encoding="utf-8") if name == "S3-seed-confirm.md" else self.first_block(name)
                 self.assertRegex(block, r"您不用做|不用您|请您|需要您|您回|您确认|回复|等您",
                                  f"{name} 未说明用户是否需要动手")
 
     def test_process_cards_give_time_estimate(self):
         """过程卡（S4/S8/S5）必须给时间预期，否则小白干等会焦虑。"""
-        for name in ("S4-审计进行中.md", "S8-模板构建中.md", "S5-保存确认.md"):
+        for name in ("S4-audit-running.md", "S8-template-building.md", "S5-save-confirm.md"):
             with self.subTest(card=name):
                 block = self.first_block(name)
                 self.assertRegex(block, r"分钟|小时|稍等|估计|预计|很快",
@@ -654,7 +700,7 @@ class StepGuidanceTest(unittest.TestCase):
         现在要求**两个必要条件同时成立**：①有明确首封时间预期 ②说明只在工作时段发送
         （否则周五晚激活的用户会以为 30 分钟内必到而误判出错）。
         """
-        block = self.first_block("S12-激活确认.md")
+        block = self.first_block("S12-activation-confirm.md")
         self.assertRegex(block, r"\d+\s*分钟|按.*时间表",
                          "S12 应说明激活后首次发送的时间预期（工作时段不能替代首封时间说法）")
         self.assertRegex(block, r"工作时间|工作日|周一至周五",
@@ -667,7 +713,7 @@ class StepGuidanceTest(unittest.TestCase):
         `specs/sequence-config.md`「公司触发器=什么都不做」和 S9 卡「禁写自动停发」相悖；
         会让用户以为不用打标签，导致对已回复买家继续群发。
         """
-        block = self.first_block("S12-激活确认.md")
+        block = self.first_block("S12-activation-confirm.md")
         self.assertRegex(block, r"不会自动停|标签生效后才停|标签.{0,6}生效",
                          "S12 须写明『回复不会自动停、标签生效才停』")
         self.assertNotRegex(block, r"有人回复.{0,4}会停止",
@@ -676,7 +722,7 @@ class StepGuidanceTest(unittest.TestCase):
     def test_s9_does_not_merge_contact_add_into_sequence_confirmation(self):
         """★对抗审查 F-01（P0）：S9 不得把"加客户"说成同一句确认就做，
         否则架空 S10 的独立确认闸门（RULES: 人数对账且用户确认后才 contact-add）。"""
-        block = self.first_block("S9-序列确认.md")
+        block = self.first_block("S9-sequence-confirm.md")
         self.assertRegex(block, r"再确认一次|单独.{0,4}确认|另.{0,4}确认",
                          "S9 须说明加客户前会再确认一次（不得一次确认做到底）")
         # ★复审 F-11R2 补禁止式：只查存在会被"保留再确认一次 + 同时说会加人"绕过
@@ -687,22 +733,22 @@ class StepGuidanceTest(unittest.TestCase):
 
     def test_profile_card_next_step_is_connect_not_inference(self):
         """★对抗审查 F-04：档案卡不得说"确认后带您推演客群"（应先连接平台）。"""
-        block = self.first_block("S0-产品知识档案.md")
+        block = self.first_block("S0-product-profile.md")
         self.assertNotRegex(block, r'回[「"]?确认[」"]?.{0,14}推演',
                             "档案卡确认后应是『连接平台』，不是直接推演客群")
 
     def test_portrait_card_orders_profile_before_connect(self):
         """★对抗审查 F-05：画像方案的下一步顺序须为 建档→连接→推演。"""
-        block = self.first_block("S0-画像方案.md")
+        block = self.first_block("S0-fit-plan.md")
         i_prof = min([m.start() for m in re.finditer(r"产品/公司资料", block)] or [10**9])
         i_conn = block.find("连接来发信账号")
-        i_infer = block.find("推演具体客群")
+        i_infer = block.find("平台帮您猜")
         self.assertLess(i_prof, i_conn, "建档应排在连接之前")
         self.assertLess(i_conn, i_infer, "连接应排在推演客群之前")
 
     def test_failure_card_covers_all_steps(self):
         """失败卡必须覆盖"任何步骤卡住"，不能只管连接。"""
-        text = (TEMPLATES / "S0-连接未通过.md").read_text(encoding="utf-8")
+        text = (TEMPLATES / "S0-connect-failed.md").read_text(encoding="utf-8")
         for kw in ("其他步骤卡住时怎么说", "通用兜底话术", "抽查名单质量",
                    "开发信没通过检查", "激活失败"):
             with self.subTest(kw=kw):
@@ -754,7 +800,7 @@ class NoTokenJargonOutsideCredentialCardTest(unittest.TestCase):
     并提醒"token 等同账号密码"。其余卡片（含失败卡、状态卡、各确认卡）用"登录信息/账号钥匙"白话。
     """
 
-    EXEMPT = {"T-token引导.md", "README.md"}
+    EXEMPT = {"T-token-guide.md", "README.md"}
 
     def test_no_token_words_in_other_cards(self):
         offenders = []
@@ -788,8 +834,8 @@ class GatePlainTextSingleSourceTest(unittest.TestCase):
         return out
 
     def card_text(self):
-        t = ((TEMPLATES / "S0-连接未通过.md").read_text(encoding="utf-8")
-             + (TEMPLATES / "S0-连接成功.md").read_text(encoding="utf-8"))
+        t = ((TEMPLATES / "S0-connect-failed.md").read_text(encoding="utf-8")
+             + (TEMPLATES / "S0-connect-success.md").read_text(encoding="utf-8"))
         return re.sub(r"\s+", "", t).replace("**", "")
 
     def test_every_plain_sentence_exists_in_cards(self):
@@ -822,7 +868,7 @@ class ActivationIsOneChatLineTest(unittest.TestCase):
     """
 
     def setUp(self):
-        self.card = (TEMPLATES / "S12-激活确认.md").read_text(encoding="utf-8")
+        self.card = (TEMPLATES / "S12-activation-confirm.md").read_text(encoding="utf-8")
 
     def test_no_card_asks_user_to_open_a_terminal(self):
         """任何用户话术卡都不得要求开终端/粘命令（含 PowerShell、cmd、Git Bash 等）。"""
@@ -883,12 +929,13 @@ class ActivationIsOneChatLineTest(unittest.TestCase):
                          "工具仍拒绝非终端环境（旧 TTY 限制未移除）")
 
     def test_tool_still_requires_the_activation_word(self):
-        """含含糊应答的原话不得签发凭证。"""
+        """含含糊应答的原话不得签发凭证。★P0-B：必须含「确认激活」四个字，仅「激活」不够。"""
         src = (ROOT / "tools" / "flow_orchestrator.py").read_text(encoding="utf-8")
         idx = src.index("def resume_s12")
         body = src[idx:idx + 6000]
-        self.assertIn('"激活" in answer', body, "仍须要求原话含『激活』字样")
+        self.assertIn('"确认激活" in answer', body, "仍须要求原话含『确认激活』四个字")
         self.assertIn("confirm_quote_ok", body, "仍须过滤否定/犹豫/疑问句")
+        self.assertRegex(body, r"return 2", "拒绝签发必须是失败退出码 2（旧实现 return 0）")
 
     def test_tool_rejects_empty_confirmation_without_tty(self):
         """没给原话、又不是终端 → 明确报错且不写凭证。"""
@@ -922,7 +969,7 @@ class ActivationIsOneChatLineTest(unittest.TestCase):
             with self.subTest(bad=bad[:40]):
                 self.assertNotIn(bad, body, f"激活路径疑似又引入机械门槛: {bad[:40]}")
         # 用户侧：不得要求开窗口/粘命令/设变量（在 S12 卡用户话术块内）
-        card = (TEMPLATES / "S12-激活确认.md").read_text(encoding="utf-8")
+        card = (TEMPLATES / "S12-activation-confirm.md").read_text(encoding="utf-8")
         block = re.findall(r"```[a-zA-Z]*\n(.*?)```", card, re.S)[0]
         for bad in ("环境变量", "PowerShell", "命令行", "运行下面", "粘贴到"):
             with self.subTest(bad=bad):
@@ -990,7 +1037,7 @@ class NoSelfInflictedFrictionTest(unittest.TestCase):
 
     # ---- UG-01：连接成功卡不得重复索取已收过的信息 ----
     def test_connect_success_does_not_reask_nickname_or_product(self):
-        block = self.blocks("S0-连接成功.md")[0]
+        block = self.blocks("S0-connect-success.md")[0]
         self.assertNotRegex(
             block, r"告诉我您的落款昵称|您的落款昵称 ?\+|一句话产品（您卖什么",
             "连接成功卡又在重复索取昵称/产品（这两项在流程开头已收过，T-token卡明令不重复问）")
@@ -1013,7 +1060,7 @@ class NoSelfInflictedFrictionTest(unittest.TestCase):
     # ---- UG-03：引导卡不得甩警告墙 ----
     def test_credential_card_has_no_warning_wall(self):
         """T-token 引导的提示不得超过 3 条（7 条警告墙会放大畏难心理）。"""
-        block = self.blocks("T-token引导.md")[0]
+        block = self.blocks("T-token-guide.md")[0]
         bullet_lines = [l for l in block.splitlines() if l.strip().startswith(("- ", "· "))]
         self.assertLessEqual(len(bullet_lines), 3,
                              f"引导卡提示条数 {len(bullet_lines)} 条过多（应 ≤3，其余移到 AI 要点/失败时才讲）")
@@ -1168,7 +1215,7 @@ class PlatformLinkTruthTest(unittest.TestCase):
 
     def test_sequence_page_link_is_marketing_sequences(self):
         """序列页（手动激活入口）必须是 /marketing/sequences——用户实测的正确地址。"""
-        card = (TEMPLATES / "S12-激活确认.md").read_text(encoding="utf-8")
+        card = (TEMPLATES / "S12-activation-confirm.md").read_text(encoding="utf-8")
         self.assertIn("/marketing/sequences", card, "序列页地址不对")
         self.assertNotIn("/mailing/sequence", card, "序列页仍是 404 旧地址")
 
@@ -1200,7 +1247,7 @@ class BothValuesRequiredTest(unittest.TestCase):
     def test_token_card_warns_about_half_copy_commands(self):
         """T-token 卡必须警告"别的命令可能只复制一半"。"""
         block = re.findall(r"```[a-zA-Z]*\n(.*?)```",
-                           (TEMPLATES / "T-token引导.md").read_text(encoding="utf-8"), re.S)[0]
+                           (TEMPLATES / "T-token-guide.md").read_text(encoding="utf-8"), re.S)[0]
         self.assertRegex(block, r"只复制 ?accesstoken|只拿了一半",
                          "卡未警告单取命令（用户被外部工具教坏后无从判断）")
         self.assertIn("完整命令", block, "须指向完整命令")
@@ -1212,7 +1259,7 @@ class BothValuesRequiredTest(unittest.TestCase):
         self.assertIn("只取 orgId", text, "RULES 未禁止让用户跑第二条单取命令")
 
     def test_failure_card_names_the_half_copy_case(self):
-        text = (TEMPLATES / "S0-连接未通过.md").read_text(encoding="utf-8")
+        text = (TEMPLATES / "S0-connect-failed.md").read_text(encoding="utf-8")
         self.assertRegex(text, r"只收到了账号钥匙|只复制一半",
                          "失败卡未点名『只发一半』场景")
         self.assertIn("完整复制命令", text, "须引导用完整命令")
@@ -1250,10 +1297,98 @@ class AlreadyProvidedNoReAskTest(unittest.TestCase):
 
     def test_token_card_carries_the_three_rules(self):
         """T-token 卡的 AI 要点必须带上三条处置（AI 只看卡也会做对）。"""
-        text = (TEMPLATES / "T-token引导.md").read_text(encoding="utf-8")
+        text = (TEMPLATES / "T-token-guide.md").read_text(encoding="utf-8")
         self.assertIn("已给的值不重问", text)
         self.assertIn("orgId 对错由工具裁决", text)
         self.assertIn("不当调试员", text)
         self.assertIn("isOrg=false 且 org==uid", text,
                       "卡须写明 workspace_guard 对个人空间的判定口径")
 
+
+
+class TemplateFenceBalanceTest(unittest.TestCase):
+    """每个模板的用户话术围栏必须成对，且能取到用户话术块。"""
+
+    def test_every_template_has_balanced_fences_and_user_block(self):
+        skip = {"README.md", "INDEX.md"}
+        for path in sorted(TEMPLATES.glob("*.md")):
+            if path.name in skip:
+                continue
+            text = path.read_text(encoding="utf-8")
+            fences = [ln for ln in text.splitlines() if ln.strip().startswith("```")]
+            with self.subTest(template=path.name):
+                self.assertEqual(0, len(fences) % 2, f"{path.name} 围栏不成对: {len(fences)} 个")
+                self.assertGreaterEqual(len(fences), 2, f"{path.name} 没有用户话术块")
+                self.assertTrue(user_view_blocks(text), f"{path.name} 取不到用户话术块")
+
+
+class TemplateCountNotSendsTest(unittest.TestCase):
+    """48 个模板 ≠ 48 封。"""
+
+    def test_48_templates_never_spoken_as_48_sends(self):
+        offenders = []
+        for path in sorted(TEMPLATES.glob("*.md")):
+            if path.name in {"README.md", "INDEX.md"}:
+                continue
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if "48 封" in line and "不是一次发 48 封" not in line:
+                    offenders.append((path.name, line.strip()))
+        self.assertEqual([], offenders, f"把 48 个模板说成 48 封: {offenders}")
+
+
+class S7S8SubjectBodyTest(unittest.TestCase):
+    """S7/S8 必须讲清每轮主题与正文都不同，且不得承诺照抄旧信。"""
+
+    def setUp(self):
+        self.s7 = (TEMPLATES / "S7-template-confirm.md").read_text(encoding="utf-8")
+        self.s8 = (TEMPLATES / "S8-template-building.md").read_text(encoding="utf-8")
+
+    def test_s7_says_subject_and_body_all_different(self):
+        self.assertIn("主题", self.s7)
+        self.assertIn("正文", self.s7)
+        self.assertRegex(self.s7, r"主题.{0,12}正文|正文.{0,12}主题")
+        self.assertTrue(("不一样" in self.s7) or ("都不同" in self.s7) or ("不重复" in self.s7))
+
+    def test_s7_old_mail_only_structure_tone(self):
+        self.assertIn("结构", self.s7)
+        self.assertIn("语气", self.s7)
+        self.assertRegex(self.s7, r"(只学|只借鉴|不照抄|未照抄)")
+
+    def test_s8_checks_subject_and_body_pairwise(self):
+        self.assertIn("主题", self.s8)
+        self.assertIn("正文", self.s8)
+        self.assertRegex(self.s8, r"(两两|逐对|配对|互相比对)")
+
+
+class S12ActivationCardTest(unittest.TestCase):
+    """第7关激活卡：真实后果、时区、回滚、两条路径都要说清。"""
+
+    def setUp(self):
+        self.block = (TEMPLATES / "S12-activation-confirm.md").read_text(encoding="utf-8")
+
+    def test_activation_phrase_and_irreversible_warning(self):
+        self.assertIn("确认激活 <序列名>", self.block)
+        self.assertIn("不能一键撤回", self.block)
+        self.assertIn("想暂停/停发", self.block)
+
+    def test_zone_and_first_mail_timing_are_concrete(self):
+        self.assertIn("美国东部时间", self.block)
+        self.assertIn("30 分钟", self.block)
+        self.assertNotIn("买家当地时间", self.block)
+        self.assertNotIn("纽约", self.block)
+
+    def test_round_wording_not_internal_step(self):
+        self.assertIn("12 轮（共 12 封）", self.block)
+        self.assertNotIn("**12 步**", self.block)
+
+    def test_manual_path_kept_and_ledgered(self):
+        self.assertIn("我已在网页激活 <序列名>", self.block)
+        self.assertIn("两种方式", self.block)
+
+    def test_hesitation_option_explained(self):
+        self.assertIn("回 **2**", self.block)
+        self.assertIn("什么都不做", self.block)
+
+    def test_reply_stop_mechanism_not_auto(self):
+        self.assertIn("您看到是谁回的", self.block)
+        self.assertIn("平台的数据面板只给回复总数", self.block)

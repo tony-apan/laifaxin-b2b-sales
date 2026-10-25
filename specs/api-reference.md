@@ -1,15 +1,18 @@
 ---
+doc_id: "specs-api-reference"
 title: "API 接口规范（全功能速查）"
 description: "来发信全接口按模块分类：认证/推演/搜索/筛选/保存/标签视图/客户管理/邮件营销；含实测结论与注意"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-09-03
 author: "AI Agent + 运营方"
 source: "前端 bundle 逆向 + 实测"
 related: [docs/01-customer-search, docs/08-workflow-ops]
 tags: [API, 规范, 接口]
-status: verified
 audience: AI优先（人可参考）
 ---
+
 # API 接口规范（来发信全功能接口速查）
 
 > 来源：前端 bundle 逆向 + 实测验证（✅=已实测可用，⚠️=需界面流程，🚧=维护中）

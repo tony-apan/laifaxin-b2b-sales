@@ -1,3 +1,12 @@
+---
+doc_id: "core-points"
+title: "CORE-POINTS · 核心要点与实测数值（每次开跑前必读）"
+description: "开跑前必读的核心要点与实测数值：搜索锚、阈值、保存与配额口径，防凭记忆跳步。"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
+---
+
 # CORE-POINTS · 核心要点与实测数值（每次开跑前必读）
 
 > 维护：本文件是该技能的"潜意识底稿"。任何 AI 接手前先读完本文件，再读 RULES.md。
@@ -83,7 +92,7 @@
 ## 八之二、汇报留痕（V3-7 历史约定；V2 以 status/reconcile 为准）
 - 旧保存路径要求原样发送 save_company() 返回的 report_text：正文 + 换行 + [render:<sha12>]；该约定保留为历史，若 V2 链路仍返回 render 绑定则按原校验，禁止手写/改写 sha。
 - render_guard.verify_report 的 30 分钟新鲜度（ts+mtime）、task_id/params_hash 派生、正文逐字一致校验保留；V2 另以 `save_company_cli.py status/reconcile` 的本 plan/attempt/task_id 记录为回读证据。
-- 旧写脚本（save_first_n/lfx_mass_save*/wait_save_done/contact_add/删库 5 个）已被 save_guard.require() 无条件封条，无任何环境变量可绕过。V2 保存另走 `save_company_cli.py prepare/confirm/execute` 的 confirmed plan；模板/序列/激活仍走 authorize_write(action,payload,ticket) 一次性票据。
+- 旧写脚本（save_first_n/lfx_mass_save*/wait_save_done/contact_add/删库 5 个）列入禁用清单；其中 save_first_n/wait_save_done/contact_add/delete_all_products 已加物理封条（save_guard.require，最早可执行位置），但仍非安全边界（可被删封条/伪造模块绕过）；未加封条者仅文档层约束，见 RULES 边界声明。现役：S5=save_company_cli V2；S10=contact_add_authorized。V2 保存另走 `save_company_cli.py prepare/confirm/execute` 的 confirmed plan；模板/序列/激活仍走 authorize_write(action,payload,ticket) 一次性票据。
 
 ## 九、标签命名（待裁决）
 - 官方黄金公式：语言-国家-产品-角色（如 英语-美国-皮筏艇-经销商）

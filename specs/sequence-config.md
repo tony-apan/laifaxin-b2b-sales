@@ -1,13 +1,15 @@
 ---
+doc_id: "specs-sequence-config"
 title: "序列配置标准"
 description: "序列/模板规范：每轮方向与模板必须不同（防重复发信/风控）+ 计划时间 + 发送上限 + 标签"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-26
-updated: 2026-08-31
 author: "AI + 用户对抗完善"
 source: "皮筏艇/电动自行车实操"
 related: [specs/domain-scale-sop, specs/marketing-rules-2.0]
 tags: [序列配置, 模板, 每轮不同, 风控]
-status: verified
 audience: 人+AI
 ---
 
@@ -34,7 +36,7 @@ audience: 人+AI
 | R9 | 服务 | 24/7 support |
 | R10 | 促行动 | Special offer |
 | R11 | 二次触达 | Re-engage |
-| R12 | 最后机会 | Last chance |
+| R12 | 最后机会 | Closing note / final follow-up |
 
 ### ★ 轮次架构 v2（2026-08-31 用户拍板：轮次角色 + 9 策略工具箱；后续新生成适用）
 > 现役 RT2/S05/S06 三批**各 120（共 360）**模板按 v1 12 轮链条构建，**继续有效不重建**；v2 为后续新档生成标准。
@@ -71,10 +73,10 @@ audience: 人+AI
 | R3 | 交期优势(季前到货) | 稀缺资源(区域名额) | 稀缺资源(产线档期) | 降本增效(上架回本) |
 | R4 | 稀缺资源(产能档期) | **对标竞争**(本地品牌) | **对标竞争**(其他代工厂) | 趋势引领(品类热度) |
 | … | … | … | … | … |
-| R12 | 最后机会 | 最后机会 | 最后机会 | 最后机会 |
+| R12 | 最后机会（closing note / final follow-up） | 同左 | 同左 | 同左 |
 
 **★生成前确认清单**（全部过审才生成）：①产品卖点与证据清单（认证/产能/交期/案例——用户勾选可用项）②目标收件人角色痛点假设 ③**禁止承诺清单** ④角色×策略适配矩阵
-**★生成后确认清单**（与 RULES 四类固定清单#3「邮件模板」**并集适用**——本清单不替代固定清单的语言一致/spam 词等项）：①每档 5-8 封跨轮样例（渲染视图）②CTA 类型分布表 ③与其它档差异说明 ④事实核验清单（数字/背书逐项属实）
+**★生成后确认清单**（与 RULES 四类固定清单#3「邮件模板」**并集适用**——本清单不替代固定清单的语言一致/spam 词等项）：①默认 4 封、用户主动要多看最多 8 封跨轮样例（渲染视图）②CTA 类型分布表 ③与其它档差异说明 ④事实核验清单（数字/背书逐项属实）
 （技术规则：变量 code 包裹/标题纯文案/差异≥30% Jaccard≤0.70/12×4 网格；v2 批次写入 `--plan` 的 directions，计划必须绑定当前 product-profile hash；高风险事实逐句 claims+evidence_text 溯源。生产路径不再使用内置 PRODUCTS 字典。）
 
 ### ★标题必须逐变体不同（2026-09-18 用户实测拍板）
@@ -180,6 +182,13 @@ Tony
 5. **无视觉噪音**：禁 emoji 堆砌（≤1 个且仅当品类天然适配，如户外品 🛶）、禁全大写单词（CTA 关键词除外，≤1 个）、禁链接裸奔（首封不落链接，防 spam 判定）。
 6. **移动端预览自检**：生成后抽查渲染视图时按"手机半屏"宽度目测——钩子、一个加粗卖点、CTA 三样在首屏内必须全部可见。
 
+**★垃圾邮件触发词清单（2026-10-23 用户要求完善；生成器硬门）**：
+- **A 类 硬禁（标题+正文命中即 exit 2；大小写不敏感、短语匹配）**：free sample / free trial / free quote / free consultation / risk-free / no obligation / act now / limited time / click here / buy now / order now / congratulations / you have won / you are a winner / urgent action / do not miss out / last chance / 100% free / 100% guaranteed / $$$ / !!!。
+- **B 类 慎用（不进硬门；AI 写作主动避开，确为产品事实才用）**：guarantee / guaranteed / best price / lowest price / exclusive offer / limited offer / promotion / 促销 / 免费 / 保证 / 最低价 / 限时 / 立即 / 点击。
+- **C 类 已由其他规则覆盖**：价格/折扣词（价格硬门）；全大写词（≤1 且仅 CTA 关键词）；emoji（≤1 且仅品类适配）；首封链接（禁）；彩色 HTML/图片/附件（禁）。
+- 匹配规则：先去掉 HTML 标签与零宽字符，把连字符/下划线当空格、折叠空白（含 NBSP），再小写；整词匹配之外再做一次去空格紧凑匹配（防 Clickhere 这类连写）。free/免费 另被事实闸门覆盖（双保险）。
+- **R12 写法提醒**：轮次角色叫「最后机会」时，正文不要直译 last chance；用 closing note / final follow-up 等替代表述，避免命中 A 类。
+- 机器位置：tools/gen_templates.py 的 SPAM_HARD_BAN 列表，在 check_four_elements() 扫全部标题与正文；命中逐条列出并 exit 2。清单变更必须同步改这里、生成器与测试。
 **反例（=你截图那封的形状）**：两大段纯文本 + 无加粗 + 无 CTA 段 + "tony" 小写落款——买家扫一眼抓不到任何锚点，直接归档。
 **正例骨架**：问句钩子 → `<b>` 加粗的 2 个数字卖点 → 独立 CTA 段（加粗关键词+no commitment）→ 昵称落款。
 
@@ -196,7 +205,7 @@ Tony
 - **跨轮主题不许重复**：12 轮的主题（subject）逐轮不同，禁止同一句主题换轮次复用。
 - **痛点轮换**：每轮换一个买家痛点/场景切入，同一痛点不得连续两轮出现；同轮 4 个变体也各自换痛点角度。
 - 与下节「每模板差异度≥30%」并用：方向差异=硬保证；正文相似度仍须 `tools/check_template_diff.py --prefix` 实测（Jaccard≤0.70）。
-- 正文/标题禁标识性内容见 `output-templates/S7-模板确认.md`「正文自检 6 条」。
+- 正文/标题禁标识性内容见 `output-templates/S7-template-confirm.md`「正文自检 6 条」。
 
 ## ★ 每模板差异度 ≥30%（★用户要求；方向差异=硬保证，变体差异须实测）
 - 同轮/同序列模板**正文差异度≥30%**（不同痛点/切入/文案），不能重复
@@ -209,7 +218,7 @@ Tony
 - 用户在平台「设置 → 邮件模板」按分组一眼看清每个产品的整批模板（默认 48 封）；散落=维护灾难
 
 ## templates-add 必填
-- name + subject + html（foid:"0"）
+- name + subject + html（foid=<自动分组id>；`gen_templates.py` 明确拒绝 0）
 - 模板每轮区分（命名含轮次，如 英-皮筏艇-R03-降本-V02）
 
 ---
@@ -218,7 +227,7 @@ Tony
 
 ## 模板读取回执（P1）
 
-- 生成模板前，运行记录必须引用 [S7-模板确认.md](../output-templates/S7-模板确认.md)，并记录本次实际读取的模板文件相对路径及其 SHA-256 快照（读取时刻）。
+- 生成模板前，运行记录必须引用 [S7-template-confirm.md](../output-templates/S7-template-confirm.md)，并记录本次实际读取的模板文件相对路径及其 SHA-256 快照（读取时刻）。
 - 快照只写入本次 run 记录，不进入 S7 面向用户的文案；缺少快照即判定本次未执行。此为文档层判据，不由脚本强制；不追溯或补写历史 runs。
 
 ## 智能跟进参数（P2，现态引用）

@@ -8,6 +8,8 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+NOW_ISO = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +17,8 @@ TOOLS = ROOT / "tools"
 sys.path.insert(0, str(TOOLS))
 from compliance_validation import validate_compliance
 from evidence_validation import NON_LIVE_EVIDENCE_MARKERS, find_non_live_marker
+import os as _os
+_os.environ.setdefault("LFX_GATE_TEST_MODE", "1")
 
 
 PROJECT = "operator/product"
@@ -114,6 +118,48 @@ class ComplianceValidationTest(unittest.TestCase):
                 self.assertEqual("", find_non_live_marker(text), f"不应拦截: {text}")
 
 
+FAKE_ACTIVATE_PLATFORM = r'''#!/usr/bin/env python3
+import json, os, sys
+from urllib.parse import urlparse
+args = sys.argv[1:]
+url = next((a for a in args if a.startswith("http")), "")
+path = urlparse(url).path
+{log_code}
+marker = {marker!r}
+SEQ = {seq!r}
+TPL = {tpl}
+if path.endswith("/sequences/sequence-list"):
+    active = os.path.exists(marker) if marker else False
+    out = {{"success": True, "data": {{"list": [{{"id": SEQ, "status": "active" if active else "inactive"}}]}}}}
+elif path.endswith("/sequences/sequence-details"):
+    out = {{"success": True, "data": {{"rules": {{"max_emails_per_day": 30000, "domain_emails_per_day": 5,
+             "notSentTags": ["000000000000000000000043", "000000000000000000000044"]}}}}}}
+elif path.endswith("/benefits/refine-data"):
+    out = {{"success": True, "data": {{"isOrg": True, "vip": 2, "dailyLimit": 500,
+             "monthlyLimit": 10000, "dailyUsed": 1, "monthlyUsed": 2}}}}
+elif path.endswith("/contacts/tags-list"):
+    out = {{"success": True, "data": {{"list": [{{"id": "000000000000000000000043", "name": "询盘"}},
+             {{"id": "000000000000000000000044", "name": "不发"}}]}}}}
+elif path.endswith("/sequences/step-list"):
+    waits = [("minute", 30), ("day", 5), ("day", 15)] + [("day", 30)] * 9
+    out = {{"success": True, "data": [{{"step": i + 1, "template_ids": [TPL[i]],
+             "wait_mode": waits[i][0], "wait_time": waits[i][1]}} for i in range(12)]}}
+elif path.endswith("/mailbox/templates-list"):
+    out = {{"success": True, "data": {{"list": [{{"_id": x}} for x in TPL]}}}}
+elif path.endswith("/sequences/sequence-active"):
+    open(marker, "w").write("1")
+    out = {{"success": True, "data": {{}}}}
+else:
+    out = {{"success": True, "data": {{}}}}
+print(json.dumps(out))
+'''
+
+
+def _fake_activate_platform(marker, tpl):
+    log_code = 'with open(os.environ["CURL_LOG"], "a") as _fh:\n    _fh.write("called\\n")'
+    return FAKE_ACTIVATE_PLATFORM.format(status="inactive", seq=SEQ, marker=marker, log_code=log_code, tpl=tpl)
+
+
 class ActivateLocalGateOrderTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -121,6 +167,7 @@ class ActivateLocalGateOrderTest(unittest.TestCase):
         (self.repo / "tools").mkdir()
         for name in (
             "activate_sequence.py", "approval.py", "compliance_validation.py", "evidence_validation.py", "profile_utils.py",
+            "s11_closure.py",
             "project_lock.py", "update_run_state.py", "workspace_guard.py", "credential_input.py",
         ):
             shutil.copy2(TOOLS / name, self.repo / "tools" / name)
@@ -140,7 +187,8 @@ class ActivateLocalGateOrderTest(unittest.TestCase):
         self.record = self.project_dir / "operation-record.md"
         self.record.write_text(
             f'---\nstatus: "S11"\nnext_state: "S12"\noperator_key: "operator"\n'
-            f'product_key: "product"\nproject: "{PROJECT}"\nsequence_id: "{SEQ}"\n---\n',
+            f'product_key: "product"\nproject: "{PROJECT}"\nsequence_id: "{SEQ}"\n'
+            f's11_finalized_at: "{NOW_ISO}"\ns11_manifest_sha256: "{"a" * 64}"\n---\n',
             encoding="utf-8",
         )
         self.compliance = self.project_dir / "compliance.json"
@@ -149,11 +197,8 @@ class ActivateLocalGateOrderTest(unittest.TestCase):
         self.bin_dir.mkdir()
         self.curl_log = self.repo / "curl.log"
         curl = self.bin_dir / "curl"
-        curl.write_text(
-            "#!/bin/sh\nprintf '%s\\n' called >> \"$CURL_LOG\"\n"
-            "printf '%s' '{\"data\":{\"list\":[{\"id\":\"0123456789abcdef01234567\",\"status\":\"inactive\"}]}}'\n",
-            encoding="utf-8",
-        )
+        tpl = "[" + ", ".join('"%024x"' % (i + 0x300) for i in range(12)) + "]"
+        curl.write_text(_fake_activate_platform(str(self.repo / "active.marker"), tpl), encoding="utf-8")
         curl.chmod(0o755)
         self.write_approval()
 

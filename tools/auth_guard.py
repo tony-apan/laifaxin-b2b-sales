@@ -357,9 +357,25 @@ def _fields_have_object(fields: Any) -> bool:
     return False
 
 
+def _require_startup_ack() -> None:
+    """开工必读门（L1）：未登记开工必读就拒绝铸票，任何写操作都过不去。
+
+    放在授权中枢而不是每个脚本里：save/template/sequence/contact-add/activate
+    都要先拿到票据，统一在这里拦一次。测试模式与 unittest 进程内放行（不改生产行为）。
+    """
+    if os.environ.get("LFX_GATE_TEST_MODE") == "1" or "unittest" in sys.modules:
+        return
+    try:
+        from startup_gate import require_ack
+    except Exception as exc:  # 模块缺失不得静默放行
+        raise RuntimeError("开工必读闸门缺失（tools/startup_gate.py）：%s" % exc)
+    require_ack()
+
+
 def authorize(action: Any, quote: Any, payload: Any, *, task: Optional[str] = None,
               fields: Any = None, root: Optional[Any] = None,
               plan: Any = None) -> Dict[str, Any]:
+    _require_startup_ack()
     if not isinstance(action, str) or action.strip().lower() not in ACTIONS:
         return _deny(action, quote, "E_AUTH_NO_ACTION",
                      "未知 action，必须是 " + "/".join(ACTIONS), root)
@@ -369,7 +385,7 @@ def authorize(action: Any, quote: Any, payload: Any, *, task: Optional[str] = No
 
     # ★2026-10-23：编号选项（A/B/C/D 或 1/2/3/4）是用户对已展示选项的明确选择，视为显式授权。
     if act == "activate" and isinstance(payload, dict) and str(payload.get("seq") or "").strip() and "激活" in str(quote or ""):
-        has_target = True
+        hits = [str(quote).strip()]
     elif re.fullmatch(r"[A-Da-d1-4]", str(quote or "").strip()):
         hits = [str(quote).strip()]
     else:
@@ -531,6 +547,7 @@ def _check_not_consumed(loaded: Dict[str, Any], task: Optional[str],
 
 def verify(ticket: Any, payload: Any, *, task: Optional[str] = None,
            root: Optional[Any] = None) -> Dict[str, Any]:
+    _require_startup_ack()
     try:
         loaded = _load_ticket(ticket, root)
     except _Denied as exc:
@@ -737,6 +754,7 @@ def abort(handle: Dict[str, Any], reason: str = "E_HTTP_FAILED") -> Dict[str, An
 
 def consume(ticket: Any, payload: Any, *, task: Optional[str] = None,
             root: Optional[Any] = None) -> Dict[str, Any]:
+    _require_startup_ack()
     handle = begin(ticket, payload, task=task, root=root)
     if not handle["ok"]:
         return handle

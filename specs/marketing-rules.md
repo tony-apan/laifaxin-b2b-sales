@@ -1,13 +1,15 @@
 ---
+doc_id: "specs-marketing-rules"
 title: "营销获客规则（红队审定 · 无矛盾可执行）"
 description: "经外部红队对抗审查定稿的统一规则：口径/保存/种子/暖机/统计，解决全部矛盾"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-25
-updated: 2026-08-25
 author: "外部红队审查 agent + Tony 拍板"
 source: "红队逐条裁决（R1-R13）"
 related: [specs/marketing-rules-2.0, specs/domain-scale-sop, specs/operations-sop, specs/sequence-config]
 tags: [规则, 红队审定, 口径, 暖机, 保存标准]
-status: outdated
 audience: 人+AI
 ---
 

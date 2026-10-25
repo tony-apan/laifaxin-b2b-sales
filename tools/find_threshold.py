@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-找 70% 临界点工具（★从前往后精确找"最后一张≥70%的页"）
+找 70% 临界点工具（★历史参考：从前往后精确找"最后一张≥70%的页"；现行定界以 RULES S4/threshold-probe-spec v3.1 的连续 5 页窗口为准，本工具不作为定界依据）
 用法:
   python3 find_threshold.py --query <seed-domain> --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> \
     --match-words "raft,inflatable,kayak,..." --start 100 --end 500 --threshold 70
@@ -15,8 +15,12 @@
 """
 import json, subprocess, sys
 
+# 与 refine/company-list 请求一致的四区排除（RULES 铁律0；旧版 filters=[] 未排除 CN/TW/HK/MO）
+FOUR_REGION_FILTERS = [{"property": "country_code", "operator": "exclude", "value": "",
+                        "values": ["CN", "TW", "HK", "MO"], "valueType": "select"}]
+
 def fetch(page, keyword, token, org, page_size=10):
-    p = {"keyword": keyword, "current": page, "pageSize": page_size, "filters": [], "logic": "and"}
+    p = {"keyword": keyword, "current": page, "pageSize": page_size, "filters": FOUR_REGION_FILTERS, "logic": "and"}
     cmd = ["curl","-sSL","-X","POST","https://web.laifaxin.com/api/refine/company-list",
            "-H","Content-Type: application/json","-H",f"accesstoken: {token}",
            "-H", f"uid: {org}","-d",json.dumps(p)]

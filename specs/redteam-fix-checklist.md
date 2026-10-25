@@ -1,13 +1,15 @@
 ---
+doc_id: "specs-redteam-fix-checklist"
 title: "Terra 红队整改清单（皮筏艇/电动自行车）"
 description: "Terra红队对抗分析：P0必改(认证/合规/冷启动/去重)+P1-P3，可执行check-off"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-29
-updated: 2026-08-29
 author: "Terra红队agent + AI"
 source: "Terra对抗分析4f8e405c"
 related: [specs/sequence-config, specs/marketing-rules-2.0, lessons/lessons-learned]
 tags: [红队, 认证, 合规, 冷启动, 去重, 整改清单]
-status: inprogress
 audience: 人+AI
 ---
 

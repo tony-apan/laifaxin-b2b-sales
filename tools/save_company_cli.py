@@ -9,7 +9,9 @@
              不取凭据、不构造 transport、不签 auth、可写 --out。
   2. confirm 用 draft + 用户原话产出 confirmed plan，并由
              auth_guard.authorize_save_plan 唯一铸票（一次）+ 生成 S5V2 render。
-  3. execute 重验 payload/plan/依赖 → scope 占位 → auth.begin → 一次提交；
+  3. execute 先 workspace_guard.preflight() 核验工作空间落点（fail-closed：被阻断时
+              不构造 transport、不调保存接口）→ 重验 payload/plan/依赖 → scope 占位 →
+              auth.begin → 一次提交；
              uncertain 保留锁，不 abort。
   4. status  唯一自动对账生产者：按账簿只读查保存任务（type=cluesSave）。
   5. reconcile 只消费本 CLI status 的登记记录；外部 JSON 一律 E_RECONCILE_SOURCE。
@@ -38,6 +40,7 @@ import save_guard
 import save_plan as planlib
 import segment_registry as registry
 import step_gate
+import workspace_guard
 from search_company import rule_excerpts
 
 SAVE_ENDPOINT = "refine/company-save"
@@ -188,6 +191,23 @@ def _cmd_execute(args: Any) -> int:
     plan = planlib.load_plan(args.plan)
     ticket = _load_json(args.ticket_json, args.ticket_file)
     render_path = args.render
+    # ★RULES 声称的 workspace_guard 预检在这里落地（2026-10-23 P0 修复）：
+    #   真正构造 transport / 调保存接口之前，先只读核验"声明的空间"被平台采纳。
+    #   fail-closed：确凿误路由 → SystemExit(1)；预检异常同样阻断。
+    #   被阻断时不得构造 _http、不得调用 save_company_v2（平台写入 0 次）。
+    try:
+        workspace_guard.preflight(args.token, args.org, what="S5 保存")
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) and exc.code != 0 else 1
+        print(json.dumps({"ok": False, "stage": "execute", "code": "E_WORKSPACE_GUARD",
+                          "reason": "工作空间预检未通过：本次不向平台写入任何数据",
+                          "preflight_exit": code}, ensure_ascii=False))
+        return 2
+    except Exception as exc:
+        print(json.dumps({"ok": False, "stage": "execute", "code": "E_WORKSPACE_GUARD",
+                          "reason": "工作空间预检异常：%s；本次不向平台写入任何数据" % exc},
+                         ensure_ascii=False))
+        return 2
     result = save_guard.save_company_v2(
         payload=plan["wire_payload"], http=_http(args.token, args.org, args.timeout),
         plan=plan, ticket=ticket, render_path=render_path, root=root)

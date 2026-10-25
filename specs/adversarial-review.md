@@ -1,13 +1,15 @@
 ---
+doc_id: "specs-adversarial-review"
 title: "对抗审查报告（Adversarial Review）"
 description: "全量接口重抓对比已有记录：发现遗漏（sequences/tags/expenses）+ 验证模板/序列接口 + 结论"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-08-21
 author: "AI Agent (DeepSeek) + 用户 Tony"
 source: "全量接口 dump + 实测"
 related: [specs/api-reference, docs/03-save-customers, docs/05-email-marketing]
 tags: [审查, 验证, 接口完整性]
-status: verified
 audience: 人+AI
 ---
 

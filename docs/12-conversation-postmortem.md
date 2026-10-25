@@ -1,3 +1,12 @@
+---
+doc_id: "docs-12-conversation-postmortem"
+title: "对话复盘：全部问题提炼与铁律"
+description: "对话复盘与铁律：八次用户当场纠正的原始证据与错误清单，接手前防重犯时读。"
+type: "record"
+status: "active"
+updated: "2026-10-23"
+---
+
 # 对话复盘：全部问题提炼与铁律
 
 > 来源：2026-10-21 与用户全程对话（含用户当场纠正 8 次）。

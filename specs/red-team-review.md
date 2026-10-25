@@ -1,13 +1,15 @@
 ---
+doc_id: "specs-red-team-review"
 title: "外部红队审查裁定（Terra 式）"
 description: "独立审查agent对写真机/电动自行车实操的红队裁定，含必须修正清单（按严重度）"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-25
-updated: 2026-08-25
 author: "外部红队审查agent（Terra式）+ Tony 核实"
 source: "subagent 30ddb383 独立审查 + 数据核实"
 related: [specs/domain-scale-sop, lessons/lessons-learned, runs/tony/_review/audit-checklist]
 tags: [红队, 对抗审查, 修正清单, 电动自行车问题]
-status: verified
 audience: 人+AI
 ---
 

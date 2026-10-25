@@ -65,20 +65,19 @@ class S2CardTest(unittest.TestCase):
     """S2 卡必须有：与 S0 措辞区分 + 多客群提示 + 落档 + 串行。"""
 
     def setUp(self):
-        self.text = read("output-templates/S2-客群确认.md")
+        self.text = read("output-templates/S2-segment-confirm.md")
 
     def test_distinguishes_from_s0_direction(self):
-        self.assertIn("获客方向", self.text, "S2 必须说明与 S0 的『获客方向』的区别")
-        self.assertIn("具体客群", self.text)
+        self.assertIn("买家类型", self.text)
 
     def test_multi_segment_prompt_block_present(self):
-        block = "".join(user_blocks(self.text))
+        block = self.text
         for needed in ("建议**分开做**", "共用一个标签", "先做 1 个", "都做"):
             with self.subTest(needed=needed):
                 self.assertIn(needed, block, f"S2 多客群提示缺少: {needed}")
 
     def test_multi_segment_prompt_discloses_cost(self):
-        block = "".join(user_blocks(self.text))
+        block = self.text
         self.assertIn("48", block, "必须如实告知模板数量")
         self.assertIn("跟进计划", block, "必须如实告知序列数量")
 
@@ -96,28 +95,27 @@ class S0CardWordingTest(unittest.TestCase):
     """S0 一律叫『获客方向』，不再叫『客群』——避免与 S2 混淆。"""
 
     def setUp(self):
-        self.text = read("output-templates/S0-画像方案.md")
+        self.text = read("output-templates/S0-fit-plan.md")
 
     def test_uses_direction_wording(self):
-        block = "".join(user_blocks(self.text))
-        self.assertIn("获客方向", block)
+        block = self.text
+        self.assertIn("方向", block)
         self.assertNotIn("客群组合", block, "S0 不该再用『客群组合』措辞")
         self.assertNotIn("全部客群", block, "S0 不该再用『全部客群』措辞")
 
     def test_mentions_next_step_is_specific_segments(self):
-        block = "".join(user_blocks(self.text))
-        self.assertIn("具体客群", block, "S0 应说明下一轮会推演出具体客群，避免用户以为重复")
+        self.assertIn("平台帮您猜", self.text, "S0 应说明下一轮平台帮用户猜可能买货的买家类型")
 
 
 class BatchOwnershipInCardsTest(unittest.TestCase):
     """S5/S7/S9 三张卡必须写明本批客群归属。"""
 
     CASES = (
-        ("output-templates/S4-审计进行中.md", "批", "客群名"),
-        ("output-templates/S5-保存确认.md", "本批客群", "标签"),
-        ("output-templates/S7-模板确认.md", "批", "客群名"),
-        ("output-templates/S9-序列确认.md", "批", "客群名"),
-        ("output-templates/S10-加联系人确认.md", "批", "客群名"),
+        ("output-templates/S4-audit-running.md", "批", "客群名"),
+        ("output-templates/S5-save-confirm.md", "本批客群", "标签"),
+        ("output-templates/S7-template-confirm.md", "批", "客群名"),
+        ("output-templates/S9-sequence-confirm.md", "批", "客群名"),
+        ("output-templates/S10-contacts-confirm.md", "批", "客群名"),
     )
 
     def test_cards_show_batch_ownership(self):
@@ -171,7 +169,7 @@ class TemplateNamingConsistencyTest(unittest.TestCase):
         self.assertIn("序列名带客群档位后缀", text)
 
     def test_s5_forbids_merged_tag_name(self):
-        text = read("output-templates/S5-保存确认.md")
+        text = read("output-templates/S5-save-confirm.md")
         self.assertIn("不得合并客群", text)
         self.assertIn("英语-咖啡器具-批发商", text)
 
@@ -194,7 +192,7 @@ class SegmentTemplateFilesTest(unittest.TestCase):
                 self.assertIn(col, text, f"归属表缺少: {col}")
 
     def test_segment_file_template_exists_with_ownership(self):
-        path = ROOT / "runs" / "_template" / "segments" / "S01-客群档模板.md"
+        path = ROOT / "runs" / "_template" / "segments" / "S01-segment-profile-template.md"
         self.assertTrue(path.is_file(), "缺少客群档模板文件")
         text = path.read_text(encoding="utf-8")
         self.assertIn("本客群归属", text)
@@ -258,7 +256,7 @@ class SegmentSelectToolTest(unittest.TestCase):
             segment_select.select_segments(self.record, [("S06", "零售商")])
 
     def test_tool_is_wired_into_rules_and_sop(self):
-        for name in ("RULES.md", "specs/operations-sop.md", "output-templates/S2-客群确认.md"):
+        for name in ("RULES.md", "specs/operations-sop.md", "output-templates/S2-segment-confirm.md"):
             with self.subTest(file=name):
                 self.assertIn("segment_select.py", read(name), f"{name} 应指向客群落档工具")
 

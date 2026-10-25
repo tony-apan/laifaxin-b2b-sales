@@ -1,16 +1,18 @@
 ---
+doc_id: "methodology-decision-trees"
 title: "获客双引擎·完整逻辑图（广撒网获询盘→精准背调跟进）"
-description: "完整 Mermaid 逻辑图：批量获客引擎 S0-S12 低成本铺量拿询盘；询盘后进入精准转化引擎，停自动群发、公司背调、A/B/C/D 分级、邮件/WhatsApp/商务社媒/电话长期跟进。"
+description: "获客双引擎逻辑图：批量获客 S0-S12 铺量拿询盘，询盘后转精准背调与长期跟进。"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-29
-updated: 2026-09-07
 author: "AI + 运营方"
 related: [RULES.md, specs/threshold-method, specs/domain-scale-sop, specs/sequence-config, specs/operations-sop, specs/data-structure]
 tags: [逻辑图, 决策树, mermaid, 完整流程, 询盘闭环, 判断]
-status: active
 audience: 人+AI
 ---
 
-# 🧭 获客完整流程·逻辑图（完整版）
+# 🧭 获客双引擎·完整逻辑图（广撒网→精准背调）
 
 > **读图顺序**：① 批量获客引擎（产品适配→登录→客群→搜索→保存→模板→序列）低成本广撒网 → ② S12 激活边界 → ③ 收到询盘信号后，由人或 AI 助手立即打“询盘”标签停后续邮件 → ④ 精准转化引擎（背调→A/B/C/D 分级→多渠道长期跟进）。
 > **真源**：状态机定义见 `../RULES.md`（S0-S12）；本文件=把 RULES 画成图，规则冲突时以 RULES 为准。
@@ -57,7 +59,7 @@ flowchart TD
     S1 -- "无 → 标准路径B" --> S2
 
     subgraph BUILD["③ S4-S11 建成主线（产品→序列创建完成）"]
-        A1 --> S4["S4 AUDIT_RUNNING 只读审计<br/>扩量结果排除CN/TW/HK/MO<br/>≥70%名单筛选边界：50页跳→三页平均→<br/>逐页→跌破往前（不是购买概率）"]
+        A1 --> S4["S4 AUDIT_RUNNING 只读审计<br/>扩量结果排除CN/TW/HK/MO<br/>≥70%名单筛选边界：100页跳→前后3页→5页滑动窗口→<br/>逐页→跌破往前（不是购买概率）"]
         S4 --> S5["S5 SAVE_PENDING<br/>展示：临界页/N/标签/排除4区(CN,TW,HK,MO)/<br/>contactMaxCount 3→6→9/点数/防重查重"]
         S5 --> S5C{"用户确认保存<br/>+ approval_id + 对抗审查②种子"}
         S5C -- "否/变化" --> S4

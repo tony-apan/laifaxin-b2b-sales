@@ -1,13 +1,15 @@
 ---
+doc_id: "lessons-fixation"
 title: "固化机制（如何防止问题再犯）"
 description: "把踩坑经验固化成可执行机制：规则进工具/清单/规范/自动化校验，防止再犯"
+type: "record"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-10-21
 author: "AI Agent (DeepSeek) + 用户 Tony"
 source: "基于 lessons-learned.md 的固化设计"
 related: [lessons/lessons-learned, methodology/checklists, specs/api-reference, tools/README]
 tags: [固化, 机制, 防再犯, 工程化]
-status: verified
 audience: 人+AI
 ---
 

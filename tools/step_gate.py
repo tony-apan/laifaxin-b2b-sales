@@ -390,7 +390,12 @@ def record_card(state: str, run_id: Optional[str] = None) -> Dict[str, Any]:
 
 
 def check_card(state: str, run_id: Optional[str] = None) -> Dict[str, Any]:
-    """闸门校验：要求存在 consumed 且指纹等于当前卡片文件；返回命中的事件。"""
+    """闸门校验：要求存在 consumed 且指纹等于当前卡片文件；返回命中的事件。
+
+    ★L1 机器强制（2026-10-23）：先过开工必读闸门；未登记/文档已变一律拒绝，
+    防止 AI 没读契约就直接跑写操作。
+    """
+    _require_startup_gate()
     card = load_card(state)
     run = resolve_run_id(run_id)
     rows = read_ledger()
@@ -433,6 +438,19 @@ def check_card(state: str, run_id: Optional[str] = None) -> Dict[str, Any]:
         "未加载：执行卡 %s（run_id=%s）尚未 show；"
         "请先执行 show --state %s --run %s，再 record"
         % (state, run, state, run))
+
+
+def _require_startup_gate() -> None:
+    """L1 闸门：惰性导入 startup_gate，避免循环依赖；失败转 StepGateError。"""
+    try:
+        from startup_gate import require_ack, StartupGateError
+    except Exception as exc:  # 模块缺失不得静默放行
+        raise StepGateError("E_STARTUP_GATE_MISSING",
+            "开工必读闸门模块缺失（startup_gate.py）：%s；请恢复 tools/startup_gate.py" % exc)
+    try:
+        require_ack()
+    except StartupGateError as exc:
+        raise StepGateError(exc.code, exc.message)
 
 
 def require_card(state: str, run_id: Optional[str] = None) -> None:

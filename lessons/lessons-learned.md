@@ -1,13 +1,15 @@
 ---
+doc_id: "lessons-lessons-learned"
 title: "问题库（踩坑记录 · Lessons Learned）"
 description: "所有踩过的坑：问题/根因/影响/修复/教训/预防，持续更新，防止再犯"
+type: "record"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-10-21
 author: "AI Agent + 运营方"
 source: "实战踩坑记录（2026-08-21 会话）"
 related: [specs/api-reference, methodology/checklists, specs/sequence-config]
 tags: [问题库, 踩坑, 反思, lessons]
-status: verified
 audience: 人+AI
 ---
 
@@ -701,7 +703,7 @@ audience: 人+AI
 
 - **事实**：contactVerifyStatus=["valid","unkown"] **未知邮箱默认已保存**，从未只存"有效"。数量落差=四机制叠加：①contactMaxCount=3（防同公司过度触达，阶梯3→6→9）②平台验真过滤无效邮箱 ③跨批去重（重复存显示0属正常 L-05）④邮箱提取异步分批增长（L-16）。
 - **正常水平**：1.4~2.1 邮箱/家（6 次历史真实运行统计）；<1.0 = 客群锚点邮箱覆盖弱，应查锚点纯度（L-46）而非硬解释。
-- **教训**：⚠️ 数量落差是**必然现象**，但 AI 若不主动解释，用户必然怀疑"做了骚操作"——**保存完成时必须主动给"数量账"**（模板 output-templates/S6-数量账.md；save_first_n.py 已内置输出）。
+- **教训**：⚠️ 数量落差是**必然现象**，但 AI 若不主动解释，用户必然怀疑"做了骚操作"——**保存完成时必须主动给"数量账"**（模板 output-templates/S6-count-report.md；save_first_n.py 已内置输出）。
 - **预防**：S6 完成汇报带数量账表；FAQ/SKILL 路由收口"邮箱太少"类问题。
 
 

@@ -1,14 +1,19 @@
 ---
-profile_version: 1
+doc_id: "runs-template-product-profile"
+title: "📇 产品知识档案（product-profile·机读）"
+description: "模板种子：产品知识档案的机读骨架，含状态机与八字段，复制后由脚本初始化。"
+type: "template"
 status: ${STATUS}
+updated: "2026-10-23"
+profile_version: 1
 operator_key: ${OPERATOR_KEY}
 product_key: ${PRODUCT_KEY}
 created_at: ${CREATED_AT}
 updated_at: ${UPDATED_AT}
-confirmed_at:
-confirmed_by:
-confirm_quote:
-content_sha256:
+confirmed_at: 
+confirmed_by: 
+confirm_quote: 
+content_sha256: 
 sources_status: ${SOURCES_STATUS}
 sources_present: no
 ---

@@ -19,7 +19,7 @@ from pathlib import Path
 
 def history_menu_options():
     """从唯一任务菜单读取原始选项，保留编号、emoji、星标与顺序。"""
-    card = Path(__file__).resolve().parents[1] / "output-templates" / "S0-任务菜单.md"
+    card = Path(__file__).resolve().parents[1] / "output-templates" / "S0-task-menu.md"
     # 菜单只保留「有旧项目时」一节；按下一个二级标题截断，不依赖已删除的「无旧项目时」
     section = card.read_text(encoding="utf-8").split("## 有旧项目时", 1)[1].split("\n## ", 1)[0]
     return [line.strip() for line in section.splitlines()
@@ -81,9 +81,9 @@ def decide_opening(projects=(), read_ok=True):
         "mode": "history",
         "show_projects": False,
         "ask": [],
-        # K8：历史分支复用 S0-任务菜单.md 的四项，不另造菜单
+        # K8：历史分支复用 S0-task-menu.md 的四项，不另造菜单
         "options": history_menu_options(),
-        "menu_card": "S0-任务菜单.md",
+        "menu_card": "S0-task-menu.md",
         "memory_claim_allowed": True,
     }
 

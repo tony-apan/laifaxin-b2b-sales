@@ -5,13 +5,19 @@
   票据由 auth_guard.py authorize --action sequence 生成，payload 哈希逐字绑定，缺失/不符=拒绝。
 用法:
   python3 contact_add.py --token <T> --org <orgId> --seq <seqId> --tags <联系人标签id,可逗号多个> \
-      --task <保存任务id>(★必填:时序铁律) --approval <ap-id> --project <项目键> [--dry-run]
+      --task <保存任务id>(★必填:时序铁律) --approval <ap-id> --project <项目键> \
+      --record runs/<operator_key>/<product_key>/operation-record.md \
+      --auth-ticket .local/auth/ticket-<nonce>.json [--dry-run]
+  ★--auth-ticket 在非 dry-run 时必填：票据由 auth_guard.py authorize --action sequence 生成,
+    缺失/坏票/哈希不符一律拒绝(exit 2)且不调用任何平台写接口。
 铁律: views 恒为 []（传 "all" 会把全库 139万 联系人加进来!）; 时序不满足=拒绝执行
 ★静态红队P0修复:
   - 序列查询失败/翻页中断/未命中 → fail-closed 拒绝(不再"尽力而为不阻断"); 标签列表查询失败 → fail-closed 拒绝
   - 序列回读 status 必须 inactive(active 序列加联系人=立即真发; 状态缺失/未知同样拒绝)
   - 审批凭证须绑定本次实际参数(哈希由本工具重算, 不信CLI传入): 绑定schema与 flow S10 / approval.py grant 一致:
       {"project":"<operator_key>/<product_key>","seq":"<序列id>","tags":["<标签id>",...](去重排序),"task":"<保存任务id>"}
+★S10 加人前只读预检(本工具内, 不写平台): 打印本客群标签下人数/预计加人量/去重说明/序列未激活;
+  人数为 0 或标签缺失 → 中文报错 exit 2, 禁止 contact-add(不写平台)。
 """
 import hashlib, json, subprocess, sys, time, argparse
 from pathlib import Path
@@ -36,7 +42,16 @@ ap.add_argument("--project", required=True, help="稳定项目键=<operator_key>
 ap.add_argument("--timeout", type=int, default=900, help="等保存任务最大秒数")
 ap.add_argument("--dry-run", action="store_true", help="只打印 payload/时序检查,不写")
 ap.add_argument("--auth-ticket", default="", help="★S10 写票据文件路径 .local/auth/ticket-<nonce>.json")
+ap.add_argument("--allow-count-mismatch", action="store_true", help="★仅人工排查用：跳过「保存任务 contactSaveCount = 标签人数」硬对账（默认 fail-closed；使用须在记录里写明原因）")
 args = ap.parse_args()
+# ★P0-A 票据门(静态红队): 非 dry-run 一律必须有写票据——缺失时在**任何联网之前**拒绝,
+#   绝不"先查一圈平台再发现没票"; 坏票/哈希不符在写入前由 save_guard 校验并拒绝。
+if not args.dry_run and not str(args.auth_ticket or "").strip():
+    print("❌ 正式 contact-add 必须带 --auth-ticket <写票据文件路径>(.local/auth/ticket-<nonce>.json)——"
+          "缺票据=未授权, 拒绝执行, 未向平台发出任何请求")
+    print("   票据由 python3 tools/auth_guard.py authorize --action sequence --payload-file <本次payload.json> 签发；"
+          "payload 哈希须与本次 seq/tags 逐字一致")
+    sys.exit(2)
 if not args.dry_run and not args.record:
     print("❌ 正式 contact-add 必须带 --record <operation-record.md>，否则换机状态无法推进"); sys.exit(2)
 if not args.dry_run:
@@ -49,7 +64,9 @@ if not args.dry_run:
 
 tags = sorted({t.strip() for t in args.tags.split(",") if t.strip()})  # 去重排序: 与审批绑定schema一致(稳定哈希)
 if not tags:
-    print("❌ --tags 为空(无有效标签id)——拒绝执行"); sys.exit(1)
+    print("❌ S10 加人前预检未通过：没给联系人标签（缺标签）——不写平台、不加人")
+    print("   --tags 须是本客群的联系人标签id（逗号分隔可多个）；请先在 S5 建好/确认标签")
+    sys.exit(2)
 # ★审批硬闸门+参数绑定: 本工具按本次实际参数(seq/tags/task/project)重算哈希, 凭证memo须逐字一致
 binding = {"project": args.project, "org_sha256": hashlib.sha256(str(args.org).encode()).hexdigest(), "seq": args.seq, "tags": tags, "task": args.task}
 require_approval(args.approval, args.project, ("S10",), what="加联系人入序列",
@@ -59,6 +76,15 @@ preflight(args.token, args.org, dry_run=args.dry_run, what="加联系人入序�
 gots = {}
 
 def api(path, p, t=40):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     cmd = ["curl","-sSL","-m","35","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
@@ -153,12 +179,15 @@ for t in tl:
     if isinstance(t, dict) and (t.get("id") or t.get("_id")):
         tag_names[str(t.get("id") or t.get("_id"))] = t.get("name") or ""
 if not tag_names:
-    print("❌ 标签列表为空/未解析(contacts/tags-list)——fail-closed, 无法核验标签, 禁止 contact-add")
-    sys.exit(1)
+    print("❌ S10 加人前预检未通过：平台联系人标签列表为空（缺标签）——不写平台、不加人")
+    sys.exit(2)
 seq_lang = detect_lang(seq_item.get("name") or "")
 unresolved = [tg for tg in tags if tg not in tag_names]
 if unresolved:
-    print(f"  ⚠️ 标签名未解析(可能新建/其他类型标签,★尽力而为不阻断): {unresolved}")
+    print("❌ S10 加人前预检未通过：本客群标签在平台联系人标签列表里找不到（缺标签）——不写平台、不加人")
+    print(f"   找不到的标签id: {', '.join(unresolved)}")
+    print("   请先在 S5 建好/确认联系人标签（标签=语言-行业-角色），拿到真实标签id 后重跑预检")
+    sys.exit(2)
 bad = []
 for tg in tags:
     nm = tag_names.get(tg)
@@ -173,19 +202,25 @@ pairs = ", ".join(f"{tg}({tag_names.get(tg,'?')}→{detect_lang(tag_names.get(tg
 print(f"✅ 语言配对(铁律9): 序列「{seq_item.get('name')}」语言={seq_lang or '未识别(legacy 无前缀,按序列实际市场判定)'} | 标签 {pairs}")
 
 # 1) 时序守卫①: 保存任务 finished
+save_status = {}
 if args.task:
     start = time.time(); status = ""
     while time.time() - start < args.timeout:
         d = api("operation/backend-task-status", {"type":"cluesSave","id":args.task}).get("data",{})
         status = d.get("status","")
         if status == "finished":
+            save_status = d
             print(f"✅ 保存任务 finished: contactSaveCount={d.get('contactSaveCount')}"); break
         print(f"⏳ 等保存任务... status:{status} fin:{d.get('finished')}/{d.get('total')}", flush=True)
         time.sleep(10)
     else:
         print(f"❌ 超时({args.timeout}s)仍 {status}——禁止 contact-add"); sys.exit(1)
 
-# 2) 时序守卫②: 每个标签联系人>0
+# 2) ★S10 加人前只读预检（名额/去重/序列状态；本段不写平台）：
+#    白话明细 = 本客群标签下人数 + 预计加人量 + 去重说明 + 序列未激活。
+#    人数为 0 或标签缺失 → 中文报错 exit 2，禁止 contact-add（不是"尽力而为"）。
+print("📋 S10 加人前只读预检（未写平台）：")
+precheck_counts = {}
 for tg in tags:
     got = None
     for i in range(6):
@@ -195,12 +230,46 @@ for tg in tags:
             n = int(data.get("total")) if isinstance(data, dict) else int(data)
         except (TypeError, ValueError, AttributeError):
             n = None  # 形状异常(接口偶发 平台接口间歇空(已知))——重试,不裸崩(terra 2-④)
-        if n and n > 0: got = n; break
+        if isinstance(n, int) and n >= 0:
+            got = n; break  # 0 是平台权威答案(=没人可加)，不再空等；形状异常才重试
         time.sleep(8)
     if not got:
-        print(f"❌ 标签 {tg} 联系人为空/无法确认（接口偶发空 平台接口间歇空(已知): 等5-10分钟重跑即可）——禁止 contact-add"); sys.exit(1)
-    print(f"✅ 标签 {tg} 联系人={got}")
-    gots[tg] = got
+        print("❌ S10 加人前预检未通过：本客群标签下人数为 0（或接口多次无返回，无法确认）")
+        print(f"   标签: {tg}（{tag_names.get(tg) or '名称未解析'}）")
+        print("   不写平台、不加人。若保存任务刚结束，等 5-10 分钟让平台计数落定后重跑预检；仍为 0 则回 S5 核对标签。")
+        sys.exit(2)
+    precheck_counts[tg] = got
+estimated_add = sum(precheck_counts.values())
+
+# ★人数硬对账（三审 K/L 缺口，2026-10-23）：保存任务 contactSaveCount 必须等于本客群标签人数；
+#   不等 = 标签可能混批/任务未落定/取错标签 → 不得写平台。默认 fail-closed，仅 --allow-count-mismatch 人工放行。
+_saved = save_status.get("contactSaveCount")
+if _saved is None:
+    print("❌ S10 人数对账无法完成：保存任务 finished 但没返回 contactSaveCount")
+    print("   不写平台、不加人。等 5-10 分钟平台计数落定后重跑；仍缺失请查保存任务详情（不要猜数字）。")
+    sys.exit(2)
+try:
+    _saved = int(_saved)
+except (TypeError, ValueError):
+    print(f"❌ S10 人数对账失败：contactSaveCount={_saved!r} 不是整数——不写平台")
+    sys.exit(2)
+if _saved != estimated_add:
+    print(f"❌ S10 人数对账不通过：保存任务 contactSaveCount={_saved} ≠ 本客群标签人数={estimated_add}")
+    print("   常见原因：标签混了别的批次 / 保存任务没完全落定 / 取错标签。不写平台、不加人。")
+    print("   处理：回 S5 核对保存任务与标签；等计数落定后重跑。确属人工排查后要强推，才加 --allow-count-mismatch 并在记录里写明原因。")
+    if not args.allow_count_mismatch:
+        sys.exit(2)
+    print("⚠️ 已按 --allow-count-mismatch 跳过人数硬对账——责任与原因须写入 operation-record")
+else:
+    print(f"✅ S10 人数对账通过: 保存任务 contactSaveCount={_saved} = 本客群标签人数={estimated_add}")
+tag_detail = "、".join(f"{tg}（{tag_names.get(tg) or '未命名'}）={n} 人" for tg, n in precheck_counts.items())
+print(f"   本客群标签: {tag_detail}")
+print(f"   本客群标签下人数: {estimated_add} 人")
+print(f"   预计加人量: {estimated_add} 人（只加本客群标签内的联系人，不混其他客群）")
+print("   去重说明: 平台按联系人去重——已在库里/重复的联系人不会重复加入，实际 add 可能少于预计量；"
+      "以平台返回 add 为准，加完按「保存新增=标签人数=add」对账。")
+print(f"   序列: {seq_item.get('name')}（status=inactive，未激活，加人不会发信）")
+gots = dict(precheck_counts)  # 写后对账复用同一份预检人数（不再重复查一遍）
 
 # 危险写入前再次回读，堵住等待保存/查标签期间序列被激活的竞态
 seq_now, auth_now = find_seq()
@@ -214,7 +283,18 @@ if args.dry_run:
     print(f"[dry-run] 将执行 sequences/contact-add payload={json.dumps(payload, ensure_ascii=False)}（views 恒为空数组）"); sys.exit(0)
 
 # 3) contact-add
-save_guard.authorize_write(action="sequence", payload=payload, ticket=(args.auth_ticket or None)) if not args.dry_run else None
+# ★P0-A 票据门(静态红队): authorize_write 的返回值必须检查——save_guard 无票/坏票只返回
+#   {"ok": False, "code": ...}, **不会抛异常**; 旧代码丢弃返回值后照常写平台 = 票据门形同虚设。
+#   任何非 ok 一律中文报错 + exit 2, 绝不继续写(拒绝路径 http_calls==0, 本函数不发网络)。
+authz = save_guard.authorize_write(action="sequence", payload=payload, ticket=args.auth_ticket)
+if not isinstance(authz, dict) or not authz.get("ok"):
+    authz = authz if isinstance(authz, dict) else {}
+    print(f"❌ S10 写票据校验未通过({authz.get('code') or 'E_AUTH_DENIED'}): {authz.get('reason') or '拒绝原因未知'}")
+    print("   未向平台写入任何数据——contact-add 已中止。请用 approvals 认可的票据重新授权：")
+    print("   python3 tools/auth_guard.py authorize --action sequence --payload-file <本次payload.json> "
+          "(payload={\"seqId\":...,\"tags\":[...],\"views\":[]})")
+    sys.exit(2)
+print(f"✅ S10 写票据校验通过: action=sequence | payload_hash={str(authz.get('payload_hash') or '')[:12]}... | http_calls=0")
 r = api("sequences/contact-add", payload, t=120)
 data = r.get("data", {}) if isinstance(r.get("data"), dict) else {}
 add = data.get("add")

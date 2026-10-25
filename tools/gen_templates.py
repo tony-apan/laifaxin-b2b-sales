@@ -7,20 +7,27 @@
 ★事实闸门: 邮件文本(主题/正文轮次句/变体句)出现高风险事实(数字/%/ISO/认证/天数/MOQ/折扣/产能/库存/稀缺/价格/免费/food-grade/certified 等)
   → plan 必须含 claims[],每个命中句子被某条 exact_text 覆盖；source/profile_field/evidence_text 必须对应 product-profile 真实字段（evidence_text 逐字存在于字段内容）;declined 档案不允许任何高风险事实 → 退出2
   (轮次号 R01/中文主题名不参与扫描,只扫用户可见文案)
+★价格硬门(2026-10-22 A方案,优先级在 claims 之上): 模板正文(主题/轮次句/变体句)禁止出现任何具体价格/价格区间/FOB/CIF 报价/折扣/cheap 类表述——
+  price/pricing/discount/cheap/FOB/CIF/价格/折扣(大小写不敏感)命中即中文报错 exit 2；**claims 不得放行价格/折扣**
+  (价格只能由买家回复 CTA 关键词 PRICE 主动索取，之后走受控人工回复；不得自动发、不得进模板)
+★网格硬断言(48=12轮×4): directions 必须恰好 12 轮(R01..R12)、variants 必须恰好 4 个 → 不符中文报错 exit 2；
+  生成后按 tmap_grid 逐项核对 name 的 R##/V## 网格，不能精确分组(=会静默顺序切分)同样 fail-closed exit 2
 用法:
   python3 gen_templates.py --token <T> --org <orgId> --prefix "英-皮筏艇-" --suffix=-RT --name Tony \
       --profile runs/<operator_key>/<product_key>/product-profile.md --plan <plan.json> --approval <ap-id> --project <operator_key>/<product_key> [--preview]
-  生成后必跑 tools/check_template_diff.py --prefix 实测差异(模板差异实测（工具级）)
+  生成成功后自动 subprocess 跑 tools/check_template_diff.py --prefix(模板差异实测（工具级）)：fail-closed，
+  非 0 → 整体 exit 2（中文提示）；不落 S8 状态推进，修 plan 后重跑
   plan JSON = {"profile_sha256": "<当前档案sha256>",
                "directions": [["R01","中文名",["逐变体主题1","逐变体主题2",...],"正文轮次句"], ...],   ★第3位=标题列表(每变体一个,互不相同,跨轮也不重;纯文案禁{变量}/HTML)
                "variants": ["正文变体句", ...], "claims": [{"exact_text":"...","source":"...","profile_field":"⑤","evidence_text":"档案字段中的原文"}](出现高风险事实时必填)}
-退出码: 0=成功 1=审批/模板创建失败 2=输入校验失败(昵称/plan结构/哈希不匹配/claims) 4=产品档案闸门(draft/缺失/结构错)
+退出码: 0=成功 1=审批/模板创建失败 2=输入校验失败(昵称/plan结构/哈希不匹配/claims/价格硬门/网格断言/差异检查未过) 4=产品档案闸门(draft/缺失/结构错)
 """
 import json, subprocess, time, sys, argparse, re, hashlib
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from approval import require_approval, stable_params_hash
 from profile_utils import ensure_same_project_paths, profile_field_facts, profile_gate, validate_nickname
+from email_style_gate import check_email_style_file, EMAIL_STYLE_NAME
 from project_lock import acquire_project_lock
 from update_run_state import require_state, update_frontmatter
 from workspace_guard import preflight
@@ -180,7 +187,40 @@ def load_plan(path):
     plan_sha = hashlib.sha256(plan_bytes).hexdigest()
     return directions, variants, plan, plan_sha
 
+# ---------- ★P0-D 网格硬断言：48 = 12 轮 × 4 变体（生成前 fail-fast, exit 2） ----------
+EXPECTED_ROUNDS = 12      # 序列步长铁律（specs/sequence-config.md），非可调项
+EXPECTED_VARIANTS = 4     # 每轮封数（2026-09-11 用户拍板 10→4）
+EXPECTED_TOTAL = EXPECTED_ROUNDS * EXPECTED_VARIANTS  # 48
+
+def check_grid_shape(directions, variants):
+    """生成前 fail-fast：轮数必须 12、变体必须 4，轮次号必须 R01..R12（可精确网格分组）。
+
+    ★不是可调参数：12 轮=序列步长铁律（tools/tmap_grid.py ROUNDS=12，build_sequence 按轮挂模板）；
+      变体数=每轮封数，check_template_diff.py --limit 默认 48 与之配套。
+      如确需调整，须同步修改 tools/tmap_grid.py 的 ROUNDS、tools/check_template_diff.py 的 --limit
+      （及调用处）与本文件 EXPECTED_ROUNDS/EXPECTED_VARIANTS，否则 tmap/序列会错组。
+    """
+    if len(directions) != EXPECTED_ROUNDS:
+        print(f"❌ plan 轮数={len(directions)}，本工具要求恰好 {EXPECTED_ROUNDS} 轮"
+              f"（{EXPECTED_TOTAL}={EXPECTED_ROUNDS}轮×{EXPECTED_VARIANTS}变体）——不符禁止生成 (exit 2)")
+        print(f"   {EXPECTED_ROUNDS} 轮是序列步长铁律、不是可调参数；调整须同步改 tools/tmap_grid.py 的 ROUNDS、"
+              f"tools/check_template_diff.py --limit 与本文件 EXPECTED_ROUNDS/EXPECTED_VARIANTS。")
+        raise SystemExit(2)
+    if len(variants) != EXPECTED_VARIANTS:
+        print(f"❌ plan 变体数={len(variants)}，本工具要求恰好 {EXPECTED_VARIANTS} 个"
+              f"（{EXPECTED_TOTAL}={EXPECTED_ROUNDS}轮×{EXPECTED_VARIANTS}变体）——不符禁止生成 (exit 2)")
+        print(f"   每轮封数固定 {EXPECTED_VARIANTS}；调整须同步改 tools/check_template_diff.py --limit 与本文件常量。")
+        raise SystemExit(2)
+    round_ids = [str(d[0]).strip() for d in directions]
+    expected_ids = [f"R{i:02d}" for i in range(1, EXPECTED_ROUNDS + 1)]
+    if sorted(round_ids) != sorted(expected_ids):
+        print(f"❌ plan 轮次号不是 R01..R12（实际={round_ids[:4]}…）——模板名无法按轮/变体网格精确分组，"
+              f"build_sequence 会静默顺序切分，禁止生成 (exit 2)")
+        raise SystemExit(2)
+    print(f"  ✅ plan 网格: {EXPECTED_ROUNDS} 轮 × {EXPECTED_VARIANTS} 变体 = {EXPECTED_TOTAL}（48=12轮×4变体，铁律）")
+
 DIRECTIONS, VARIANTS, PLAN, PLAN_SHA = load_plan(args.plan)
+check_grid_shape(DIRECTIONS, VARIANTS)
 
 # ---------- 产品档案硬闸门(confirmed/declined 才放行;draft/缺失/结构错→退出4) ----------
 PROFILE_PATH = Path(args.profile)
@@ -198,6 +238,15 @@ if PROFILE_ISSUES:
     print("        用户拍板后 confirm --profile <档案> --by <纯昵称> --quote <用户原话> 置 confirmed;declined 可用无具体事实的通用计划。(exit 4)")
     raise SystemExit(4)
 
+# ---------- email-style 机器闸门(2026-10-23 三审H): 旧开发信只能学结构与语气，价格/联系方式/认证/承诺不得写入样式文件 ----------
+_style_errors = check_email_style_file(PROFILE_PATH)
+if _style_errors:
+    print(f"❌ email-style 闸门未过: {PROFILE_PATH.parent / EMAIL_STYLE_NAME}")
+    for _e in _style_errors:
+        print(f"   - {_e}")
+    print("   指引: email-style 样式文件只写称呼/开场/段落/CTA/签名五类结构；价格、交期、认证、公司名/电话/邮箱一律不得写入。(exit 2)")
+    raise SystemExit(2)
+
 # ---------- 档案哈希绑定(plan 必须对准当前档案;declined 也写实际 hash) ----------
 if PLAN.get("profile_sha256") != PROFILE_SHA:
     print(f"❌ plan.profile_sha256 与当前档案不匹配: plan={str(PLAN.get('profile_sha256'))[:16]}... != profile={PROFILE_SHA[:16]}...")
@@ -208,9 +257,19 @@ if PLAN.get("profile_sha256") != PROFILE_SHA:
 RISK_RE = re.compile(
     r"\d|[０-９%％]|certif(?:ied|ication)|food[- ]grade|\bMOQ\b|minimum order|discount|\bfree\b|"
     r"price|pricing|stock\w*|inventor\w*|scarc\w*|\blimited\b|allocation|capacity|lead time|"
+    r"\bcheap\w*\b|\bFOB\b|\bCIF\b|"
     r"\bISO\b|\bCE\b|\bFDA\b|\bRoHS\b|\bUL\b|\bSGS\b|\bBPA\b|\bLFGB\b|"
     r"complian\w*|approv\w*|register\w+|warrant\w+|guarantee\w*|turnaround|ships?\s+in|\bweek\b|"
     r"认证|食品级|免费|折扣|库存|稀缺|产能|价格|交期|优惠|现货|清仓|质保|保修|担保|合规",
+    re.IGNORECASE,
+)
+
+# ---------- ★价格硬门(2026-10-22 A 方案; specs/sequence-config.md「价格禁令」) ----------
+# 价格/折扣不是"可溯源 claim"，而是**禁止进模板**：命中即拒绝，claims 也不得放行。
+# 覆盖 price/pricing/discount/cheap/FOB/CIF/价格/折扣（大小写不敏感）。
+NO_PRICE_RE = re.compile(
+    r"\bprice[sd]?\b|\bpricing\b|\bdiscount(?:s|ed)?\b|\bcheap\w*\b|\bFOB\b|\bCIF\b|"
+    r"价格|报价|折扣|优惠|低价|贱卖",
     re.IGNORECASE,
 )
 
@@ -234,6 +293,24 @@ def _risky_hits():
         for s in _sentences(body):
             if RISK_RE.search(s):
                 hits.append((f"V{vi:02d}/正文变体句", s))
+    return hits
+
+def _price_hits():
+    """扫描用户可见文案(主题/正文轮次句/变体句)中的价格/折扣表述——硬门，claims 不可放行。"""
+    hits = []
+    for d in DIRECTIONS:
+        _pairs = [(f"{d[0]}/主题V{vi:02d}", s) for vi, s in enumerate(subjects_of(d), 1)]
+        _pairs.append((f"{d[0]}/正文轮次句", d[3]))
+        for where, text in _pairs:
+            for s in _sentences(text):
+                m = NO_PRICE_RE.search(s)
+                if m:
+                    hits.append((where, s, m.group(0)))
+    for vi, body in enumerate(VARIANTS, 1):
+        for s in _sentences(body):
+            m = NO_PRICE_RE.search(s)
+            if m:
+                hits.append((f"V{vi:02d}/正文变体句", s, m.group(0)))
     return hits
 
 def _all_user_sentences():
@@ -329,6 +406,15 @@ def _check_claim_items(claims):
             raise SystemExit(2)
 
 def validate_claims():
+    # ★价格硬门最先执行：必须在任何 claims 放行之前（价格/折扣不可认领）
+    price_hits = _price_hits()
+    if price_hits:
+        print(f"❌ 价格/折扣硬门：模板正文禁止出现价格、价格区间、FOB/CIF 报价、折扣、cheap 类表述"
+              f"（claims 也不得放行，共 {len(price_hits)} 处）:")
+        for loc, s, word in price_hits[:8]:
+            print(f"   - [{loc}] 命中「{word}」: {s}")
+        print("   价格只能由买家回复 CTA 关键词 PRICE 主动索取，之后走受控人工回复；不得自动发、不得进模板。(exit 2)")
+        raise SystemExit(2)
     hits = _risky_hits()
     claims = PLAN.get("claims")
     if claims is not None:
@@ -367,7 +453,6 @@ def validate_claims():
         raise SystemExit(2)
     print(f"  ✅ 事实闸门: {len(hits)} 个高风险句子全部被 claims 完整逐句覆盖(来源可溯+evidence强关联, 档案 {PROFILE_STATUS})")
 
-validate_claims()
 print(f"  ✅ --plan 加载: {args.plan} ({len(DIRECTIONS)}轮方向×{len(VARIANTS)}变体, 档案={PROFILE_STATUS} sha={PROFILE_SHA[:12]}..., 签名={SIGN})")
 DISPLAY = args.plan_name or args.product or "自定义计划"  # 展示用产品名(--plan 时可用 --plan-name 指定)
 
@@ -457,6 +542,84 @@ def check_plan_duplicates():
     print(f"  ✅ plan 去重预检: {len(VARIANTS)} 变体 + {len(DIRECTIONS)} 轮次句 + {len(subs)} 个标题均无重复")
 
 
+
+
+# ★垃圾邮件触发词硬门（2026-10-23 用户要求；清单见 specs/sequence-config.md）
+# 命中即 exit 2：标题最先被看到，必须和正文一起扫；只做短语子串匹配，避免误伤正常产品词。
+SPAM_HARD_BAN = [
+    "free sample", "free trial", "free quote", "free consultation",
+    "risk-free", "no obligation", "act now", "limited time", "click here",
+    "buy now", "order now", "congratulations", "you have won",
+    "you are a winner", "urgent action", "do not miss out", "last chance",
+    "100% free", "100% guaranteed", "$$$", "!!!",
+]
+
+
+
+def _norm_spam_text(s):
+    """垃圾词匹配前归一化：HTML 实体解码 + NFKC（全角→半角）+ 去标签/零宽，连字符当空格，折叠空白。"""
+    import html
+    import unicodedata
+    s = html.unescape(s)
+    s = unicodedata.normalize("NFKC", s)
+    s = re.sub(r"<[^>]+>", " ", s)
+    for _dash in (chr(0x2010), chr(0x2011), chr(0x2012), chr(0x2013), chr(0x2014), chr(0x2015), chr(0x2212), chr(0xfe63)):
+        s = s.replace(_dash, "-")
+    s = s.replace("-", " ").replace("_", " ")
+    for _zw in (chr(0x200b), chr(0x200c), chr(0x200d), chr(0x2060), chr(0x2061), chr(0x2062), chr(0x2063), chr(0x2064), chr(0xfeff)):
+        s = s.replace(_zw, "")
+    return " ".join(s.split()).lower()
+
+
+def _spam_re(phrase, compact=False):
+    """词边界匹配：前后不得紧邻字母/数字，避免 contract now 误命中 act now。"""
+    p = phrase.replace(" ", "") if compact else phrase
+    if not re.search(r"[a-z0-9]", p):
+        return re.compile(re.escape(p))
+    tail = "" if compact else r"(?![a-z0-9])"
+    return re.compile(r"(?<![a-z0-9])" + re.escape(p) + tail)
+
+
+SPAM_BAN_PATTERNS = [
+    (_norm_spam_text(w), _spam_re(_norm_spam_text(w)), _spam_re(_norm_spam_text(w), compact=True))
+    for w in SPAM_HARD_BAN
+]
+
+
+def _spam_hits(text):
+    """返回命中的垃圾短语：整词/去空格紧凑两种边界匹配（防 Clickhere 连写，同时防单词内误伤）。"""
+    norm = _norm_spam_text(text)
+    compact = norm.replace(" ", "")
+    out = []
+    for bad, whole_re, compact_re in SPAM_BAN_PATTERNS:
+        if whole_re.search(norm) or compact_re.search(compact):
+            out.append(bad)
+    return out
+
+def check_spam_words():
+    """垃圾邮件触发词硬门（2026-10-23）：标题+正文+轮次句命中即列出并 exit 2。
+    独立于四要素预检，避免被其他违例的展示截断（旧实现只打印前 10 条，垃圾词看不见）。
+    清单与说明见 specs/sequence-config.md「垃圾邮件触发词清单」。"""
+    hits = []
+    for d in DIRECTIONS:
+        for _vi, _s in enumerate(subjects_of(d), 1):
+            for bad in _spam_hits(_s):
+                hits.append(f"[{d[0]}-V{_vi:02d}] 标题含垃圾邮件触发词「{bad}」——换成人话")
+    for vi, body in enumerate(VARIANTS, 1):
+        for bad in _spam_hits(body):
+            hits.append(f"[V{vi:02d}] 正文含垃圾邮件触发词「{bad}」——换成人话")
+    for d in DIRECTIONS:
+        for bad in _spam_hits(d[3]):
+            hits.append(f"[{d[0]}] 轮次句含垃圾邮件触发词「{bad}」——换成人话")
+    for bad in _spam_hits(SIGN):
+        hits.append(f"[签名] 签名含垃圾邮件触发词「{bad}」——换一个正常昵称")
+    if hits:
+        print(f"❌ 垃圾邮件触发词硬门未过（{len(hits)} 处）——按 sequence-config 清单换词后重跑：")
+        for h in hits[:15]:
+            print(f"   - {h}")
+        raise SystemExit(2)
+    print(f"  ✅ 垃圾词预检: 标题/正文/轮次句均未命中 {len(SPAM_HARD_BAN)} 个禁用短语")
+
 def check_four_elements():
     """四要素+视觉扫读铁律（sequence-config）：①变体句含CTA（具体可回复）②优势具体化
     ③<b>加粗2-4处且含加粗回复关键词④CTA可回复性 ⑤整封≤120词 ⑥CTA回复关键词必须加粗。
@@ -525,6 +688,8 @@ def preview():
             print("  " + l)
     print(f"\n(预览仅代表; 生成={len(DIRECTIONS)}轮x{len(VARIANTS)}={len(DIRECTIONS)*len(VARIANTS)}, 每轮正文句不同+每变体正文句不同)")
 
+check_spam_words()
+validate_claims()
 check_plan_duplicates()
 check_four_elements()
 
@@ -537,6 +702,14 @@ def ensure_folder():
             print("❌ --foid 0 = 未指定目录, 整批模板会散落——S8 固化: 模板必须归入分组, 传已有分组 id 或留空自动建 (exit 1)")
             raise SystemExit(1)
         return str(args.foid).strip()
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     fl = subprocess.run(["curl", "-sSL", "-X", "POST",
                          "https://web.laifaxin.com/api/mailbox/templates-folder-list",
                          "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
@@ -558,6 +731,14 @@ def ensure_folder():
                 print(f"   分组复用: {args.prefix} (foid={fid})")
                 return str(fid)
             print(f"   ⚠️ 分组「{args.prefix}」已存在但未取到有效 id（返回字段={list(f.keys())}）——继续尝试创建")
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     fa = subprocess.run(["curl", "-sSL", "-X", "POST",
                          "https://web.laifaxin.com/api/mailbox/template-folder-add",
                          "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
@@ -588,7 +769,7 @@ def _existing_template_id(name):
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         for t in (json.loads(r.stdout).get("data") or {}).get("list") or []:
-            if isinstance(t, dict) and t.get("name") == name and not t.get("folder"):
+            if isinstance(t, dict) and t.get("name") == name:  # 2026-10-23 三审H：已分组(folder=true)也要识别为已存在，防 S8 半途重跑误判
                 tid = t.get("_id") or t.get("id")
                 if tid and re.fullmatch(r"[0-9a-f]{24}", str(tid)):
                     return str(tid)
@@ -599,6 +780,14 @@ def _existing_template_id(name):
 
 def add(name, subject, html):
     p = {"name": name, "foid": args.foid, "subject": subject, "html": html}
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     cmd = ["curl", "-sSL", "-X", "POST", "https://web.laifaxin.com/api/mailbox/template-add",
            "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",
@@ -673,6 +862,49 @@ bad = [n for n, v in results.items() if not re.fullmatch(r"[0-9a-f]{24}", str(v)
 if bad:
     print(f"❌ {len(bad)} 个模板创建失败(示例: {bad[:3]} -> {results[bad[0]]})——中止，勿用此映射重建序列(模板id校验(工具级))")
     sys.exit(1)
+
+# ★P0-D fail-closed：本批 name 必须能按 R##/V## 精确分组；否则 build_sequence 会按插入顺序
+#   静默切分（tmap_grid.group_by_round exact=False）——那正是错组源头。宁可不落盘也不给错映射。
+from tmap_grid import GridError as _TmapGridError, ROUNDS as _TMAP_ROUNDS, group_by_round as _group_by_round
+try:
+    _groups, _exact = _group_by_round(results)
+except _TmapGridError as exc:
+    print(f"❌ tmap 网格异常: {exc}——本批模板名不能按轮/变体精确分组，禁止落盘/重建序列 (exit 2)")
+    sys.exit(2)
+if not _exact or _TMAP_ROUNDS != EXPECTED_ROUNDS:
+    print("❌ tmap 网格非精确：模板名不符合 R##-…-V## 规范（或轮数≠12）——build_sequence 会静默顺序切分，"
+          "fail-closed 中止（不写 tmap、不推进 S8） (exit 2)")
+    sys.exit(2)
+_per_round = {len(ids) for _, ids in _groups}
+if _per_round != {EXPECTED_VARIANTS} or len(results) != EXPECTED_TOTAL:
+    print(f"❌ tmap 网格数量异常：每轮变体数={sorted(_per_round)}（要求 {EXPECTED_VARIANTS}）、"
+          f"总数={len(results)}（要求 {EXPECTED_TOTAL}）——禁止落盘 (exit 2)")
+    sys.exit(2)
+print(f"  ✅ tmap 网格精确: {EXPECTED_ROUNDS} 轮 × {EXPECTED_VARIANTS} 变体 = {len(results)}"
+      f"（按 name 的 R##/V## 精确分组，非顺序切分）")
+
+# ★P1-E 模板创建成功后自动跑差异断言（文档称必跑）：fail-closed，非 0 → 整体 exit 2。
+#   必须早于 tmap 落盘/S8 状态推进与任何"完成"输出——差异不达标=整批白做，不能声称成功。
+print(f"  ▶ 自动差异检查: tools/check_template_diff.py --prefix {args.prefix!r} --limit {len(results)}")
+try:
+    _diff = subprocess.run(
+        [sys.executable, str(KB / "tools" / "check_template_diff.py"),
+         "--token", args.token, "--org", args.org,
+         "--prefix", args.prefix, "--limit", str(len(results))],
+        capture_output=True, text=True, timeout=600)
+except (OSError, subprocess.SubprocessError) as exc:
+    print(f"❌ 模板差异检查无法执行({exc})——不能声称本批模板达标，整体中止 (exit 2)")
+    sys.exit(2)
+if _diff.stdout:
+    print(_diff.stdout.rstrip())
+if _diff.stderr:
+    print(_diff.stderr.rstrip())
+if _diff.returncode != 0:
+    print(f"❌ 模板差异检查未通过(exit {_diff.returncode})——本批模板不得进入序列；修 plan 后重跑本命令"
+          f"（同名模板会幂等复用） (整体 exit 2)")
+    sys.exit(2)
+print("✅ 自动差异检查通过：两两相似度≤0.70 且标题互不相同")
+
 if args.out:
     out_p = Path(args.out)
     out_p.parent.mkdir(parents=True, exist_ok=True)

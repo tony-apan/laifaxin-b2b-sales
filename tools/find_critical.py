@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-自动化找70%临界点（三页滑动平均 + 50页跳 + 逐页精确 + 跌破往前）
+自动化找70%临界点（★历史参考：旧口径 50页跳 + 三页滑动平均；现行定界以 RULES S4/threshold-probe-spec v3.1 为准=100页跳→前后3页→连续5页窗口→跌破往前，本工具不作为定界依据）
 用法:
   python3 find_critical.py --query <seed-domain> --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> \
     --match-words "水上/户外/..." [--exclude-words "摩托/服装/..."] \
     --start 1 --end 1000 --threshold 70 --step 50
 
-逻辑（固化自 threshold-method.md）:
-  1. 阶段1: 50页跳全局初筛 (工具)
-  2. 阶段2: 三页滑动平均判定每页达标(<70%破)
+逻辑（历史参考，固化自旧版 threshold-method.md；现行口径见 RULES S4）:
+  1. 阶段1: 50页跳全局初筛 (旧口径)
+  2. 阶段2: 三页滑动平均判定每页达标(<70%破)（旧口径）
   3. 阶段3: 临界附近逐页精确 (从粗到细)
   4. 跌破 70% 就往前找, 不看后面
 """
 import json, subprocess, argparse, time
 
+# 与 refine/company-list 请求一致的四区排除（RULES 铁律0；旧版 filters=[] 未排除 CN/TW/HK/MO）
+FOUR_REGION_FILTERS = [{"property": "country_code", "operator": "exclude", "value": "",
+                        "values": ["CN", "TW", "HK", "MO"], "valueType": "select"}]
+
 def fetch(page, keyword, token, org):
-    p = {"keyword": keyword, "current": page, "pageSize": 10, "filters": [], "logic": "and"}
+    p = {"keyword": keyword, "current": page, "pageSize": 10, "filters": FOUR_REGION_FILTERS, "logic": "and"}
     cmd = ["curl","-sSL","-X","POST","https://web.laifaxin.com/api/refine/company-list",
            "-H","Content-Type: application/json","-H",f"accesstoken: {token}",
            "-H", f"uid: {org}","-d",json.dumps(p)]

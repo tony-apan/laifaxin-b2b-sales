@@ -1,13 +1,15 @@
 ---
+doc_id: "specs-migration-handoff"
 title: "换机续接 SOP（AI 执行·备份/恢复/节点定位）"
-description: "换电脑续接获客项目的完整 AI SOP：旧机只备份 .local/、runs/<运营方>/（排除 _template/INDEX.md）、db/ 中本地未跟踪文件；新机先装同版/最新仓库并按 environment-setup 就绪环境；恢复先解到临时目录、只按白名单复制允许路径（不覆盖新仓规则/_template/db 跟踪索引），再逐项校验（项目/状态/profile 版本/序列 inactive）；token 不迁移新机重取；审批凭证仅作审计，高风险写节点必须新机对话原话重新确认；按 operation-record.md 标准状态定位节点续跑，禁止从 S0 重跑。附可直接复制给 AI 的用户指令块。"
+description: "换电脑续接 SOP：备份/恢复白名单、新机环境就绪、校验 profile 与状态后从断点续跑，禁止从 S0 重跑。"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-09-04
-updated: 2026-09-04
 author: "AI Agent"
 source: "RULES.md 迁移/持久性 + 审批闸门边界 + onboard_check.py 可续接扫描"
 related: [RULES.md, environment-setup.md, ../tools/onboard_check.py, ../runs/_template/operation-record.md]
 tags: [换机, 迁移, 续接, 断点, SOP, AI优先]
-status: verified
 audience: AI优先
 ---
 
@@ -30,7 +32,7 @@ audience: AI优先
 
 | 目录 | 内容 | 是否必备 |
 |---|---|---|
-| `.local/`（整目录） | 审批凭证 approvals.tsv、运营方档案（新版 `.local/operators/<operator_key>.md` 多公司各一份；旧版 `operator-profile.md` 兼容）等本地状态 | 必备 |
+| `.local/`（整目录） | 审批凭证 approvals.tsv、运营方档案（新版 `.local/operators/<operator_key>.md` 多公司各一份；旧版 operator-profile 单文件兼容）等本地状态 | 必备 |
 | `runs/<运营方>/`（只备份运营方目录；**排除 `runs/_template/` 与 `runs/INDEX.md` 等仓库自带文件**） | 各产品 operation-record.md / product-profile.md / evidence.json / tmap.json / verify-*；如使用网站增强，还包括项目内 `website-profile/` 候选、批准补丁与影响清单 | 必备 |
 | `db/` 中**本地未跟踪文件**（`db/issues.tsv` 等运行期新增表；`db/docs.tsv`、`db/tools.tsv` 等仓库自带跟踪文件**不带**） | 本地数据表（用于审计与 runs 登记） | 可选（有就带上） |
 

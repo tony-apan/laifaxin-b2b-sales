@@ -1,0 +1,8 @@
+# 统一行尾，避免 Windows 检出后 bash 脚本出现 \r 而无法执行
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.ps1 text eol=crlf

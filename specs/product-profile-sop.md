@@ -1,20 +1,22 @@
 ---
+doc_id: "specs-product-profile-sop"
 title: "产品知识档案 SOP（AI 提炼/主动要/回落/复用）"
-description: "产品知识档案 product-profile 的完整 SOP：何时触发、怎么从官网/目录/卖点提炼、用户不给时怎么主动要、8 字段怎么填、怎么校验、怎么与对抗审查对接、怎么落到 runs/ 并被 S2/S4/S7/S9 复用。"
+description: "产品知识档案 SOP：触发时机、提炼与主动要法、8 字段填写校验，供 S2/S4/S7/S9 复用。"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-09-04
-updated: 2026-09-09
 author: "AI + 用户对抗完善"
 source: "保温杯/户外帐篷/皮筏艇/步进电机实操"
 related: [RULES.md, SKILL.md, specs/product-fit.md, specs/sequence-config.md]
 tags: [产品知识档案, product-profile, SOP, 提炼, 回落, S0]
-status: verified
 audience: AI优先
 ---
 
 # 📇 产品知识档案 SOP（product-profile）
 
 > **一句话**：把"用户的产品（目录/网站/卖点）"变成一份**结构化、可复用、断点续接可读**的知识档案，随流程走，让 S2 客群更准、S7 卖点更真、S9 钩子更贴合。
-> **给谁看**：AI（执行者）。用户版话术在 `output-templates/S0-产品知识档案.md`；本文件是 AI 的"怎么提炼、怎么要、怎么校验"的 SOP。
+> **给谁看**：AI（执行者）。用户版话术在 `output-templates/S0-product-profile.md`；本文件是 AI 的"怎么提炼、怎么要、怎么校验"的 SOP。
 
 ## 1. 何时触发（两种都触发）
 
@@ -84,7 +86,7 @@ python3 tools/product_profile.py validate --profile <路径> --require-confirmed
 ## 6. 回落（存哪、怎么调用）
 
 - **回落位置**：`runs/<operator_key>/<product_key>/product-profile.md`。`operator_key/product_key` 创建后不可改名；跨会话/换机先读 `status/profile_version/content_sha256/updated_at/confirmed_at`。
-- **确认流程**：S0a 用 `output-templates/S0-产品知识档案.md` 展示 8 字段 → 用户重点核对 ③卖点/⑤认证/⑧数字及来源 → `product_profile.py confirm` 回落版本/hash。
+- **确认流程**：S0a 用 `output-templates/S0-product-profile.md` 展示 8 字段 → 用户重点核对 ③卖点/⑤认证/⑧数字及来源 → `product_profile.py confirm` 回落版本/hash。
 - **强制调用**：`flow_orchestrator.py --profile`、`gen_templates.py --profile` 均硬校验；S2/S4/S7/S9 的确认参数必须记录当前 profile path/hash/version。
   - S2 客群：读 ①②④ 的产品线/客群/市场 → 推演更准
   - S4 客户线：读 ①③④ 判断直采/OEM/拓品
@@ -100,5 +102,5 @@ product-profile 属于 **S2 客群分析/种子筛选/模板文案的"知识底�
 - 档案是**辅助获客的素材**，不是用户公司的全套尽调——不推导向用户索要财务/组织架构等与获客无关的敏感内部信息。
 - **网站资料独立**：用户自己的官网/产品页/目录只作为可选入口；AI 按 `website-profile-sop.md` 生成候选，未批准不进入本档案。买家网址转 S3，第三方参考只做分析。模块失败不阻断本 SOP 的手工/用户资料路径。
 - 用户**明确拒绝**给资料 → 尊重，用不含具体事实承诺的通用表达继续，不纠缠。
-- **主动索取分层**：公司名/官网/联系邮箱/默认市场等公司级资料 → `operator-profile.md`；产品线/卖点/认证/产能/MOQ/交期/价格带 → 当前 `product-profile.md`。两者都供 AI 建档与分析；公司身份/联系信息不进入签名区，confirmed 且有来源的产品事实可进入正文卖点。
+- **主动索取分层**：公司名/官网/联系邮箱/默认市场等公司级资料 → `.local/operators/<operator_key>.md`；产品线/卖点/认证/产能/MOQ/交期/价格带 → 当前 `product-profile.md`。两者都供 AI 建档与分析；公司身份/联系信息不进入签名区，confirmed 且有来源的产品事实可进入正文卖点。
 - **永不索要/写入产品档案（第三方信息）**：潜在买家/客户/联系人的联系方式清单、终端用户邮箱。

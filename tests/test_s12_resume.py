@@ -11,11 +11,16 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+import os as _os
+_os.environ.setdefault("LFX_GATE_TEST_MODE", "1")
+NOW_ISO = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
 
 
 ROOT = Path(__file__).resolve().parents[1]
 FLOW_FILES = (
     "flow_orchestrator.py",
+    "s11_closure.py",
     "approval.py",
     "compliance_validation.py",
     "evidence_validation.py",
@@ -70,6 +75,8 @@ class ResumeS12Test(unittest.TestCase):
             "product_key": "product",
             "project": self.project,
             "sequence_id": seq,
+            **({"s11_finalized_at": NOW_ISO,
+                "s11_manifest_sha256": "a" * 64} if status == "S11" else {}),
             **extra,
         }
         body = "\n".join(f'{key}: "{value}"' for key, value in values.items())
@@ -258,8 +265,9 @@ class ResumeS12Test(unittest.TestCase):
                 self.assertEqual([], self.approval_rows())
 
     def test_decline_does_not_issue_credential(self):
+        # ★P0-B：拒绝（用户答"否"）同样必须是失败退出码 2
         code, output = self.run_tty("否")
-        self.assertEqual(0, code, output)
+        self.assertEqual(2, code, output)
         self.assertEqual([], self.approval_rows())
 
     def test_explicit_activation_issues_schema_bound_approval_and_keeps_s11(self):
@@ -286,8 +294,16 @@ class ResumeS12Test(unittest.TestCase):
         self.assertIn("status: \"S11\"", self.record.read_text(encoding="utf-8"))
 
     def test_confirm_without_activation_word_does_not_issue_credential(self):
+        # ★P0-B：拒绝=失败路径，必须 exit 2（旧实现打印后 return 0，脚本化调用会被当成功）
         code, output = self.run_tty("确认")
-        self.assertEqual(0, code, output)
+        self.assertEqual(2, code, output)
+        self.assertEqual([], self.approval_rows())
+
+    def test_only_activation_word_without_confirm_is_rejected(self):
+        """★P0-B：只说「激活」不再算授权——必须逐字含「确认激活」四个字。"""
+        code, output = self.run_tty("激活")
+        self.assertEqual(2, code, output)
+        self.assertIn("确认激活", output)
         self.assertEqual([], self.approval_rows())
 
     def test_resume_and_dry_run_are_mutually_exclusive(self):

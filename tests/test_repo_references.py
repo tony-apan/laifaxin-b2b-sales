@@ -2,7 +2,7 @@
 
 新手实测发现：文档把 save_company_cli.py / auth_guard.py / step_gate.py /
 contact_add_authorized.py 当成"现役工具"反复引用，但仓库里根本没有这些文件；
-S0-开场提问.md / S0-适配说明.md 同样缺失。AI 照着文档跑会直接断。
+S0-opening-questions.md / S0-fit-notes.md 同样缺失。AI 照着文档跑会直接断。
 本测试把"文档承诺 = 仓库事实"钉死。
 """
 import py_compile
@@ -86,7 +86,7 @@ class FirstScreenPlainLanguageTest(unittest.TestCase):
 
     def test_step1_screen_has_six_steps_and_number(self):
         block = self._blocks()[1]
-        for must in ("找买家", "划范围", "建跟进计划", "当前", "接下来", "只回一个数字"):
+        for must in ("找买家", "筛名单", "建跟进计划", "现在", "该回什么", "还要回 8 次"):
             self.assertIn(must, block, f"第 1 屏缺少「{must}」")
 
 
@@ -94,8 +94,8 @@ class SaveAuthorizationWordingTest(unittest.TestCase):
     """保存要花额度：卡上必须先写清数字，用户回 1 才算授权。"""
 
     def test_save_card_shows_numbers_and_number_reply(self):
-        text = (ROOT / "output-templates" / "S5-保存确认.md").read_text(encoding="utf-8")
-        self.assertIn("回 **1**", text)
+        text = (ROOT / "output-templates" / "S5-save-confirm.md").read_text(encoding="utf-8")
+        self.assertIn("确认保存", text)
         self.assertTrue("额度" in text or "点数" in text, "保存卡必须写清会花多少额度/点数")
 
     def test_beginner_flow_explains_save_exception(self):

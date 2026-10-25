@@ -1,15 +1,18 @@
 ---
+doc_id: "docs-06-email-sequence"
 title: "邮件序列指南（智能跟进计划详解）"
 description: "3~12 轮自动多轮发信 + 发送上限/公司触发器/未发送触发器 + 后续邮件内容规划（别只换标题）"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-09-03
 author: "AI Agent + 运营方"
 source: "https://www.laifa.xin/zhinan/email-sequence-guide"
 related: [05-email-marketing, 07-ai-cold-email]
 tags: [邮件序列, 风控, 触发器]
-status: verified
 audience: 人+AI
 ---
+
 # 06 · 邮件序列指南（智能跟进计划详解）
 
 > 来源：`https://www.laifa.xin/zhinan/email-sequence-guide`

@@ -18,7 +18,7 @@ def blocks(text):
 
 class InstallFirstScreenTest(unittest.TestCase):
     def test_install_report_asks_two_things_not_menu(self):
-        text = read("output-templates/S0-安装完成汇报.md")
+        text = read("output-templates/S0-install-report.md")
         new_user = text.split("## 话术（新用户", 1)[1].split("## 话术（老用户", 1)[0]
         self.assertIn("怎么称呼您", new_user, "新用户话术必须问昵称")
         self.assertIn("卖什么产品", new_user, "新用户话术必须问产品")
@@ -26,7 +26,7 @@ class InstallFirstScreenTest(unittest.TestCase):
         self.assertNotIn("开始新的获客项目", new_user, "新用户话术不得列出任务菜单")
 
     def test_task_menu_is_history_only(self):
-        text = read("output-templates/S0-任务菜单.md")
+        text = read("output-templates/S0-task-menu.md")
         self.assertIn("有旧项目", text)
         self.assertNotIn("## 无旧项目时", text, "新用户不应再看到任务菜单")
 
@@ -45,7 +45,7 @@ class InstallFirstScreenTest(unittest.TestCase):
     def test_onboard_check_no_menu_for_new_users(self):
         source = read("tools/onboard_check.py")
         self.assertRegex(source, r"本次未检测到旧项目.*?不展示菜单", "onboard_check 新用户分支不得输出菜单")
-        self.assertIn("S0-开场提问.md C1 只问两样", source)
+        self.assertIn("S0-opening-questions.md C1 只问两样", source)
 
     def test_opening_gate_contract(self):
         import sys
