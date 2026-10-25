@@ -107,7 +107,7 @@ CURL_STATUS_MARKER = "\n__HTTP_STATUS__:"
 def _curl_json(cmd, what):
     """执行 curl，返回 (payload, http_status)；网络失败/非 JSON/非对象 → AuditHTTPError。"""
     try:
-        completed = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        completed = subprocess.run(cmd, capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
     except (OSError, subprocess.SubprocessError) as exc:
         raise AuditHTTPError(f"{what} 网络请求失败：{exc}")
     if completed.returncode != 0:

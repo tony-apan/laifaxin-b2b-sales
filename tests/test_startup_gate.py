@@ -26,7 +26,7 @@ def make_env(tmp: Path):
 
 def run(args, env):
     return subprocess.run([sys.executable, str(GATE)] + args,
-                          capture_output=True, text=True, env=env, cwd=str(ROOT))
+                          capture_output=True, text=True, env=env, cwd=str(ROOT), encoding="utf-8", errors="replace")
 
 
 class StartupGateTest(unittest.TestCase):

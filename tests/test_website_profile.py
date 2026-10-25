@@ -56,19 +56,19 @@ class WebsiteProfileTest(unittest.TestCase):
         self.project_dir = self.root / "runs" / "acme" / "widget"
         self.project_dir.mkdir(parents=True)
         self.product = self.project_dir / "product-profile.md"
-        template = (ROOT / "runs" / "_template" / "product-profile.md").read_text()
+        template = (ROOT / "runs" / "_template" / "product-profile.md").read_text(encoding="utf-8")
         for old, new in (("${OPERATOR_KEY}", "acme"), ("${PRODUCT_KEY}", "widget"),
                          ("${CREATED_AT}", "2026-09-07T00:00:00"),
                          ("${UPDATED_AT}", "2026-09-07T00:00:00"),
                          ("${STATUS}", "draft"), ("${SOURCES_STATUS}", "requested")):
             template = template.replace(old, new)
-        self.product.write_text(template)
+        self.product.write_text(template, encoding="utf-8")
         self.operator = self.root / ".local" / "operators" / "acme.md"
         self.operator.parent.mkdir(parents=True)
         self.operator.write_text(
             "# operator\noperator_key: acme\nnickname: Tony\ncompany_name: Old Co\n"
             "website: https://acme.example\ncontact_email: hello@acme.example\n"
-            "target_markets: EU\ndefault_languages: en\nupdated_at: old\n")
+            "target_markets: EU\ndefault_languages: en\nupdated_at: old\n", encoding="utf-8")
         self.candidate = self.root / "candidate.json"
 
     def tearDown(self):
@@ -76,7 +76,7 @@ class WebsiteProfileTest(unittest.TestCase):
 
     def run_cli(self, *args):
         return subprocess.run([sys.executable, str(CLI), *map(str, args)], cwd=self.root,
-                              text=True, capture_output=True)
+                              text=True, capture_output=True, encoding="utf-8", errors="replace")
 
     def item(self, item_id="f1", target_profile="product", target_field="1",
              text="Industrial widget", source_url="https://acme.example/about",
@@ -99,7 +99,7 @@ class WebsiteProfileTest(unittest.TestCase):
                 "sections": sections}
 
     def write_candidate(self, data=None):
-        self.candidate.write_text(json.dumps(data or self.candidate_data(self.item())))
+        self.candidate.write_text(json.dumps(data or self.candidate_data(self.item())), encoding="utf-8")
 
     def make_patch(self, target="product", selected="f1", base=None, name="patch.json"):
         self.write_candidate()
@@ -111,7 +111,7 @@ class WebsiteProfileTest(unittest.TestCase):
         return patch
 
     def approve(self, patch, quote="确认应用", by="Tony", ack=None):
-        patch_id = json.loads(Path(patch).read_text())["patch_id"]
+        patch_id = json.loads(Path(patch).read_text(encoding="utf-8"))["patch_id"]
         return self.run_cli("approve-patch", "--patch", patch, "--ack-patch",
                             patch_id if ack is None else ack, "--by", by, "--quote", quote)
 
@@ -249,7 +249,7 @@ class WebsiteProfileTest(unittest.TestCase):
             result = self.run_cli("prepare-patch", "--candidate", self.candidate, "--target", "product",
                                   "--select", "f1", "--base-profile", self.product, "--out", path)
             self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
-            return json.loads(path.read_text())["patch_id"]
+            return json.loads(path.read_text(encoding="utf-8"))["patch_id"]
 
         original = self.candidate_data(self.item())
         first = prepare(original, "stable-1.json")
@@ -295,7 +295,7 @@ class WebsiteProfileTest(unittest.TestCase):
 
     def test_base_hash_drift(self):
         patch = self.make_patch(); self.assertEqual(self.approve(patch).returncode, 0)
-        self.product.write_text(self.product.read_text() + "\nexternal change\n")
+        self.product.write_text(self.product.read_text(encoding="utf-8") + "\nexternal change\n", encoding="utf-8")
         before = self.product.read_bytes()
         self.assertEqual(self.apply_direct(patch), 4)
         self.assertEqual(self.product.read_bytes(), before)
@@ -303,12 +303,12 @@ class WebsiteProfileTest(unittest.TestCase):
     def test_product_precise_change_draft_version_and_impact(self):
         patch = self.make_patch(); self.assertEqual(self.approve(patch).returncode, 0)
         self.assertEqual(self.apply_direct(patch), 0)
-        text = self.product.read_text()
+        text = self.product.read_text(encoding="utf-8")
         self.assertIn("- 内容：Industrial widget", text)
         self.assertIn("- source: URL:https://acme.example/about", text)
         self.assertIn("status: draft", text); self.assertIn("profile_version: 2", text)
         self.assertIn("## ②", text); self.assertIn("- 内容：（待补）", text)
-        approved_hash = json.loads(patch.read_text())["canonical_patch_sha256"]
+        approved_hash = json.loads(patch.read_text(encoding="utf-8"))["canonical_patch_sha256"]
         self.assertRegex(text, rf"(?m)^\| .+ \| website-profile v2 \| patch sha256:{approved_hash} \|$")
         approved_dir = self.project_dir / "website-profile" / "approved"
         impacts = list(approved_dir.glob("*-impact.json"))
@@ -316,12 +316,12 @@ class WebsiteProfileTest(unittest.TestCase):
         self.assertEqual(len(impacts), 1)
         self.assertEqual(len(archives), 1)
         self.assertEqual(archives[0].read_bytes(), patch.read_bytes())
-        self.assertEqual(json.loads(archives[0].read_text()), json.loads(patch.read_text()))
-        load_utils().validate_patch(json.loads(archives[0].read_text()), require_approved=True)
-        self.assertEqual(json.loads(impacts[0].read_text())["earliest_affected_state"], "S2")
+        self.assertEqual(json.loads(archives[0].read_text(encoding="utf-8")), json.loads(patch.read_text(encoding="utf-8")))
+        load_utils().validate_patch(json.loads(archives[0].read_text(encoding="utf-8")), require_approved=True)
+        self.assertEqual(json.loads(impacts[0].read_text(encoding="utf-8"))["earliest_affected_state"], "S2")
 
     def write_matching_sidecars(self, patch, include=("patch", "impact")):
-        value = json.loads(Path(patch).read_text())
+        value = json.loads(Path(patch).read_text(encoding="utf-8"))
         approved = self.project_dir / "website-profile" / "approved"
         approved.mkdir(parents=True, exist_ok=True)
         paths = {}
@@ -332,7 +332,7 @@ class WebsiteProfileTest(unittest.TestCase):
             paths["impact"] = approved / f"{value['patch_id']}-impact.json"
             paths["impact"].write_text(json.dumps({
                 "patch_id": value["patch_id"], "patch_sha256": value["canonical_patch_sha256"],
-                "project": value["project"], "target_profile": value["target_profile"]}))
+                "project": value["project"], "target_profile": value["target_profile"]}), encoding="utf-8")
         return paths
 
     def test_matching_sidecars_recover_after_interrupted_apply(self):
@@ -354,15 +354,15 @@ class WebsiteProfileTest(unittest.TestCase):
     def test_foreign_sidecar_is_preserved_and_rejected(self):
         patch = self.make_patch(name="foreign-sidecar.json")
         self.assertEqual(self.approve(patch).returncode, 0)
-        patch_id = json.loads(patch.read_text())["patch_id"]
+        patch_id = json.loads(patch.read_text(encoding="utf-8"))["patch_id"]
         approved = self.project_dir / "website-profile" / "approved"
         approved.mkdir(parents=True, exist_ok=True)
         artifact = approved / f"{patch_id}-impact.json"
-        artifact.write_text('{"patch_id":"foreign"}\n')
+        artifact.write_text('{"patch_id":"foreign"}\n', encoding="utf-8")
         before = self.product.read_bytes(); mtime = self.product.stat().st_mtime_ns
         self.assertEqual(self.apply_direct(patch), 3)
         self.assertEqual((self.product.read_bytes(), self.product.stat().st_mtime_ns), (before, mtime))
-        self.assertEqual(artifact.read_text(), '{"patch_id":"foreign"}\n')
+        self.assertEqual(artifact.read_text(encoding="utf-8"), '{"patch_id":"foreign"}\n')
 
     def test_product_replacement_preserves_literal_backslashes(self):
         source_url = "https://acme.example/docs/%5Cspec"
@@ -377,7 +377,7 @@ class WebsiteProfileTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
         self.assertEqual(self.approve(patch).returncode, 0)
         self.assertEqual(self.apply_direct(patch), 0)
-        rendered = self.product.read_text()
+        rendered = self.product.read_text(encoding="utf-8")
         self.assertIn(r"- 内容：Size chart C:\docs\spec", rendered)
         self.assertIn("- source: URL:https://acme.example/docs/%5Cspec", rendered)
 
@@ -403,7 +403,7 @@ class WebsiteProfileTest(unittest.TestCase):
     def test_s12_rejects_without_changes_or_record_argument(self):
         patch = self.make_patch(); self.assertEqual(self.approve(patch).returncode, 0)
         record = self.project_dir / "operation-record.md"
-        record.write_text("---\nstatus: S12\n---\nACTIVE\n")
+        record.write_text("---\nstatus: S12\n---\nACTIVE\n", encoding="utf-8")
         before = self.product.read_bytes(); mtime = self.product.stat().st_mtime_ns
         self.assertEqual(self.apply_direct(patch), 6)
         self.assertEqual((self.product.read_bytes(), self.product.stat().st_mtime_ns), (before, mtime))
@@ -422,12 +422,12 @@ class WebsiteProfileTest(unittest.TestCase):
     def test_live_and_stale_project_locks(self):
         patch = self.make_patch(); self.assertEqual(self.approve(patch).returncode, 0)
         lock = self.product.parent / ".website-profile.lock"
-        lock.write_text(json.dumps({"pid": __import__("os").getpid(), "project": self.project}) + "\n")
+        lock.write_text(json.dumps({"pid": __import__("os").getpid(), "project": self.project}) + "\n", encoding="utf-8")
         before = self.product.read_bytes(); mtime = self.product.stat().st_mtime_ns
         self.assertEqual(self.apply_direct(patch), 6)
         self.assertEqual((self.product.read_bytes(), self.product.stat().st_mtime_ns), (before, mtime))
         self.assertTrue(lock.exists())
-        lock.write_text(json.dumps({"pid": 99999999, "project": self.project}) + "\n")
+        lock.write_text(json.dumps({"pid": 99999999, "project": self.project}) + "\n", encoding="utf-8")
         self.assertEqual(self.apply_direct(patch), 0)
         self.assertFalse(lock.exists())
 
@@ -454,15 +454,15 @@ class WebsiteProfileTest(unittest.TestCase):
         lock = self.product.parent / ".website-profile.lock"
         guard = lock.with_name(lock.name + ".cleanup")
 
-        guard.write_text(json.dumps({"pid": os.getpid(), "project": self.project}) + "\n")
+        guard.write_text(json.dumps({"pid": os.getpid(), "project": self.project}) + "\n", encoding="utf-8")
         with self.assertRaises(SystemExit) as raised:
             with module.lock_cleanup_guard(lock, self.project):
                 pass
         self.assertEqual(raised.exception.code, 6); self.assertTrue(guard.exists())
 
-        guard.write_text(json.dumps({"pid": 99999999, "project": self.project}) + "\n")
+        guard.write_text(json.dumps({"pid": 99999999, "project": self.project}) + "\n", encoding="utf-8")
         with module.lock_cleanup_guard(lock, self.project):
-            owner = json.loads(guard.read_text())
+            owner = json.loads(guard.read_text(encoding="utf-8"))
             self.assertEqual((owner["pid"], owner["project"]), (os.getpid(), self.project))
         self.assertFalse(guard.exists())
 
@@ -475,7 +475,7 @@ class WebsiteProfileTest(unittest.TestCase):
         old = time.time() - 301
         os.utime(guard, (old, old))
         with module.lock_cleanup_guard(lock, self.project):
-            self.assertEqual(json.loads(guard.read_text())["project"], self.project)
+            self.assertEqual(json.loads(guard.read_text(encoding="utf-8"))["project"], self.project)
         self.assertFalse(guard.exists())
 
     def test_operator_rejects_when_any_product_record_exists(self):
@@ -489,7 +489,7 @@ class WebsiteProfileTest(unittest.TestCase):
         self.assertEqual(self.approve(patch).returncode, 0)
         other_project = self.root / "runs" / "acme" / "other-product"
         other_project.mkdir(parents=True)
-        (other_project / "operation-record.md").write_text("---\nstatus: S1\n---\n")
+        (other_project / "operation-record.md").write_text("---\nstatus: S1\n---\n", encoding="utf-8")
         before = self.operator.read_bytes(); mtime = self.operator.stat().st_mtime_ns
         self.assertEqual(self.apply_direct(patch, profile=self.operator), 6)
         self.assertEqual((self.operator.read_bytes(), self.operator.stat().st_mtime_ns), (before, mtime))
@@ -524,8 +524,8 @@ class WebsiteProfileTest(unittest.TestCase):
         before = self.product.read_bytes(); mtime = self.product.stat().st_mtime_ns
         self.assertEqual(self.apply_direct(patch, project="other/widget"), 4)
         self.assertEqual((self.product.read_bytes(), self.product.stat().st_mtime_ns), (before, mtime))
-        text = self.product.read_text().replace("operator_key: acme", "operator_key: other", 1)
-        other = self.root / "other-product.md"; other.write_text(text)
+        text = self.product.read_text(encoding="utf-8").replace("operator_key: acme", "operator_key: other", 1)
+        other = self.root / "other-product.md"; other.write_text(text, encoding="utf-8")
         other_patch = self.make_patch(base=other, name="other-patch.json")
         self.assertEqual(self.approve(other_patch).returncode, 0)
         before_other = other.read_bytes(); other_mtime = other.stat().st_mtime_ns
@@ -547,11 +547,11 @@ class WebsiteProfileTest(unittest.TestCase):
         return patch
 
     def test_operator_preserves_extensions_and_rejects_missing_or_duplicate_target(self):
-        base = self.operator.read_text()
-        self.operator.write_text("# custom comment\nunknown_future_key: preserve: exactly\n" + base)
+        base = self.operator.read_text(encoding="utf-8")
+        self.operator.write_text("# custom comment\nunknown_future_key: preserve: exactly\n" + base, encoding="utf-8")
         patch = self.make_operator_patch(name="operator-preserve.json")
         self.assertEqual(self.apply_direct(patch, profile=self.operator), 0)
-        rendered = self.operator.read_text()
+        rendered = self.operator.read_text(encoding="utf-8")
         self.assertIn("# custom comment\n", rendered)
         self.assertIn("unknown_future_key: preserve: exactly\n", rendered)
         self.assertIn("company_name: New Co\n", rendered)
@@ -563,7 +563,7 @@ class WebsiteProfileTest(unittest.TestCase):
                     original += "company_name: Duplicate Co\n"
                 else:
                     original = original.replace("company_name: Old Co\n", "")
-                self.operator.write_text(original)
+                self.operator.write_text(original, encoding="utf-8")
                 approved = self.project_dir / "website-profile" / "approved"
                 if approved.is_dir():
                     for old in approved.iterdir():
@@ -589,13 +589,13 @@ class WebsiteProfileTest(unittest.TestCase):
         self.assertFalse((self.operator.parent / "website-profile").exists())
 
     def test_user_source_count_and_product_impact_mapping(self):
-        text = self.product.read_text()
+        text = self.product.read_text(encoding="utf-8")
         text = text.replace("## ② 产品线（品类/子品类/SKU/成分配比）\n- 内容：（待补）\n- source: none",
                             "## ② 产品线（品类/子品类/SKU/成分配比）\n- 内容：User supplied line\n- source: 用户")
-        self.product.write_text(text)
+        self.product.write_text(text, encoding="utf-8")
         patch = self.make_patch(base=self.product); self.assertEqual(self.approve(patch).returncode, 0)
         self.assertEqual(self.apply_direct(patch), 0)
-        rendered = self.product.read_text()
+        rendered = self.product.read_text(encoding="utf-8")
         self.assertIn("- 内容：User supplied line\n- source: 用户", rendered)
         self.assertIn("sources_present: partial", rendered)
         self.assertIn("sources_status: partial", rendered)
@@ -606,12 +606,12 @@ class WebsiteProfileTest(unittest.TestCase):
 
     def test_schema_and_templates_parse_and_required_keys_match_runtime(self):
         utils = load_utils()
-        candidate_schema = json.loads((ROOT / "website-profile" / "schema-candidate.json").read_text())
-        patch_schema = json.loads((ROOT / "website-profile" / "schema-patch.json").read_text())
+        candidate_schema = json.loads((ROOT / "website-profile" / "schema-candidate.json").read_text(encoding="utf-8"))
+        patch_schema = json.loads((ROOT / "website-profile" / "schema-patch.json").read_text(encoding="utf-8"))
         self.assertEqual(set(candidate_schema["required"]), set(utils.CANDIDATE_KEYS))
         self.assertEqual(set(patch_schema["required"]), set(utils.PATCH_KEYS))
         for name in ("website-profile-candidate.json", "website-profile-patch.json"):
-            self.assertIsInstance(json.loads((ROOT / "runs" / "_template" / name).read_text()), dict)
+            self.assertIsInstance(json.loads((ROOT / "runs" / "_template" / name).read_text(encoding="utf-8")), dict)
 
     def test_atomic_replace_failure_preserves_bytes_and_mtime(self):
         utils = load_utils()

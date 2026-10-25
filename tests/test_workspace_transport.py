@@ -139,7 +139,7 @@ class AuditToolProductWordsTest(unittest.TestCase):
         result = subprocess.run(
             [sys.executable, str(TOOLS / "audit_company.py"),
              "--query", "x", "--pages", "1", "--token", "t", "--org", "o"],
-            capture_output=True, text=True, timeout=30)
+            capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace")
         self.assertEqual(2, result.returncode, "缺 --match-words 应 fail-fast 退出 2")
         self.assertIn("--match-words", result.stdout)
 

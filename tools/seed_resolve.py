@@ -48,7 +48,7 @@ def api(path, p, t=60):
                         "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",
                           "-d", json.dumps(p)],
-                       capture_output=True, text=True, timeout=t)
+                       capture_output=True, text=True, timeout=t, encoding="utf-8", errors="replace")
     try: return json.loads(r.stdout)
     except: return {}
 

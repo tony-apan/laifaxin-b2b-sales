@@ -58,7 +58,7 @@ def api(path, p, t=40):
            "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",
                           "-d", json.dumps(p)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t, encoding="utf-8", errors="replace")
     try: return json.loads(r.stdout)
     except: return {}
 

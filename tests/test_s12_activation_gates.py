@@ -85,6 +85,8 @@ class ActivationStructureGateTest(unittest.TestCase):
         self.bin = Path(self.tmp.name) / "bin"
         self.bin.mkdir()
         curl = self.bin / "curl"
+        if os.name == "nt":
+            raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
         curl.write_text(FAKE_CURL, encoding="utf-8")
         curl.chmod(0o755)
         self.log = Path(self.tmp.name) / "curl.log"
@@ -102,7 +104,7 @@ class ActivationStructureGateTest(unittest.TestCase):
             [sys.executable, str(ROOT / "tools" / "activate_sequence.py"),
              "--check-structure", "--token", TOKEN, "--org", ORG, "--seq", SEQ],
             cwd=str(ROOT), capture_output=True, text=True, env=env, timeout=60,
-        )
+        encoding="utf-8", errors="replace")
 
     def test_good_structure_passes(self):
         r = self._run("good")

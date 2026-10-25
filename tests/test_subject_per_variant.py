@@ -71,7 +71,7 @@ class SubjectPerVariantTest(unittest.TestCase):
              "--token", "x", "--org", "1", "--product", "demo", "--name", "Tony",
              "--prefix", "英-demo-", "--project", "tony/demo",
              "--profile", "runs/tony/demo/product-profile.md"],
-            capture_output=True, text=True, cwd=ROOT, timeout=90)
+            capture_output=True, text=True, cwd=ROOT, timeout=90, encoding="utf-8", errors="replace")
         return r
 
     def test_rejects_single_subject_for_multiple_variants(self):

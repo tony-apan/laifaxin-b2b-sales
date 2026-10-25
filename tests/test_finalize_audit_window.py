@@ -129,7 +129,7 @@ class FinalizeAuditWindowTest(unittest.TestCase):
             text=True,
             capture_output=True,
             timeout=30,
-        )
+        encoding="utf-8", errors="replace")
 
     # ---- 1) 合法窗口通过 ----
     def test_legal_window_advances_to_s4(self):

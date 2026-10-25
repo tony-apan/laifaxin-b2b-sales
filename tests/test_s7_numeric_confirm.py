@@ -35,7 +35,7 @@ class S7NumericConfirmTest(unittest.TestCase):
         return subprocess.run(
             [sys.executable, str(self.repo / "tools" / "approval.py"), "grant",
              "--project", PROJECT, "--state", state, "--quote", quote, "--params", "{}"],
-            capture_output=True, text=True, cwd=self.repo, env=self.env, timeout=60)
+            capture_output=True, text=True, cwd=self.repo, env=self.env, timeout=60, encoding="utf-8", errors="replace")
 
     def test_s7_accepts_bare_number(self):
         r = self.grant("S7_模板预览", "1")

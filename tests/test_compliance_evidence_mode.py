@@ -197,6 +197,8 @@ class ActivateLocalGateOrderTest(unittest.TestCase):
         self.bin_dir.mkdir()
         self.curl_log = self.repo / "curl.log"
         curl = self.bin_dir / "curl"
+        if os.name == "nt":
+            raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
         tpl = "[" + ", ".join('"%024x"' % (i + 0x300) for i in range(12)) + "]"
         curl.write_text(_fake_activate_platform(str(self.repo / "active.marker"), tpl), encoding="utf-8")
         curl.chmod(0o755)
@@ -258,7 +260,7 @@ class ActivateLocalGateOrderTest(unittest.TestCase):
         env["PATH"] = str(self.bin_dir) + os.pathsep + env.get("PATH", "")
         env["CURL_LOG"] = str(self.curl_log)
         env.update(env_overrides or {})
-        result = subprocess.run(self.command(**overrides), text=True, capture_output=True, env=env, timeout=10)
+        result = subprocess.run(self.command(**overrides), text=True, capture_output=True, env=env, timeout=10, encoding="utf-8", errors="replace")
         calls = self.curl_log.read_text(encoding="utf-8").splitlines() if self.curl_log.exists() else []
         return result, calls
 

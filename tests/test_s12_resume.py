@@ -323,7 +323,7 @@ class ResumeS12Test(unittest.TestCase):
         result = subprocess.run(
             [sys.executable, str(self.repo / "tools" / "flow_orchestrator.py"), "--org", ORG, "--profile", str(self.profile)],
             text=True, capture_output=True, timeout=10,
-        )
+        encoding="utf-8", errors="replace")
         self.assertEqual(2, result.returncode)
         self.assertIn("--token", result.stderr)
         self.assertIn("--nickname", result.stderr)
@@ -352,7 +352,7 @@ class ResumeS12Test(unittest.TestCase):
                 "--compliance-file", str(self.compliance), "--dry-run",
             ],
             text=True, capture_output=True, timeout=10,
-        )
+        encoding="utf-8", errors="replace")
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertEqual([], self.approval_rows())
         self.assertIn("dry-run 不写凭证", result.stdout)

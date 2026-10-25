@@ -104,7 +104,7 @@ def read_owner(profile):
     if marker.is_symlink():
         raise Failure(21, 'launch')
     try:
-        data = json.loads(marker.read_text())
+        data = json.loads(marker.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             return None
         signature = data.pop('signature')
@@ -206,7 +206,7 @@ class ProfileLock:
                 fd = os.open(str(self.path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
             except FileExistsError:
                 before = self.path.stat()
-                raw = self.path.read_text()
+                raw = self.path.read_text(encoding="utf-8")
                 try:
                     old = json.loads(raw)
                     if not isinstance(old, dict):
@@ -220,7 +220,7 @@ class ProfileLock:
                 if not stale or attempt:
                     raise Failure(14, 'launch')
                 current = self.path.stat()
-                if (current.st_ino, current.st_mtime_ns) != (before.st_ino, before.st_mtime_ns) or self.path.read_text() != raw:
+                if (current.st_ino, current.st_mtime_ns) != (before.st_ino, before.st_mtime_ns) or self.path.read_text(encoding="utf-8") != raw:
                     raise Failure(14, 'launch')
                 self.path.unlink()
                 print('E_STALE_LOCK', file=sys.stderr)
@@ -234,7 +234,7 @@ class ProfileLock:
         try:
             if not getattr(self, 'preserve', False):
                 try:
-                    if json.loads(self.path.read_text()).get('identity') == self.identity:
+                    if json.loads(self.path.read_text(encoding="utf-8")).get('identity') == self.identity:
                         self.path.unlink()
                 except (OSError, ValueError):
                     pass
@@ -253,7 +253,7 @@ def playwright_browser(root=None):
              'p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
     try:
         result = subprocess.run([str(python), '-c', probe], stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, text=True, timeout=20, check=False)
+                                stderr=subprocess.PIPE, text=True, timeout=20, check=False, encoding="utf-8", errors="replace")
     except (OSError, subprocess.SubprocessError):
         raise Failure(26, 'launch', 'E_PLAYWRIGHT_MISSING')
     executable = result.stdout.strip() if result.returncode == 0 else ''
@@ -315,7 +315,7 @@ def active_port(profile):
     path = profile / 'DevToolsActivePort'
     if path.is_symlink():
         raise ValueError()
-    lines = path.read_text().splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     if len(lines) != 2:
         raise ValueError()
     port = int(lines[0])
@@ -383,9 +383,9 @@ def wait_port(profile, proc, deadline):
 def process_identity(pid):
     if os.name == 'nt':
         command = '$p=Get-CimInstance Win32_Process -Filter \"ProcessId=' + str(int(pid)) + '\"; $p.CreationDate.ToString(\"o\"); $p.CommandLine'
-        result = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', command], capture_output=True, text=True, timeout=1)
+        result = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', command], capture_output=True, text=True, timeout=1, encoding="utf-8", errors="replace")
         return result.stdout.strip() if result.returncode == 0 else ''
-    result = subprocess.run(['ps', '-p', str(pid), '-o', 'lstart=', '-o', 'command='], capture_output=True, text=True, timeout=1)
+    result = subprocess.run(['ps', '-p', str(pid), '-o', 'lstart=', '-o', 'command='], capture_output=True, text=True, timeout=1, encoding="utf-8", errors="replace")
     return result.stdout.strip() if result.returncode == 0 else ''
 
 
@@ -463,7 +463,7 @@ def profile_status(profile):
         return 'foreign'
     # Only connector metadata is opened; Chrome business files are never read.
     try:
-        old = json.loads((profile / MARKER).read_text())
+        old = json.loads((profile / MARKER).read_text(encoding="utf-8"))
         if isinstance(old, dict) and old.get('owner') == MAGIC and 'signature' not in old:
             return 'legacy'
     except (OSError, ValueError, TypeError):
@@ -717,7 +717,7 @@ def verify(root, token, org, *, classify_transient=False):
     credentials = 'accesstoken=' + token + '\norgId=' + org + '\n'
     for tool, flags in [('check_login.py', []), ('workspace_guard.py', ['--require-verified'])]:
         try:
-            result = subprocess.run([sys.executable, str(root / 'tools' / tool), '--credentials-stdin', '--gate-mode'] + flags, input=credentials, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=str(root), timeout=180)
+            result = subprocess.run([sys.executable, str(root / 'tools' / tool), '--credentials-stdin', '--gate-mode'] + flags, input=credentials, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=str(root), timeout=180, encoding="utf-8", errors="replace")
         except (OSError, subprocess.SubprocessError):
             raise Failure(23, 'verify')
         if isinstance(result.stderr, str) and 'Traceback' in result.stderr:
@@ -890,7 +890,7 @@ def execute(argv):
                 # 锁必须由仍然存活的浏览器持有，不能绑定即将退出的 Python。
                 current = read_owner(profile)
                 (profile / '.lock').write_text(json.dumps({
-                    'pid': current['pid'], 'time': time.time(), 'identity': current['nonce']}))
+                    'pid': current['pid'], 'time': time.time(), 'identity': current['nonce']}), encoding="utf-8")
                 keep = True
                 lock.preserve = True
                 result['kept_open'] = True
@@ -900,7 +900,7 @@ def execute(argv):
             if exc.code == 10:
                 keep = True
                 current = read_owner(profile)
-                (profile / '.lock').write_text(json.dumps({'pid': current['pid'], 'time': time.time(), 'identity': current['nonce']}))
+                (profile / '.lock').write_text(json.dumps({'pid': current['pid'], 'time': time.time(), 'identity': current['nonce']}), encoding="utf-8")
                 lock.preserve = True
             raise
         finally:

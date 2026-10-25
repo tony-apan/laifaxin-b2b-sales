@@ -94,6 +94,8 @@ class S10PrecheckTest(unittest.TestCase):
     def install_curl(self, total, tags=None):
         tags = tags if tags is not None else [{"id": "tag-1", "name": "英语-客户"}]
         fake = self.bin / "curl"
+        if os.name == "nt":
+            raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
         fake.write_text(FAKE_CURL % {"seq": SEQ, "tags": json.dumps(tags), "total": total},
                         encoding="utf-8")
         fake.chmod(0o755)
@@ -111,7 +113,7 @@ class S10PrecheckTest(unittest.TestCase):
              "--project", PROJECT, "--state", "S10_加联系人",
              "--quote", "确认加入联系人", "--params-file", str(params)],
             capture_output=True, text=True, cwd=self.repo,
-            env=self.env, timeout=60)
+            env=self.env, timeout=60, encoding="utf-8", errors="replace")
         self.assertEqual(0, r.returncode, r.stdout + r.stderr)
         m = re.search(r"凭证已铸造: (ap-[0-9a-f]+)", r.stdout)
         self.assertIsNotNone(m, r.stdout + r.stderr)
@@ -124,7 +126,7 @@ class S10PrecheckTest(unittest.TestCase):
              "--action", "sequence", "--quote", "给序列加 5 个联系人",
              "--payload-json", json.dumps(payload)],
             capture_output=True, text=True, cwd=self.repo,
-            env=self.env, timeout=60)
+            env=self.env, timeout=60, encoding="utf-8", errors="replace")
         self.assertEqual(0, r.returncode, r.stdout + r.stderr)
         ticket = json.loads(r.stdout)
         return self.repo / ".local" / "auth" / ("ticket-" + ticket["nonce"] + ".json")
@@ -135,7 +137,7 @@ class S10PrecheckTest(unittest.TestCase):
              "--token", TOKEN, "--org", ORG, "--seq", SEQ, "--tags", ",".join(TAGS),
              "--task", TASK, "--project", PROJECT, "--record", str(self.record),
              "--approval", self.approval, *extra],
-            capture_output=True, text=True, cwd=self.repo, env=self.env, timeout=180)
+            capture_output=True, text=True, cwd=self.repo, env=self.env, timeout=180, encoding="utf-8", errors="replace")
 
     def calls(self):
         if not self.log.exists():

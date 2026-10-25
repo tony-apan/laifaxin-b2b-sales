@@ -73,7 +73,7 @@ def _http(token: str, org: str, timeout: int, endpoint: str = SAVE_ENDPOINT):
                "-H", "Content-Type: application/json",
                "-H", "accesstoken: " + token, "-H", "uid: " + org,
                "-d", json.dumps(payload, ensure_ascii=False)]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, encoding="utf-8", errors="replace")
         try:
             return json.loads(result.stdout)
         except Exception:

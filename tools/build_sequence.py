@@ -109,7 +109,7 @@ if tmeta.get("profile_sha256") != profile_sha or tmeta.get("profile_status") != 
 
 # ★N1/N5: tmap 先校验(最常见错误最早暴露,且在审批前; 存在性已在上面 meta 校验中确认) → 再审批
 try:
-    mapping = json.load(open(args.tmap))
+    mapping = json.load(open(args.tmap, encoding="utf-8"))
 except Exception as e:
     print(f"❌ tmap 不是合法 JSON（{e}）——用 gen_templates.py --out 重新生成，勿手改。"); sys.exit(1)
 
@@ -175,7 +175,7 @@ def api(path, p, t=60, exit_on_fail=True):
     cmd = ["curl","-sSL","-m","55","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t, encoding="utf-8", errors="replace")
     try:
         d = json.loads(r.stdout)
         if d.get("success") is False:

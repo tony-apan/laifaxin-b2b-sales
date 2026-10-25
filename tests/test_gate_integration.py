@@ -21,7 +21,7 @@ class StartupGateIntegrationTest(unittest.TestCase):
             shutil.copytree(REPO, copy, ignore=shutil.ignore_patterns(".git", ".local", "__pycache__"))
             env = {k: v for k, v in os.environ.items() if not k.startswith("LFX_GATE_") and not k.startswith("STEP_GATE_")}
             r = subprocess.run([sys.executable, "tools/startup_gate.py", "check"],
-                               cwd=str(copy), capture_output=True, text=True, env=env, timeout=60)
+                               cwd=str(copy), capture_output=True, text=True, env=env, timeout=60, encoding="utf-8", errors="replace")
             self.assertNotEqual(0, r.returncode, "未登记却通过: %s%s" % (r.stdout, r.stderr))
             self.assertIn("开工必读", r.stdout + r.stderr)
         finally:
@@ -34,15 +34,15 @@ class StartupGateIntegrationTest(unittest.TestCase):
             shutil.copytree(REPO, copy, ignore=shutil.ignore_patterns(".git", ".local", "__pycache__"))
             env = {k: v for k, v in os.environ.items() if not k.startswith("LFX_GATE_") and not k.startswith("STEP_GATE_")}
             ack = subprocess.run([sys.executable, "tools/startup_gate.py", "ack", "--nickname", "阿杰", "--product", "保温杯"],
-                                 cwd=str(copy), capture_output=True, text=True, env=env, timeout=60)
+                                 cwd=str(copy), capture_output=True, text=True, env=env, timeout=60, encoding="utf-8", errors="replace")
             self.assertEqual(0, ack.returncode, ack.stdout + ack.stderr)
             chk = subprocess.run([sys.executable, "tools/startup_gate.py", "check"],
-                                 cwd=str(copy), capture_output=True, text=True, env=env, timeout=60)
+                                 cwd=str(copy), capture_output=True, text=True, env=env, timeout=60, encoding="utf-8", errors="replace")
             self.assertEqual(0, chk.returncode, chk.stdout + chk.stderr)
             rules = copy / "RULES.md"
             rules.write_text(rules.read_text(encoding="utf-8") + "\n<!-- drift -->\n", encoding="utf-8")
             again = subprocess.run([sys.executable, "tools/startup_gate.py", "check"],
-                                   cwd=str(copy), capture_output=True, text=True, env=env, timeout=60)
+                                   cwd=str(copy), capture_output=True, text=True, env=env, timeout=60, encoding="utf-8", errors="replace")
             self.assertNotEqual(0, again.returncode, "文档变化后仍通过")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)

@@ -122,7 +122,7 @@ class GridGateTest(unittest.TestCase):
             [sys.executable, str(GEN), "--plan", str(p), "--token", "x", "--org", "1",
              "--product", "pet-pack", "--name", "Tony", "--prefix", "英-pet-",
              "--project", "tony/pet-pack", "--profile", str(profile)],
-            capture_output=True, text=True, cwd=ROOT, timeout=120)
+            capture_output=True, text=True, cwd=ROOT, timeout=120, encoding="utf-8", errors="replace")
 
     def variants(self):
         return ["Sharing a quick production idea for linen.",
@@ -188,7 +188,7 @@ class PriceGateTest(unittest.TestCase):
              "--project", "tony/pet-pack", "--profile", str(self.profile),
              "--record", str(self.tmp / "operation-record.md"),
              "--out", str(self.tmp / "tmap.json")],
-            capture_output=True, text=True, cwd=ROOT, timeout=120)
+            capture_output=True, text=True, cwd=ROOT, timeout=120, encoding="utf-8", errors="replace")
 
     def plan_with(self, bodies, claims=None):
         dirs = []
@@ -316,7 +316,7 @@ class SpamWordGateTest(unittest.TestCase):
              "--project", "tony/pet-pack", "--profile", str(self.profile),
              "--record", str(self.tmp / "operation-record.md"),
              "--out", str(self.tmp / "tmap.json")],
-            capture_output=True, text=True, cwd=ROOT, timeout=120)
+            capture_output=True, text=True, cwd=ROOT, timeout=120, encoding="utf-8", errors="replace")
 
     def plan_with(self, bodies, subjects=None):
         dirs = []
@@ -425,7 +425,7 @@ class SpamWordGateTest(unittest.TestCase):
              "--project", "tony/pet-pack", "--profile", str(self.profile),
              "--record", str(self.tmp / "operation-record.md"),
              "--out", str(self.tmp / "tmap.json")],
-            capture_output=True, text=True, cwd=ROOT, timeout=120)
+            capture_output=True, text=True, cwd=ROOT, timeout=120, encoding="utf-8", errors="replace")
 
     def test_rejects_signature_spam(self):
         plan = self.plan_with(["Sharing a quick production idea for linen.",

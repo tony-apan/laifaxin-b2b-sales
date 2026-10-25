@@ -85,7 +85,7 @@ def api(path, p, t=40):
     cmd = ["curl","-sSL","-m","35","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t, encoding="utf-8", errors="replace")
     try: return json.loads(r.stdout)
     except:
         print("  ⚠️ 接口无返回——可能是网络不通（这不是配置问题），稍等重试；反复出现看 平台接口间歇空(已知)。")

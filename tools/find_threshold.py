@@ -35,7 +35,7 @@ def fetch(page, keyword, token, org, page_size=10):
            "-H","Content-Type: application/json","-H",f"accesstoken: {token}",
            "-H", f"uid: {org}","-d",json.dumps(p)]
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
         return json.loads(r.stdout).get("data", {})
     except Exception:
         return {"list": []}

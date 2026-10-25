@@ -63,6 +63,8 @@ class FolderTemplateCountedTest(unittest.TestCase):
         self.bin.mkdir()
         self.log = Path(self.tmp.name) / "curl.log"
         fake = self.bin / "curl"
+        if os.name == "nt":
+            raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
         fake.write_text(FAKE_CURL, encoding="utf-8")
         fake.chmod(0o755)
         self.env = os.environ.copy()
@@ -77,7 +79,7 @@ class FolderTemplateCountedTest(unittest.TestCase):
         r = subprocess.run(
             [sys.executable, str(TOOLS / "check_template_diff.py"),
              "--token", "x", "--org", "1", "--prefix", "英-demo-", "--limit", "2"],
-            capture_output=True, text=True, cwd=ROOT, env=self.env, timeout=120)
+            capture_output=True, text=True, cwd=ROOT, env=self.env, timeout=120, encoding="utf-8", errors="replace")
         out = r.stdout + r.stderr
         self.assertEqual(0, r.returncode, out)
         self.assertIn("模板数: 2", out, "folder=true 的模板被漏掉（旧缺陷）")

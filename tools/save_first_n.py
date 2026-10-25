@@ -41,7 +41,7 @@ def api(org, token, path, payload, timeout=120):
            "-H","Content-Type: application/json","-H",f"accesstoken: {token}",
            "-H", f"uid: {org}",
            "-d", json.dumps(payload)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, encoding="utf-8", errors="replace")
     try: return json.loads(r.stdout)
     except Exception: return {"success": False, "message": r.stdout[:200]}
 

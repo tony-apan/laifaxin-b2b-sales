@@ -207,6 +207,8 @@ class _RepoCase(unittest.TestCase):
         self.bin = self.tmp / "bin"
         self.bin.mkdir()
         fake = self.bin / "curl"
+        if os.name == "nt":
+            raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
         fake.write_text(FAKE_CURL, encoding="utf-8")
         fake.chmod(0o755)
         self.log = self.tmp / "curl.jsonl"
@@ -252,7 +254,7 @@ class _RepoCase(unittest.TestCase):
     def run_tool(self, tool, *args, timeout=180):
         return subprocess.run(
             [sys.executable, str(self.repo / "tools" / tool), *map(str, args)],
-            cwd=self.repo, env=self.env, text=True, capture_output=True, timeout=timeout)
+            cwd=self.repo, env=self.env, text=True, capture_output=True, timeout=timeout, encoding="utf-8", errors="replace")
 
     def calls(self, path=None):
         if not self.log.exists():

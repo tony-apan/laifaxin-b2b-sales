@@ -725,7 +725,7 @@ def ensure_folder():
                          "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",
                           "-d", "{}"],
-                        capture_output=True, text=True, timeout=60)
+                        capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
     try:
         lst = json.loads(fl.stdout).get("data") or []
         lst = lst if isinstance(lst, list) else lst.get("list", [])
@@ -754,7 +754,7 @@ def ensure_folder():
                          "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",
                          "-d", json.dumps({"name": args.prefix})],
-                        capture_output=True, text=True, timeout=60)
+                        capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
     try:
         d = json.loads(fa.stdout)
         dd = d.get("data") or {}
@@ -777,7 +777,7 @@ def _existing_template_id(name):
            "-H", f"uid: {args.org}",
            "-d", json.dumps({"current": 1, "pageSize": 500, "filter": {}, "sort": {}})]
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
         for t in (json.loads(r.stdout).get("data") or {}).get("list") or []:
             if isinstance(t, dict) and t.get("name") == name:  # 2026-10-23 三审H：已分组(folder=true)也要识别为已存在，防 S8 半途重跑误判
                 tid = t.get("_id") or t.get("id")
@@ -802,7 +802,7 @@ def add(name, subject, html):
            "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",
            "-d", json.dumps(p)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
     try:
         d = json.loads(r.stdout)
         tid = d.get("data", {}).get("id", "") if d.get("success") else ""
@@ -901,7 +901,7 @@ try:
         [sys.executable, str(KB / "tools" / "check_template_diff.py"),
          "--token", args.token, "--org", args.org,
          "--prefix", args.prefix, "--limit", str(len(results))],
-        capture_output=True, text=True, timeout=600)
+        capture_output=True, text=True, timeout=600, encoding="utf-8", errors="replace")
 except (OSError, subprocess.SubprocessError) as exc:
     print(f"❌ 模板差异检查无法执行({exc})——不能声称本批模板达标，整体中止 (exit 2)")
     sys.exit(2)

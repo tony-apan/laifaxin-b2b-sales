@@ -149,6 +149,8 @@ class FullFlowSimulationTest(unittest.TestCase):
         cls.fake_bin.mkdir()
         cls.curl_log = cls.base / "curl.jsonl"
         fake = cls.fake_bin / "curl"
+        if os.name == "nt":
+            raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
         fake.write_text(FAKE_CURL, encoding="utf-8")
         fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
         cls.env = os.environ.copy()
@@ -175,7 +177,7 @@ class FullFlowSimulationTest(unittest.TestCase):
             text=True,
             capture_output=True,
             timeout=timeout,
-        )
+        encoding="utf-8", errors="replace")
         cls.results.append((tool, result))
         if output is not None:
             Path(output).write_text(result.stdout + result.stderr, encoding="utf-8")

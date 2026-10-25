@@ -273,7 +273,7 @@ def make_transport(root: Path, token: str, org: str, timeout: int = 60) -> Any:
                api_url(endpoint), "-H", "Content-Type: application/json",
                "-H", "accesstoken: " + token, "-H", "uid: " + org,
                "-d", json.dumps(payload, ensure_ascii=False)]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 10)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 10, encoding="utf-8", errors="replace")
         try:
             return json.loads(result.stdout)
         except Exception:

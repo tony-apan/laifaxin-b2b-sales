@@ -30,7 +30,7 @@ def api(path,p,t=60):
         raise SystemExit(2)
     cmd=["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/{path}","-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
-    r=subprocess.run(cmd,capture_output=True,text=True,timeout=t)
+    r=subprocess.run(cmd,capture_output=True,text=True,timeout=t, encoding="utf-8", errors="replace")
     try:
         d=json.loads(r.stdout)
         if d.get("success") is False: raise ValueError(d.get("message") or "服务端拒绝")

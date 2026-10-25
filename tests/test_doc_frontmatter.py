@@ -46,7 +46,7 @@ def _md_files():
         dns[:] = [d for d in dns if d not in SKIP_DIRS]
         for fn in fns:
             if fn.lower().endswith(".md"):
-                rel = str((Path(dp) / fn).relative_to(ROOT))
+                rel = str((Path(dp) / fn).relative_to(ROOT)).replace(os.sep, "/")
                 if _in_scope(rel):
                     out.append(rel)
     return sorted(out)

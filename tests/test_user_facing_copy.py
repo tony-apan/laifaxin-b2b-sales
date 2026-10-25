@@ -606,7 +606,7 @@ class FailureReportingDisciplineTest(unittest.TestCase):
              "--credentials-stdin", "--require-verified"],
             input="accesstoken=web.laifaxin.com&fakeuid&fakehash\norgId=999999\n",
             text=True, capture_output=True, cwd=ROOT, timeout=120,
-        )
+        encoding="utf-8", errors="replace")
         self.assertEqual(5, result.returncode,
                          "无法判定必须是 exit 5；用 1 会让上游误报『您连错空间了』")
         src = (ROOT / "tools" / "workspace_guard.py").read_text(encoding="utf-8")
@@ -628,7 +628,7 @@ class FailureReportingDisciplineTest(unittest.TestCase):
         result = subprocess.run(
             ["bash", str(ROOT / "tools" / "gate_check.sh"), "--credentials-stdin"],
             input="", text=True, capture_output=True, cwd=ROOT, timeout=60,
-        )
+        encoding="utf-8", errors="replace")
         self.assertIn("还差一步", result.stdout, "空输入应报『还差一步』")
         self.assertNotIn("[FAIL] 账号钥匙失效", result.stdout,
                          "空输入不得误报成『钥匙失效』（会让用户白重登）")
@@ -921,7 +921,7 @@ class ActivationIsOneChatLineTest(unittest.TestCase):
              "--resume-s12", "--confirm", "确认激活 测试序列",
              "--org", "1", "--profile", "runs/none/x/product-profile.md",
              "--seq", "a" * 24, "--compliance-file", "runs/none/x/c.json"],
-            input="", capture_output=True, text=True, cwd=ROOT, timeout=60)
+            input="", capture_output=True, text=True, cwd=ROOT, timeout=60, encoding="utf-8", errors="replace")
         # 档案不存在 → 应在闸门处失败（exit 4），而不是在 TTY 检查处 exit 2
         self.assertEqual(4, r.returncode,
                          f"应因档案闸门失败(4)，而不是终端检查失败(2)：{r.stdout}{r.stderr}")
@@ -944,7 +944,7 @@ class ActivationIsOneChatLineTest(unittest.TestCase):
             [sys.executable, str(ROOT / "tools" / "flow_orchestrator.py"),
              "--resume-s12", "--org", "1", "--profile", "runs/none/x/product-profile.md",
              "--seq", "a" * 24, "--compliance-file", "runs/none/x/c.json"],
-            input="", capture_output=True, text=True, cwd=ROOT, timeout=60)
+            input="", capture_output=True, text=True, cwd=ROOT, timeout=60, encoding="utf-8", errors="replace")
         self.assertEqual(2, r.returncode, r.stdout + r.stderr)
         self.assertIn("--confirm", r.stdout + r.stderr, "报错须告诉 AI 要传用户原话")
 

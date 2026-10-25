@@ -169,7 +169,7 @@ def default_api(args):
                "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
                "-H", f"uid: {args.org}", "-d", json.dumps(payload)]
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, encoding="utf-8", errors="replace")
         except (OSError, subprocess.SubprocessError):
             return {}
         try:

@@ -26,7 +26,7 @@ class GateHardeningTest(unittest.TestCase):
         env = _clean_env()
         env.update({"LFX_GATE_TEST_MODE": "1", "LFX_GATE_LEDGER": str(link)})
         r = subprocess.run([sys.executable, str(TOOLS / "startup_gate.py"), "status"],
-                           cwd=str(REPO), capture_output=True, text=True, env=env, timeout=60)
+                           cwd=str(REPO), capture_output=True, text=True, env=env, timeout=60, encoding="utf-8", errors="replace")
         self.assertNotEqual(0, r.returncode, r.stdout + r.stderr)
         self.assertIn("符号链接", r.stdout + r.stderr)
 
@@ -38,11 +38,11 @@ class GateHardeningTest(unittest.TestCase):
         ack_env = dict(base); ack_env["DSH_SESSION_ID"] = "sess-A"
         ack = subprocess.run([sys.executable, str(TOOLS / "startup_gate.py"), "ack",
                               "--nickname", "阿杰", "--product", "保温杯"],
-                             cwd=str(REPO), capture_output=True, text=True, env=ack_env, timeout=60)
+                             cwd=str(REPO), capture_output=True, text=True, env=ack_env, timeout=60, encoding="utf-8", errors="replace")
         self.assertEqual(0, ack.returncode, ack.stdout + ack.stderr)
         other_env = dict(base); other_env["DSH_SESSION_ID"] = "sess-B"
         r = subprocess.run([sys.executable, str(TOOLS / "startup_gate.py"), "check"],
-                           cwd=str(REPO), capture_output=True, text=True, env=other_env, timeout=60)
+                           cwd=str(REPO), capture_output=True, text=True, env=other_env, timeout=60, encoding="utf-8", errors="replace")
         self.assertNotEqual(0, r.returncode, r.stdout + r.stderr)
         self.assertIn("另一个会话", r.stdout + r.stderr)
 
@@ -51,6 +51,6 @@ class GateHardeningTest(unittest.TestCase):
         env["PYTHONPATH"] = str(TOOLS)
         code = "import auth_guard; auth_guard.verify('missing-ticket', {'a': 1})"
         r = subprocess.run([sys.executable, "-c", code], cwd=str(REPO),
-                           capture_output=True, text=True, env=env, timeout=60)
+                           capture_output=True, text=True, env=env, timeout=60, encoding="utf-8", errors="replace")
         self.assertNotEqual(0, r.returncode, r.stdout + r.stderr)
         self.assertIn("开工必读", r.stdout + r.stderr)

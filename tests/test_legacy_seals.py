@@ -96,7 +96,7 @@ class LegacyScriptSealTest(unittest.TestCase):
     def test_import_save_first_n_unaffected(self):
         r = subprocess.run(
             [sys.executable, "-c", "import sys; sys.path.insert(0, 'tools'); import save_first_n; print('imported')"],
-            cwd=str(ROOT), capture_output=True, text=True, timeout=60)
+            cwd=str(ROOT), capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
         self.assertEqual(0, r.returncode, r.stdout + r.stderr)
         self.assertIn("imported", r.stdout)
 

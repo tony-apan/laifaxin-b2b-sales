@@ -127,6 +127,8 @@ class WorkspaceGuardCliTest(unittest.TestCase):
             bin_dir.mkdir()
             log = Path(tmp) / "curl.log"
             fake = bin_dir / "curl"
+            if os.name == "nt":
+                raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
             fake.write_text(
                 "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$CURL_LOG\"\nprintf '%s' " + json.dumps(fake_body) + "\n",
                 encoding="utf-8",
@@ -138,7 +140,7 @@ class WorkspaceGuardCliTest(unittest.TestCase):
             result = subprocess.run(
                 [sys.executable, str(TOOLS / "workspace_guard.py"), *(args or ["--token", TOKEN, "--org", ENTERPRISE_ORG])],
                 capture_output=True, text=True, env=env, timeout=30,
-            )
+            encoding="utf-8", errors="replace")
             argv = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
             return result, argv
 

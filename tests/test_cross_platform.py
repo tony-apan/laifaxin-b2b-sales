@@ -74,7 +74,7 @@ class CrossPlatformTest(unittest.TestCase):
             script = Path(td) / "check_rules.sh"
             shutil.copy2(ROOT / "tools" / "check_rules.sh", script)
             proc = subprocess.run(["bash", str(script)], cwd=td,
-                                  capture_output=True, text=True, timeout=120)
+                                  capture_output=True, text=True, timeout=120, encoding="utf-8", errors="replace")
             self.assertNotEqual(proc.returncode, 0,
                                 "规则文件缺失时 check_rules.sh 必须非零退出")
             out = (proc.stdout or "") + (proc.stderr or "")
@@ -107,7 +107,7 @@ class CrossPlatformTest(unittest.TestCase):
             env["PATH"] = f"{bin_dir}:/usr/bin:/bin"
             proc = subprocess.run(["bash", str(tools_dir / "gate_check.sh")],
                                   input="", text=True, capture_output=True,
-                                  env=env, timeout=30)
+                                  env=env, timeout=30, encoding="utf-8", errors="replace")
             out = (proc.stdout or "") + (proc.stderr or "")
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("准备工作还差一点", out)
@@ -139,7 +139,7 @@ class CrossPlatformTest(unittest.TestCase):
             proc = subprocess.run(["bash", str(tools_dir / "gate_check.sh"), "--credentials-stdin"],
                                   input=b"", capture_output=True, env=env, timeout=30)
             self.assertNotEqual(0, proc.returncode)  # 临时目录缺必读文档，应失败
-            self.assertTrue(log.is_file() and log.read_text().strip(), "应回退到可用的 py")
+            self.assertTrue(log.is_file() and log.read_text(encoding="utf-8").strip(), "应回退到可用的 py")
 
     def test_onboard_check_reads_docs_with_explicit_utf8(self):
         """Windows 默认编码是 GBK：安装门读 README/RULES 必须显式 UTF-8，
@@ -385,6 +385,8 @@ class CrossPlatformTest(unittest.TestCase):
             bin_dir = Path(td) / "bin"
             bin_dir.mkdir()
             fake = bin_dir / "curl"
+            if os.name == "nt":
+                raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
             fake.write_text(
                 "#!/bin/sh\nprintf '%s' '{\"tag_name\":\"v9.9.9\",\"body\":\"中文发行说明\"}'\n",
                 encoding="utf-8")
@@ -414,6 +416,8 @@ class CrossPlatformTest(unittest.TestCase):
             bin_dir = Path(td) / "bin"
             bin_dir.mkdir()
             fake = bin_dir / "curl"
+            if os.name == "nt":
+                raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
             fake.write_text(
                 "#!/bin/sh\nprintf '%s' '{\"isOrg\": true, \"note\": \"中文工作空间\"}'\n",
                 encoding="utf-8")
@@ -506,6 +510,35 @@ class CrossPlatformTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr[-800:])
         self.assertNotIn("Traceback", proc.stderr)
         self.assertIn("有新版本", proc.stdout)
+
+    def test_tools_explicit_utf8_for_subprocess_and_file_io(self):
+        """Windows 默认 GBK：subprocess 文本模式与文件读写必须显式 UTF-8，否则中文 JSON/文档会崩。"""
+        offenders = []
+        for path in sorted((ROOT / "tools").glob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", "")
+                kws = {k.arg for k in node.keywords}
+                if "encoding" in kws:
+                    continue
+                if name in ("read_text", "write_text"):
+                    offenders.append(f"{path.name}:{node.lineno} {name}()")
+                elif name == "open" and isinstance(node.func, ast.Name):
+                    mode = node.args[1].value if len(node.args) > 1 and isinstance(node.args[1], ast.Constant) else None
+                    for kw in node.keywords:
+                        if kw.arg == "mode" and isinstance(kw.value, ast.Constant):
+                            mode = kw.value.value
+                    if isinstance(mode, str) and "b" in mode:
+                        continue
+                    offenders.append(f"{path.name}:{node.lineno} open()")
+                elif (name in ("run", "Popen", "check_output")
+                      and isinstance(node.func, ast.Attribute)
+                      and getattr(node.func.value, "id", "") == "subprocess"
+                      and ("text" in kws or "universal_newlines" in kws)):
+                    offenders.append(f"{path.name}:{node.lineno} subprocess.{name}(text=True)")
+        self.assertEqual([], offenders, "Windows GBK 隐患（缺 encoding='utf-8'）：" + repr(offenders))
 
     def test_readme_install_prompt_has_windows_command(self):
         text = (ROOT / "README.md").read_text(encoding="utf-8")

@@ -172,7 +172,7 @@ class S12AdversarialTest(unittest.TestCase):
              "--seq", seq or SEQ,
              "--compliance-file", str(compliance or self.compliance),
              "--confirm", quote],
-            capture_output=True, text=True, cwd=self.repo, timeout=90)
+            capture_output=True, text=True, cwd=self.repo, timeout=90, encoding="utf-8", errors="replace")
 
     def activate(self, approval="", profile=None, project=None, record=None, compliance=None):
         return subprocess.run(
@@ -184,7 +184,7 @@ class S12AdversarialTest(unittest.TestCase):
              "--record", str(record or self.record),
              "--confirm", "确认激活 皮筏艇",
              "--approval", approval],
-            capture_output=True, text=True, cwd=self.repo, timeout=90)
+            capture_output=True, text=True, cwd=self.repo, timeout=90, encoding="utf-8", errors="replace")
 
     # ---------- 基线：正常路径必须仍然可用 ----------
     def test_baseline_legit_confirmation_issues_and_keeps_s11(self):
@@ -201,7 +201,7 @@ class S12AdversarialTest(unittest.TestCase):
             [sys.executable, str(self.repo / "tools" / "flow_orchestrator.py"),
              "--resume-s12", "--org", ORG, "--profile", str(self.profile),
              "--seq", SEQ, "--compliance-file", str(self.compliance)],
-            input="", capture_output=True, text=True, cwd=self.repo, timeout=90)
+            input="", capture_output=True, text=True, cwd=self.repo, timeout=90, encoding="utf-8", errors="replace")
         self.assertEqual(2, r.returncode)
         self.assertEqual([], self.s12_rows(), "无原话不得签发")
 
@@ -273,7 +273,7 @@ class S12AdversarialTest(unittest.TestCase):
             [sys.executable, str(self.repo / "tools" / "approval.py"), "grant",
              "--project", PROJECT, "--state", "S12_激活", "--quote", "确认激活",
              "--params", json.dumps({"project": PROJECT, "seq": SEQ})],
-            capture_output=True, text=True, cwd=self.repo, timeout=60)
+            capture_output=True, text=True, cwd=self.repo, timeout=60, encoding="utf-8", errors="replace")
         self.assertEqual(2, r.returncode, r.stdout + r.stderr)
         self.assertEqual([], self.s12_rows(), "grant 不得铸造 S12 凭证")
 
@@ -289,6 +289,8 @@ class S12AdversarialTest(unittest.TestCase):
         bin_dir.mkdir(exist_ok=True)
         log = self.tmp / "activate-curl.log"
         fake = bin_dir / "curl"
+        if os.name == "nt":
+            raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
         fake.write_text(
             "#!/usr/bin/env python3\n"
             "import os, sys\n"
@@ -308,7 +310,7 @@ class S12AdversarialTest(unittest.TestCase):
              "--compliance-file", str(self.compliance),
              "--record", str(self.record),
              "--confirm", confirm, "--approval", approval],
-            capture_output=True, text=True, cwd=self.repo, env=env, timeout=90)
+            capture_output=True, text=True, cwd=self.repo, env=env, timeout=90, encoding="utf-8", errors="replace")
         calls = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
         return r, calls
 
@@ -454,6 +456,8 @@ class ManualActivationSyncTest(unittest.TestCase):
         if log is not None:
             log_code = 'with open(' + repr(str(log)) + ', "a") as fh:\n    fh.write(path + "\\n")'
         fake = self.bin / "curl"
+        if os.name == "nt":
+            raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
         fake.write_text(_fake_platform_script(status, log_code), encoding="utf-8")
         fake.chmod(0o755)
 
@@ -465,7 +469,7 @@ class ManualActivationSyncTest(unittest.TestCase):
              "--token", "fake", "--org", ORG, "--seq", seq or SEQ, "--sync-manual",
              "--record", str(record or self.record), *( ("--confirm", confirm) if confirm is not None else () ),
              *extra],
-            capture_output=True, text=True, cwd=self.repo, env=env, timeout=90)
+            capture_output=True, text=True, cwd=self.repo, env=env, timeout=90, encoding="utf-8", errors="replace")
 
     # ---- 正向：用户在网页开好后同步 ----
     def test_sync_after_manual_activation_advances_local(self):
@@ -529,7 +533,7 @@ class ManualActivationSyncTest(unittest.TestCase):
             [sys.executable, str(self.repo / "tools" / "activate_sequence.py"),
              "--token", "fake", "--org", ORG, "--seq", SEQ, "--sync-manual",
              "--confirm", "我已在网页激活"],
-            capture_output=True, text=True, cwd=self.repo, env=env, timeout=90)
+            capture_output=True, text=True, cwd=self.repo, env=env, timeout=90, encoding="utf-8", errors="replace")
         self.assertNotEqual(0, r.returncode)
 
     def test_sync_makes_no_write_call_to_platform(self):

@@ -118,7 +118,7 @@ class EvidenceModeTest(unittest.TestCase):
             text=True,
             capture_output=True,
             timeout=10,
-        )
+        encoding="utf-8", errors="replace")
 
     def run_verification(self):
         return subprocess.run(
@@ -135,7 +135,7 @@ class EvidenceModeTest(unittest.TestCase):
             text=True,
             capture_output=True,
             timeout=10,
-        )
+        encoding="utf-8", errors="replace")
 
     def assert_record_unchanged(self, before):
         self.assertEqual((self.record.read_bytes(), self.record.stat().st_mtime_ns), before)

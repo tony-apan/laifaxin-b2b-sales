@@ -300,7 +300,7 @@ def check_login_first():
         r = subprocess.run(
             [sys.executable, str(KB/"tools"/"check_login.py"), "--credentials-stdin"],
             input=credentials_blob, capture_output=True, text=True, timeout=60,
-        )
+        encoding="utf-8", errors="replace")
     except subprocess.TimeoutExpired:
         print("●平台连接前·登录检查: ❌ 超时——稍等重试（这不是 token 问题）。"); sys.exit(1)
     print("●平台连接前·登录检查:")

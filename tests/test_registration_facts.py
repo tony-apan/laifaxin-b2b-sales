@@ -320,7 +320,7 @@ class ReleaseBookkeepingTest(unittest.TestCase):
         dirty = subprocess.run(
             ["git", "-C", str(knowledge), "status", "--porcelain"],
             capture_output=True, text=True,
-        )
+        encoding="utf-8", errors="replace")
         if dirty.stdout.strip():
             self.skipTest("知识仓有未提交改动，版本同步留到发版时再核")
         kp = knowledge / "SKILL.md"
