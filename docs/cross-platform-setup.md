@@ -43,7 +43,7 @@ updated: "2026-10-25"
 - 脚本读写文件、抓子进程输出都显式指定 UTF-8（`tools/`、`tests/` 已全部补齐，并加 AST 守卫防回归）：简体中文 Windows 默认 GBK/cp936，其他语言是对应 ANSI 代码页（cp1252/cp932…）。裸 `read_text()`/`open()` 可能报 `UnicodeDecodeError`（`'gbk'`/`'charmap'`/`'cp932'` 等），也可能只是乱码——处置相同：先确认代码版本，**不要靠切 PYTHONUTF8 或转码文件掩盖**。`subprocess` 调 `curl` 等（`text=True`/`capture_output`）同样要传 `encoding="utf-8", errors="replace"`：这类解码异常发生在 subprocess 的 reader 子线程，外层 `except` 捕不到，只会冒出 Traceback。实测发生在安装门 `onboard_check`、版本检查与工作空间探测。
 - `gate_check.sh` 调 python 子进程时统一 `PYTHONIOENCODING=utf-8`，否则「原始输出」明细在 Windows 上会变乱码。
 - 脚本自身输出中文/emoji：入口处统一把 stdout/stderr 切到 UTF-8（tools 已逐步内联 `_utf8_stdout`：`sys.stdout.reconfigure(encoding="utf-8", errors="replace")`，stderr 同；存量逐步补齐）。否则 Windows 上输出被 AI 捕获/重定向到管道时会 `UnicodeEncodeError`，Traceback 会污染安装/门禁日志；这与本文件前面「Windows 控制台若中文/emoji 乱码」（控制台显示）是两回事。
-- 离线平台仿真实测（在 PATH 放无扩展名的假 `curl`）是 **POSIX-only**：Windows 的 `CreateProcess` 不解析无扩展名脚本，`curl.bat`/`curl.cmd` 也只在显式带后缀时才执行。Windows 上这些用例会跳过，由真机 `curl` 冒烟（`workspace_guard.py` 探测）覆盖平台边界。
+- 离线平台仿真实测：POSIX 用无扩展名假 `curl`；Windows 的 `CreateProcess` 不解析无扩展名脚本，改用 .NET Framework 的 `csc.exe` 编译一个 `curl.exe` 影子，放在工具进程的当前目录（副本仓库根）——Windows 先查当前目录、再查 System32，PATH 抢不过系统 curl。找不到 `csc.exe` 时该用例跳过，由真机 `curl` 冒烟覆盖。交互式终端（pty）与 `gate_check.sh` 仍需 POSIX/Git Bash。
 - 审批账本 `.local/approvals.tsv` 是例外：只接受 UTF-8 或「带 BOM 的 UTF-8」。旧版 Windows 写出的 GBK 账本会**明确报错且不会被自动改写**（避免审计原话被永久写坏）；无 BOM 的中文账本可以读取，但会被拒绝整文件重写。换机恢复时请先备份、人工确认，转成**带 BOM 的 UTF-8**，再执行 `approval.py demote-migrated`（迁移流程必做步骤，见 `specs/migration-handoff.md`）。
 
 ## 5. 常见报错对表
