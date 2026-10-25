@@ -103,15 +103,51 @@ function Find-BashExe() {
   # ★Windows 自带 C:\Windows\System32\bash.exe 是 WSL 存根（没装发行版时直接失败），
   #   不能把它当成 Git Bash；优先 Git for Windows，并且只返回真正能跑 grep/awk 的 bash。
   $candidates = @()
-  foreach ($p in @("$env:ProgramFiles\Git\bin\bash.exe", "${env:ProgramFiles(x86)}\Git\bin\bash.exe", "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe")) {
-    if ($p -and (Test-Path $p)) { $candidates += $p }
+  $roots = @(
+    @{ Root = $env:ProgramFiles; Rel = 'Git\bin\bash.exe' },
+    @{ Root = ${env:ProgramFiles(x86)}; Rel = 'Git\bin\bash.exe' },
+    @{ Root = $env:LOCALAPPDATA; Rel = 'Programs\Git\bin\bash.exe' }
+  )
+  foreach ($item in $roots) {
+    if (-not $item.Root) { continue }
+    $p = Join-Path $item.Root $item.Rel
+    if (Test-Path $p) { $candidates += $p }
   }
   $c = Find-Cmd 'bash.exe'
   if ($c -and ($c -notmatch '\\Windows\\System32\\bash\.exe$')) { $candidates += $c }
+  $candidates = @($candidates | Select-Object -Unique)
   foreach ($p in $candidates) {
     if (Test-GrepAwk $p) { return $p }
   }
   return $null
+}
+
+function Ensure-BashOnPath([string]$bashExe) {
+  # Git for Windows default only adds Git\cmd to PATH, not Git\bin; worse,
+  # System32\bash.exe (WSL stub) is in Machine PATH *before* any User PATH entry.
+  # So: an admin run prepends Git\bin to Machine PATH; otherwise User PATH is the fallback.
+  if (-not $bashExe) { return }
+  $bin = Split-Path -Parent $bashExe
+  if (-not $bin) { return }
+  $isAdmin = $false
+  try {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $isAdmin = (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+  } catch { }
+  $scope = if ($isAdmin) { 'Machine' } else { 'User' }
+  $cur = [Environment]::GetEnvironmentVariable('Path', $scope)
+  if (-not $cur) { $cur = '' }
+  $parts = $cur -split ';' | Where-Object { $_ }
+  if ($parts -notcontains $bin) {
+    $new = if ($cur.Trim()) { "$bin;$cur" } else { $bin }
+    try {
+      [Environment]::SetEnvironmentVariable('Path', $new, $scope)
+      Write-Output "PATH_ADDED=$bin ($scope)"
+    } catch {
+      Write-Output "PATH_ADD_FAILED=$bin ($scope)"
+    }
+  }
+  if (-not (($env:Path -split ';') -contains $bin)) { $env:Path = "$bin;$env:Path" }
 }
 
 function Test-GrepAwk([string]$bashExe) {
@@ -192,12 +228,17 @@ if ($Mode -eq 'install') {
   $GrepAwkOk = Test-GrepAwk $BashExe
 }
 
+if ($Mode -eq 'install' -and $BashExe) { Ensure-BashOnPath $BashExe }
+$PathBash = Find-Cmd 'bash.exe'
+$BashOnPath = [bool]($BashExe -and $PathBash -and ($PathBash -ieq $BashExe))
+
 $Missing = @()
 if (-not $PyOk)      { $Missing += 'python' }
 if (-not $CurlOk)    { $Missing += 'curl' }
 if (-not $GitOk)     { $Missing += 'git' }
 if (-not $BashOk)    { $Missing += 'bash' }
 if (-not $GrepAwkOk) { $Missing += 'grep/awk(via Git Bash)' }
+if (-not $BashOnPath) { $Missing += 'bash-on-PATH' }
 $MissingTxt = if ($Missing.Count) { $Missing -join ',' } else { 'none' }
 $AllOk = ($Missing.Count -eq 0)
 
@@ -210,6 +251,7 @@ if ($CurlOk) { Write-Output "  [OK] curl.exe ($CurlExe)" } else { Write-Output '
 if ($GitOk)  { Write-Output "  [OK] git ($GitExe)" } else { Write-Output '  [MISSING] git' }
 if ($BashOk) { Write-Output "  [OK] bash.exe ($BashExe)" } else { Write-Output '  [MISSING] bash.exe (install Git for Windows to get it)' }
 if ($GrepAwkOk) { Write-Output '  [OK] grep/awk (via Git Bash)' } else { Write-Output '  [MISSING] grep/awk (provided by Git Bash)' }
+if ($BashOnPath) { Write-Output '  [OK] bash is on PATH' } else { Write-Output '  [MISSING] bash on PATH (run this script with -Install; it registers Git\bin for you)' }
 if ($AllOk) {
   Write-Output '  ALL READY. Next step: run  tools\onboard_check.py  with the python command above.'
 } else {
@@ -237,6 +279,7 @@ Write-Output "bash_ok=$(if ($BashOk) { 1 } else { 0 })"
 Write-Output "grep_ok=$(if ($GrepAwkOk) { 1 } else { 0 })"
 Write-Output "awk_ok=$(if ($GrepAwkOk) { 1 } else { 0 })"
 Write-Output "grep_awk_ok=$(if ($GrepAwkOk) { 1 } else { 0 })"
+Write-Output "bash_on_path=$(if ($BashOnPath) { 1 } else { 0 })"
 Write-Output "missing=$MissingTxt"
 Write-Output "all_ok=$(if ($AllOk) { 1 } else { 0 })"
 

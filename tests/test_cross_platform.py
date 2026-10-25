@@ -246,15 +246,42 @@ class CrossPlatformTest(unittest.TestCase):
         fn = text[text.index("function Find-BashExe"):text.index("function Test-GrepAwk")]
         self.assertLess(fn.index("Git\\bin\\bash.exe"), fn.index("Find-Cmd 'bash.exe'"),
                         "Git Bash 必须排在 PATH 的 bash.exe 前面（System32 是 WSL 存根）")
-        self.assertIn("Test-GrepAwk $p", fn, "候选 bash 必须实测 grep/awk 后才能返回")
+        self.assertNotIn("return $c", fn, "不能把 PATH 里的 bash.exe 不经实测直接返回（原 bug）")
+        self.assertRegex(fn, r"foreach \(\$p in \$candidates\)\s*\{\s*if \(Test-GrepAwk \$p\)",
+                         "必须遍历所有候选并实测 grep/awk 后才能返回")
+        self.assertIn("Select-Object -Unique", fn, "候选应去重，避免重复启动 bash")
+        self.assertIn("Ensure-BashOnPath", text, "必须把 Git Bash 注册到 PATH，否则下游 bash 仍会命中 WSL 存根")
+        self.assertIn("SetEnvironmentVariable('Path'", text, "必须写 User PATH，不能只在当前进程生效")
+        self.assertIn("bash_on_path", text, "汇总必须暴露 bash 是否真的在 PATH 上")
 
     def test_onboard_check_prefers_git_bash_over_wsl_stub(self):
         """安装门与 bootstrap 同一规则：Git 路径优先，且用 grep/awk 实测。"""
         text = (ROOT / "tools" / "onboard_check.py").read_text(encoding="utf-8")
-        fn = text[text.index("def _bash_candidates"):text.index("def _bash_supports_grep_awk")]
-        self.assertLess(fn.index("ProgramFiles"), fn.index('add(shutil.which("bash"))'),
+        cand = text[text.index("def _bash_candidates"):text.index("def _bash_supports_grep_awk")]
+        self.assertLess(cand.index("ProgramFiles"), cand.index('w = shutil.which("bash")'),
                         "Git for Windows 路径必须排在 shutil.which('bash') 前面")
-        self.assertIn("command -v grep", text, "必须实测 grep/awk，不能只看 which")
+        self.assertIn("system32", cand.lower(), "必须显式排除 System32 的 WSL 存根（仓库口径：WSL bash 不算）")
+        probe = text[text.index("def _bash_supports_grep_awk"):text.index("def detect_bash_cmd")]
+        self.assertIn("command -v grep", probe)
+        self.assertIn("command -v awk", probe)
+        pick = text[text.index("def detect_bash_cmd"):text.index("python_cmd = detect_python_cmd")]
+        self.assertIn("if _bash_supports_grep_awk(exe):", pick)
+        self.assertNotIn("return _bash_candidates()[0]", text,
+                         "不能跳过 grep/awk 实测直接取第一个候选")
+
+    def test_onboard_check_fails_closed_without_bash(self):
+        """无 bash/grep/awk 时必须 exit 2（留出安装引导），不能误报安装通过。"""
+        with tempfile.TemporaryDirectory() as td:
+            t = Path(td)
+            env = dict(os.environ)
+            env["PATH"] = ""
+            env["ProgramFiles"] = str(t)
+            env["ProgramFiles(x86)"] = str(t)
+            env["LOCALAPPDATA"] = str(t)
+            proc = subprocess.run([sys.executable, str(ROOT / "tools" / "onboard_check.py")],
+                                  capture_output=True, env=env, cwd=str(t), timeout=120)
+            out = (proc.stdout or b"").decode("utf-8", "replace")
+            self.assertEqual(2, proc.returncode, out[-800:])
 
     def test_check_login_stdout_is_forced_utf8(self):
         """gate_check 会把 check_login 的原始输出转给 AI；Windows 管道默认 GBK 会变乱码，

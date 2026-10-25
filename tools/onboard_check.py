@@ -218,7 +218,10 @@ def _bash_candidates():
             root = os.environ.get(env_name)
             if root:
                 add(Path(root) / subdir.replace("/", os.sep) / "bin" / "bash.exe")
-    add(shutil.which("bash"))
+    w = shutil.which("bash")
+    # 仓库口径：WSL 的 bash 不算；System32\\bash.exe 是 WSL 存根，即使装了发行版也不接受。
+    if w and not (os.name == "nt" and "\\windows\\system32\\" in str(w).lower().replace("/", "\\")):
+        add(w)
     return cands
 
 def _bash_supports_grep_awk(exe):
