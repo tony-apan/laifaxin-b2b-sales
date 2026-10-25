@@ -79,6 +79,17 @@ def validate_url(url):
 def alive(pid):
     if not isinstance(pid, int) or pid <= 0:
         return False
+    if os.name == "nt":
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        handle = k32.OpenProcess(0x1000, False, int(pid))
+        if not handle:
+            return False
+        try:
+            code = ctypes.c_ulong()
+            return bool(k32.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == 259
+        finally:
+            k32.CloseHandle(handle)
     try:
         os.kill(pid, 0)
         return True
@@ -86,6 +97,8 @@ def alive(pid):
         return False
     except PermissionError:
         return True
+    except OSError:
+        return False
 
 
 def owner_key(profile, create=False):

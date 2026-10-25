@@ -82,7 +82,7 @@ def _exact_exists(p):
     这里逐级比对父目录真实 listing，保证 Linux/CI 上不会漏掉大小写写错的链接。
     """
     try:
-        p = Path(p).resolve()
+        p = Path(os.path.abspath(str(p)))
     except OSError:
         return False
     if not p.exists():
@@ -277,7 +277,7 @@ def check_code_md_refs(root=ROOT):
             continue
         for p in sorted(d.iterdir()):
             if p.is_file() and p.suffix in pats:
-                targets.append((str(p.relative_to(root)), p))
+                targets.append((p.relative_to(root).as_posix(), p))
     for rel, p in targets:
         if rel == "tools/check_doc_links.py":
             continue

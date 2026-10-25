@@ -1,3 +1,7 @@
+import sys
+import unittest
+if sys.platform == "win32":
+    raise unittest.SkipTest("pty/termios 仅 POSIX 可用；Windows 不跑终端交互用例")
 import datetime
 import hashlib
 import json

@@ -391,7 +391,7 @@ class WebsiteProfileTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
         self.assertEqual(self.approve(patch).returncode, 0)
         self.assertEqual(self.apply_direct(patch), 0)
-        self.assertIn("- 内容：企业官网自述：Industrial widget", self.product.read_text())
+        self.assertIn("- 内容：企业官网自述：Industrial widget", self.product.read_text(encoding="utf-8"))
 
     def test_operator_nickname_forbidden(self):
         data = self.candidate_data(self.item(target_profile="operator", target_field="nickname"))
