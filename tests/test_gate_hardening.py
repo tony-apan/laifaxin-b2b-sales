@@ -81,3 +81,28 @@ class GateHardeningTest(unittest.TestCase):
         r2 = subprocess.run([sys.executable, "-c", code], cwd=str(REPO), capture_output=True,
                             text=True, env=env, timeout=60, encoding="utf-8", errors="replace")
         self.assertIn("ALLOWED", r2.stdout, r2.stdout + r2.stderr)
+
+    def test_stale_ticket_is_rejected(self):
+        """票据超过有效期（10 分钟）后即使文件还在，三处入口也不得放行。"""
+        nonce = "stale-nonce-" + str(os.getpid())
+        with tempfile.TemporaryDirectory(prefix="lfx-gate-stale-") as tmp:
+            ticket = pathlib.Path(tmp) / "ticket"
+            ticket.write_text(nonce, encoding="utf-8")
+            old = ticket.stat().st_mtime - 700
+            os.utime(ticket, (old, old))
+            env = _clean_env()
+            env.update({
+                "LFX_GATE_TEST_MODE": "1",
+                "LFX_GATE_TEST_TICKET": str(ticket),
+                "LFX_GATE_TEST_NONCE": nonce,
+                "PYTHONPATH": str(TOOLS),
+            })
+            code = (
+                "import startup_gate, workspace_guard, auth_guard\n"
+                "print(startup_gate._test_mode_allowed())\n"
+                "print(workspace_guard._is_test_mode())\n"
+                "print(auth_guard._test_mode_allowed())\n"
+            )
+            r = subprocess.run([sys.executable, "-c", code], cwd=str(REPO), capture_output=True,
+                               text=True, env=env, timeout=60, encoding="utf-8", errors="replace")
+        self.assertEqual(["False", "False", "False"], r.stdout.split(), r.stdout + r.stderr)
