@@ -1,0 +1,35 @@
+{
+  "state": "S12",
+  "title": "激活序列",
+  "must_read": [
+    "live 证据：compliance-check 必须 evidence_mode=live；模拟/离线/网络桩/占位一律拒绝",
+    "72h 内：五项证据（market/list_source/sender_identity/unsubscribe/suppression）均在 72 小时内",
+    "五项齐全：五项均 status=pass 且带 evidence",
+    "compliance-check：文件 sha256 绑定进审批哈希，体检不通过不得激活",
+    "用户原话确认：聊天里亲口说「确认激活」；含糊应答/疑问句/否定句一律拒绝",
+    "RULES.md S12 ACTIVE（两条路：聊天确认签发凭证 / 用户手动开开关后 --sync-manual 只读回读）"
+  ],
+  "required_fields": [
+    "序列 id",
+    "项目键",
+    "产品档案",
+    "合规核验文件",
+    "S12 审批凭证或手动激活原话"
+  ],
+  "format_rules": {
+    "evidence_mode": "live（拒 simulation/mock/离线）",
+    "evidence_window": "≤72 小时",
+    "quote": "含「激活」且无否定/疑问"
+  },
+  "self_check": [
+    "五项证据均 pass 且 72h 内",
+    "seq 与 record 一致",
+    "激活后回读平台 status=active"
+  ],
+  "forbidden": [
+    "模拟或离线证据签票",
+    "跳过合规",
+    "含糊/疑问/否定句当授权"
+  ],
+  "next": "激活后进入发信与复盘"
+}

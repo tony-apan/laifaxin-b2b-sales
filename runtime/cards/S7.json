@@ -1,0 +1,28 @@
+{
+  "state": "S7",
+  "title": "邮件模板确认",
+  "must_read": [
+    "RULES.md 价格禁入正文",
+    "specs/sequence-config.md（白名单/CTA/价格禁令）",
+    "output-templates/S7-template-confirm.md"
+  ],
+  "required_fields": [
+    "模板正文",
+    "CTA",
+    "签名",
+    "卖点引用"
+  ],
+  "format_rules": {
+    "html": "仅 b/p/br",
+    "price": "禁止价格/折扣/cheap"
+  },
+  "self_check": [
+    "template_rules_words 扫描通过",
+    "首行+末行有「回什么」"
+  ],
+  "forbidden": [
+    "含价格",
+    "自造认证/数字"
+  ],
+  "next": "S9"
+}

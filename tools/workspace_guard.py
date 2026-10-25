@@ -36,6 +36,16 @@
   ⚠️ 1 与 5 都是"不许继续"，但含义不同：1=空间连错（要用户换空间重取），
      5=这次没判出来（可能是钥匙失效/平台未返回）——**调用方对用户的说法必须分开**。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import argparse
 import hashlib
 import json
@@ -63,7 +73,9 @@ def _probe(token, org, timeout=40):
            "-H", f"uid: {org}",
            "-d", "{}"]
     try:
-        completed = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        # 平台返回 UTF-8；Windows 上按 GBK 解码会在 subprocess reader 子线程抛 UnicodeDecodeError（except 捕不到）。
+        completed = subprocess.run(cmd, capture_output=True, text=True,
+                                   encoding="utf-8", errors="replace", timeout=timeout)
     except (OSError, subprocess.SubprocessError):
         return None
     try:
@@ -153,7 +165,36 @@ def fingerprint(observed):
     return hashlib.sha256(basis.encode("utf-8")).hexdigest()
 
 
-def preflight(token, org, dry_run=False, what=""):
+def _test_mode_ticket_ok():
+    """一次性票据校验：票据文件存在、10 分钟内、内容与 nonce 一致。"""
+    import os as _os
+    import time as _time
+    from pathlib import Path as _Path
+    ticket = _os.environ.get("LFX_GATE_TEST_TICKET") or ""
+    nonce = _os.environ.get("LFX_GATE_TEST_NONCE") or ""
+    if not ticket or not nonce:
+        return False
+    try:
+        p = _Path(ticket)
+        if not p.is_file():
+            return False
+        if _time.time() - p.stat().st_mtime > 600:
+            return False
+        return p.read_text(encoding="utf-8").strip() == nonce
+    except OSError:
+        return False
+
+
+def _is_test_mode():
+    """测试隔离：进程内 unittest，或带一次性票据的显式测试模式。"""
+    import os as _os
+    import sys as _sys
+    if _os.environ.get("LFX_GATE_TEST_MODE") != "1":
+        return False
+    return _test_mode_ticket_ok()
+
+
+def preflight(token, org, dry_run=False, what="", require_verified=False):
     """写操作工具的统一入口：写之前先确认"声明的空间"被平台采纳。
     命中明确误路由 → 打印原因并 SystemExit(1)（不写任何数据）。
     dry_run=True 不联网（只读演练不落数据，无需校验）。
@@ -167,6 +208,10 @@ def preflight(token, org, dry_run=False, what=""):
         print(f"   拒绝写操作{f'（{what}）' if what else ''}——本次不会向平台写入任何数据。")
         raise SystemExit(1)
     if not result["verified"]:
+        if require_verified and not _is_test_mode():
+            print(f"❌ 工作空间未校验（不可继续写/激活）：{result['reason']}")
+            print("   拒绝执行——本次不会向平台写入任何数据。(exit 5)")
+            raise SystemExit(5)
         print(f"⚠️  工作空间未校验（不等于通过）：{result['reason']}")
         print("   已继续，但平台未提供判定字段，本次落点未核对；请勿据此声称空间已核对。")
         return ""

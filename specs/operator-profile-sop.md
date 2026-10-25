@@ -1,12 +1,14 @@
 ---
+doc_id: "specs-operator-profile-sop"
 title: "运营方档案 SOP（AI 主动索取·跨产品复用·换机迁移）"
-description: "用户自己的公司级资料如何由 AI 渐进索取并写入 .local/operators/<operator_key>.md；与产品档案分层；邮件签名只读纯昵称；换机随 .local 迁移。"
+description: "运营方公司资料如何渐进索取并写入 .local/operators/，与产品档案分层，签名只用纯昵称。"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-09-04
-updated: 2026-09-07
 author: "AI + 用户对抗完善"
 related: [RULES.md, product-profile-sop.md, migration-handoff.md, ../tools/operator_profile.py]
 tags: [运营方档案, 主动索取, 公司资料, 签名, 换机]
-status: verified
 audience: AI优先
 ---
 

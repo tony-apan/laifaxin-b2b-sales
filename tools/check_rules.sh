@@ -7,7 +7,20 @@ usage(){
   echo "Deprecated/不安全: --token TOKEN --org ORG（凭据会进入 argv，仅内部兼容）"
 }
 KB="$(cd "$(dirname "$0")/.." && pwd)"
-TOKEN=""; ORG=""; CREDENTIALS_STDIN=0; LOGIN_RC=0
+# ★解释器探测：Windows 的 python3 可能是应用商店占位符（退出码 49）。
+# 仅 Windows 实跑验证；macOS/Linux 不多起进程（也避免污染测试替身）。
+_py_usable() {
+  case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*) "$1" -c "import sys" >/dev/null 2>&1 ;;
+    *) return 0 ;;
+  esac
+}
+if command -v python3 >/dev/null 2>&1 && _py_usable python3; then PY=python3
+elif command -v py >/dev/null 2>&1 && _py_usable py; then PY=py
+elif command -v python >/dev/null 2>&1 && _py_usable python; then PY=python
+else PY=""
+fi
+TOKEN=""; ORG=""; CREDENTIALS_STDIN=0; LOGIN_RC=0; MISSING=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --credentials-stdin) CREDENTIALS_STDIN=1; shift ;;
@@ -20,7 +33,7 @@ done
 echo "AI 快速检查 (KB=$KB)"
 echo "[1] 规则文件"
 for f in RULES.md INDEX.md specs/environment-setup.md specs/migration-handoff.md specs/operator-profile-sop.md specs/product-profile-sop.md specs/threshold-method.md specs/domain-scale-sop.md specs/sequence-config.md; do
-  [ -f "$KB/$f" ] && echo "  [PASS] $f" || echo "  [FAIL] $f 缺失"
+  if [ -f "$KB/$f" ]; then echo "  [PASS] $f"; else echo "  [FAIL] $f 缺失"; MISSING=$((MISSING+1)); fi
 done
 echo "[2] 问题登记（open/未解决）"
 [ -f "$KB/db/issues.tsv" ] && awk -F'\t' '$7=="open"{print "  [WARN] " $1" "$3}' "$KB/db/issues.tsv" || echo "  [INFO] 本地问题登记不存在（未随库分发，跳过）"
@@ -40,17 +53,23 @@ if [ "$CREDENTIALS_STDIN" -eq 1 ]; then
   if [ -n "$TOKEN" ] || [ -n "$ORG" ]; then
     echo "  [FAIL] --credentials-stdin 不能与内部兼容参数混用"; LOGIN_RC=2
   else
-    python3 "$KB/tools/check_login.py" --credentials-stdin --gate-mode || LOGIN_RC=$?
+    [ -n "$PY" ] || { echo "  [FAIL] 未找到 Python 解释器"; LOGIN_RC=2; }
+    [ -n "$PY" ] && { "$PY" "$KB/tools/check_login.py" --credentials-stdin --gate-mode || LOGIN_RC=$?; }
   fi
 elif [ -n "$TOKEN" ] || [ -n "$ORG" ]; then
   # AI 内部兼容入口；凭据会进入本进程参数，不面向用户展示。
   if [ -z "$TOKEN" ] || [ -z "$ORG" ]; then
     echo "  [FAIL] 内部兼容参数 --token/--org 必须同时提供"; LOGIN_RC=2
   else
-    python3 "$KB/tools/check_login.py" --token "$TOKEN" --org "$ORG" --gate-mode || LOGIN_RC=$?
+    [ -n "$PY" ] || { echo "  [FAIL] 未找到 Python 解释器"; LOGIN_RC=2; }
+    [ -n "$PY" ] && { "$PY" "$KB/tools/check_login.py" --token "$TOKEN" --org "$ORG" --gate-mode || LOGIN_RC=$?; }
   fi
 else
   echo "  [INFO] 未提供凭据，仅完成离线规则检查；未做登录校验。"
+fi
+if [ "$MISSING" -gt 0 ]; then
+  echo "  [FAIL] 规则文件缺失 $MISSING 份（自检失败）"
+  exit 2
 fi
 echo "检查完成"
 exit "$LOGIN_RC"

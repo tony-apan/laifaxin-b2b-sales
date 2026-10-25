@@ -1,13 +1,15 @@
 ---
+doc_id: "specs-environment-setup"
 title: "环境就绪 SOP（AI 执行·零 Python 前提 bootstrap）"
-description: "全新电脑（可能连 Python 都没有）由 AI 完成环境就绪的完整 SOP：bootstrap 悖论与解法、Windows/Unix 入口判断、check-only→install→复查流程、Python launcher 解析优先顺序、错误分级与处置。命令全部可复制，AI 执行，不让用户手工敲。"
+description: "新电脑（可能无 Python）环境就绪 SOP：bootstrap、Windows/Unix 入口、安装与复查、错误分级，命令可直接复制。"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-09-04
-updated: 2026-09-07
 author: "AI Agent"
 source: "bootstrap.sh / bootstrap.ps1 实操设计"
 related: [RULES.md, ../tools/bootstrap.sh, ../tools/bootstrap.ps1, migration-handoff.md]
 tags: [环境, bootstrap, SOP, 新电脑, 零Python, AI优先]
-status: partial
 audience: AI优先
 ---
 

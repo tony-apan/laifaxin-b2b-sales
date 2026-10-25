@@ -1,13 +1,15 @@
 ---
+doc_id: "specs-node-playbook"
 title: "节点判据 × API × 脚本 对照表（Node Playbook）"
 description: "S0-S12 每个节点的判据来源/通过条件/API(接口+关键参数+api-reference行号)/脚本命令/产出记录位置——新AI执行时照抄的操作手册"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-30
-updated: 2026-08-30
 author: "独立审查agent"
 source: "对 RULES.md + specs/* + lessons/lessons-learned.md + tools/* + db/* 的完整性审查"
 related: [RULES.md, api-reference, threshold-method, domain-scale-sop, sequence-config, ../lessons/lessons-learned, ../db/tools.tsv]
 tags: [操作手册, 节点, 判据, API, 脚本, 对照表]
-status: verified
 audience: 人+AI
 ---
 
@@ -44,7 +46,7 @@ audience: 人+AI
 - **产出记录**：`.local/operators/<operator_key>.md`（nickname/operator_key，不含 token）；`runs/<operator_key>/<product_key>/product-profile.md`（状态/版本/hash/字段级来源/变更记录）；`.local/approvals.tsv`（S0 gate_ok + profile hash）。
 
 ### S1 PATH_PENDING（路径分支）
-- **★连接平台是独立前置（2026-09-09 用户拍板）**：产品档案确认后，**先**按 `../output-templates/T-token引导.md` 引导用户浏览器一键双取 → 主 AI 经程序化 stdin 跑 `check_login.py` + `workspace_guard.py --require-verified`（或 `gate_check.sh` 的 `[2b]`）→ 全过后展示 `S0-连接成功.md` 账号状态卡，**才**进入选起点。连接是全流程唯一需要用户动手的一步，必须放在推演/搜索之前（后面都要联网）。
+- **★连接平台是独立前置（2026-09-09 用户拍板）**：产品档案确认后，**先**按 `../output-templates/T-token-guide.md` 引导用户浏览器一键双取 → 主 AI 经程序化 stdin 跑 `check_login.py` + `workspace_guard.py --require-verified`（或 `gate_check.sh` 的 `[2b]`）→ 全过后展示 `S0-connect-success.md` 账号状态卡，**才**进入选起点。连接是全流程唯一需要用户动手的一步，必须放在推演/搜索之前（后面都要联网）。
 - **判据（来源）**：`../RULES.md` S1「有精准网址走快速路径；无网址走标准路径；两者都不能跳过确认」；`../methodology/decision-trees.md` 主逻辑图（A=快速/B=标准）。
 - **通过条件**：路径确定 +（快速路径）确认该网址是**客户方**而非用户自己公司、相关产品、非4区（`specs/operations-sop.md`「四、网址找相似」确认原则；网址确认原则）。
 - **API**：`POST /api/refine/company-list`（keyword=网址，海量搜相似）——见 `specs/api-reference.md` 接口表；`POST /api/domain/base-info`（提炼网址行业/NAICS）——见 `specs/api-reference.md` 接口表；`POST /api/domain/similar-list`（⚠️已弃用——统一走 refine/company-list keyword=域名）——见 `specs/api-reference.md` 接口表。
@@ -86,15 +88,15 @@ audience: 人+AI
   - `python3 tools/audit_company.py --query <种子> --pages 1,50,100,...,1000 --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product <产品> --match-words "<产品词,中英文>"`
   - `python3 tools/find_threshold.py --query <种子> --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --match-words "..." --start 100 --end 500 --threshold 70`
   - `python3 tools/find_critical.py --query <种子> --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --match-words "..." --start 1 --end 1000 --threshold 70 --step 50`
-  - ★核心判定（AI 反思逐条读描述）无脚本——由 AI 本体/独立 subagent 逐条推理 + 人工读，两两印证（L-26）。
+  - ★语义判定（逐条读描述）仍由 AI/独立 subagent 完成并两两印证（L-26）；**窗口/临界页/语义表自 2026-10-23 起由 `finalize_audit.py` 机器校验**（连续页、5 页窗口≥70%、临界页=首跌窗起点+3、语义表行数对齐）。
 - **产出记录**：审计证据 + 独立 review 均落项目目录；`audit-manifest.json` 必须声明 `evidence_mode:"live"`，绑定 project/profile_sha256/seed/generated_at 与两文件 path+sha256+pass。simulation/mock/stub/离线/网络桩/占位证据只能演练，`finalize_audit.py` 必须拒绝推进 S4；证据正文含非实时标记也拒。
 
 ### S5 SAVE_PENDING（保存参数确认）
 - **标签准备**：先 `tag_add.py --list` 只读查重；创建时须 `--profile .../product-profile.md --project <operator_key>/<product_key>`，用 `approval.py grant` 按 `{project,profile,tag{name,type}}` 实际参数签发绑定凭证。
 - **点数余额**：主 AI 用程序化 stdin 运行 `check_login.py --credentials-stdin`（只读），不让用户执行命令。
 - **通过条件**：展示临界N/前N/公司与联系人标签id(名称)/排除4区/max/点数 → 用户当前对话明确确认；flow只记录pending，标签和保存实际参数齐后分别grant。
-- **保存脚本**：`save_first_n.py --keyword <种子> --n <N> --company-tag <id> --contact-tag <id> --max 3 --profile runs/<operator_key>/<product_key>/product-profile.md --record .../operation-record.md --approval <绑定凭证> --project <operator_key>/<product_key>`；工具按完整实际参数重算hash，成功推进S5。
-- **⚠️ 缺口**：防重复保存检查**无脚本落地**（RULES 有规则、save_first_n 无已存检查，防重复保存缺口 open）→ 执行前人工查 `company-save-list`/最近成功 task 判断是否已存过。
+- **保存脚本（现役 V2）**：`save_company_cli.py prepare --root <项目根> --request-file <offline-input.json>` → 展示方案 → 用户确认 → `confirm` 铸 plan/render/ticket → `execute --ticket-file <ticket.json>`；`status/reconcile` 只读对账。旧 `save_first_n.py` 属禁用清单（文档层，无代码封条），不得用于真实写入。
+- **⚠️ 缺口**：`save_plan` 已做 query_scope_key/attempt 去重（RULES:189），但跨项目「已存过」的人工确认仍建议查 `company-save-list`/最近成功 task；S5 模板需展示该项。
 - **产出记录**：`.local/approvals.tsv`（S5_保存行）；保存返回的 task id 记 `operation-record.md`（供 S6 轮询）。
 
 - **★每批独立保存（铁律 7d）**：确认卡标题写「<客群名>（第 i/K 批）」；标签只属于本客群，禁止多客群合并进同一标签。
@@ -106,8 +108,8 @@ audience: 人+AI
 - **产出记录**：`operation-record.md`（task id、contactSaveCount、标签人数）；本地运行记录（不入 Git）一行。
 
 ### S7 TEMPLATE_PENDING（模板草稿预览）
-- **判据（来源）**：`../RULES.md` S7 + `product-profile-sop.md`：只生成本地草稿；展示3-8个跨轮模板的渲染后收件人视图+理由；用户确认后才批量创建。邮件末尾签名区只含纯个人昵称。正文具体事实必须来自当前已确认 product-profile 的字段级来源；declined 档案只允许不含数字/认证/交期/价格承诺的通用表达。
-- **通过条件**：3-8 个**跨轮代表**模板以【渲染后收件人视图】展示 + 每模板理由 → 用户确认。（用户说"不用看"可豁免展示，**不豁免确认**，`../RULES.md` ERROR_BLOCKED。）
+- **判据（来源）**：`../RULES.md` S7 + `product-profile-sop.md`：只生成本地草稿；展示默认4个、用户主动要多看最多8个跨轮模板的渲染后收件人视图+理由；用户确认后才批量创建。邮件末尾签名区只含纯个人昵称。正文具体事实必须来自当前已确认 product-profile 的字段级来源；declined 档案只允许不含数字/认证/交期/价格承诺的通用表达。
+- **通过条件**：默认4个、最多8个**跨轮代表**模板以【渲染后收件人视图】展示 + 每模板理由 → 用户确认。（用户说"不用看"可豁免展示，**不豁免确认**，`../RULES.md` ERROR_BLOCKED。）
 - **API**（本节点不创建，只取详情）：`POST /api/mailbox/template-info {"id":<id>}`——见 `specs/api-reference.md` 接口表。
 - **脚本**：`gen_templates.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --product <产品> --profile .../product-profile.md --plan <计划JSON> --prefix "英-<产品>-" --suffix -RT --name <纯昵称> --record .../operation-record.md --project <operator_key>/<product_key> --preview`；预览成功推进S7但不写平台。
 - **产出记录**：`.local/approvals.tsv`（S7_模板预览行）；草稿在对话展示。
@@ -140,7 +142,7 @@ audience: 人+AI
 - **判据（来源）**：`../RULES.md` S10「保存finished、标签联系人>0、序列inactive、人数对账且用户确认后才contact-add」；`../RULES.md` 核心铁律⑥（等 finished+标签联系人>0，否则 add 0）；L-01：`views` 必须传**空数组 `[]`**（传 `["all"]` 会把全部 139 万联系人加入）。
 - **通过条件**：`wait_save_done.py` 双校验通过（finished + 标签联系人>0）+ 序列 inactive + 人数对账一致 + 用户确认。
 - **API**：`POST /api/sequences/contact-add {"seqId":<id>,"tags":[<联系人标签id>],"views":[]}`——见 `specs/api-reference.md` 接口表（★views 必须 `[]`）；`POST /api/sequences/contact-list`——见 `specs/api-reference.md` 接口表；`POST /api/contacts/contacts/show`（标签人数）——见 `specs/api-reference.md` 接口表。
-- **脚本**：`contact_add.py --seq <id> --tags <联系人标签id> --task <保存任务id> --record runs/<operator_key>/<product_key>/operation-record.md --approval <绑定S10凭证> --project <operator_key>/<product_key>`；工具查询失败/active序列 fail-closed、views固定[]、add对账成功后推进S10。
+- **脚本**：`contact_add_authorized.py --seq <id> --tags <联系人标签id> --task <保存任务id> --record runs/<operator_key>/<product_key>/operation-record.md --approval <绑定S10凭证> --project <operator_key>/<product_key>`；工具查询失败/active序列 fail-closed、views固定[]、add对账成功后推进S10。
 - **产出记录**：`.local/approvals.tsv`（S10_加联系人行）；`operation-record.md` 记 add 人数；`evidence.json`（contacts_total）。
 
 ### S11 READY_INACTIVE（终检 + 待确认）
@@ -193,7 +195,7 @@ audience: 人+AI
 |------|------|------|---------|
 | S5 | 防重复保存检查无脚本（规则在 RULES S5「重复保存检查」，save_first_n 无已存检查） | 防重复保存缺口 open | 人工查 `clues/company-save-list`/最近成功 task |
 | S9 | ~~建序列无专用脚本~~ ✅ 已补 `tools/build_sequence.py`（tz/notSentTags 运行时按名解析+12步；实测验证 2026-08-30） | 审批闸门(工具级)/新手门槛整改(工具级) | — |
-| S10 | ~~contact-add 无专用脚本~~ ✅ 已补 `tools/contact_add.py`（时序守卫+views:[] 铁律+add 数核对） | 审批闸门(工具级)/新手门槛整改(工具级) | — |
+| S10 | ~~contact-add 无专用脚本~~ ✅ 现役 `tools/contact_add_authorized.py`（审批+票据+时序守卫+views:[] 铁律+add 数核对）；旧 contact_add.py 仅流程核对 | 审批闸门(工具级)/新手门槛整改(工具级) | — |
 | S11/S12 | 测试不激活无技术封锁（可直接调 sequence-active） | 测试不激活约束 open | 仅规则约束 + 人工守 |
 | S12 | 激活接口 sequence-active 曾 500 | 已恢复(2026-09-02 实证) | 走 activate_sequence.py(激活+回读防假) |
 | 全局 | gate_check.sh 仅 grep 字符串存在性检查，不拦功能缺陷 | 闸门检查局限 open | 人工核验工具真排除 |

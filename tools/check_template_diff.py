@@ -4,14 +4,33 @@
 ⚠️ templates-list 的 list 项不含 html(只有 subject)——必须再调 template-info(id) 取正文，否则空 html 恒"达标"(假阴性,模板差异实测（工具级）)
 用法: python3 check_template_diff.py --token <TOKEN> --org <orgId> --prefix "英-皮筏艇-" [--limit 48]
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, argparse, re, sys
 ap=argparse.ArgumentParser(); ap.add_argument("--token",required=True); ap.add_argument("--org",required=True)
 ap.add_argument("--prefix",required=True); ap.add_argument("--limit",type=int,default=48,help="本批模板总数=12轮×每轮变体数（默认48=每轮4变体）")
 args=ap.parse_args()
 def api(path,p,t=60):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     cmd=["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/{path}","-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
-    r=subprocess.run(cmd,capture_output=True,text=True,timeout=t)
+    r=subprocess.run(cmd,capture_output=True,text=True,timeout=t, encoding="utf-8", errors="replace")
     try:
         d=json.loads(r.stdout)
         if d.get("success") is False: raise ValueError(d.get("message") or "服务端拒绝")
@@ -21,13 +40,13 @@ def api(path,p,t=60):
         print(f"❌ 接口失败，无法验证模板差异: {path} -> {exc}")
         sys.exit(1)
 
-# 1) 收集模板名+id（跳过 folder）
+# 1) 收集模板名+id（★分组/未分组都计入：folder 只是归属分组，不代表不是本批模板；
+#    用 `not t.get("folder")` 排除会把已分组模板漏掉，导致数量不足/差异假达标）
 tpls=[]
 for pg in range(1,30):
     lst=api("mailbox/templates-list",{"current":pg,"pageSize":20,"filter":{},"sort":{}}).get("list",[])
     if not lst: break
     for t in lst:
-        if t.get("folder"): continue
         nm=t.get("name") or ""
         if nm.startswith(args.prefix): tpls.append({"name":nm,"id":t.get("_id")})
     if len(tpls)>=args.limit: break

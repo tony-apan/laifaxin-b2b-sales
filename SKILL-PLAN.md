@@ -1,13 +1,15 @@
 ---
+doc_id: "skill-plan"
 title: "Skill 化现状与差距清单（对抗判定 · 2026-08-30）"
 description: "判定本库现在算不算 skill、离可发布还差什么；旧过时原则（Playwright 保存等）逐条用现行机制替换；待办按现状重列（已做/未做）。"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-08-30
 author: "独立审查 agent（对抗判定后重写）"
 source: "2026-08-21 旧 SKILL-PLAN + 2026-08-30 全库对抗审查"
 related: [SKILL.md, RULES.md, INDEX.md]
 tags: [Skill, 判定, 差距清单, 发布]
-status: draft
 audience: 人（开发者）
 ---
 
@@ -36,7 +38,7 @@ audience: 人（开发者）
 3. **标签 = 客户群体中文名**（不是我的产品）——铁律 7；内部命名一律中文、邮件正文按目标市场（默认全球英语）——铁律 8；标签记录一律 `id(名称)` 成对。
 4. **模板差异可度量**：`check_template_diff.py` 逐模板 template-info 取真实 html，Jaccard≤0.70（差异≥30%）；模板差异实测（工具级） 实测闭环：旧批次最大 0.82 → 重建 RT2 批次最大 0.61。
 5. **审批硬闸门**：`approval.py` + 写工具（`save_first_n.py`/`gen_templates.py`/`rebuild_templates.py`）必须 `--approval <id> --project <产品>`，无凭证拒绝写入 exit(1)；凭证落 `.local/approvals.tsv`（本地流水，不入 Git）。
-6. **多公司多产品**：通用层（RULES/specs/lessons/tools）共享；档案层 `runs/<运营方>/<产品>/` 每产品一份完整可核查记录 + `runs/_template/`；运营方唯一源 = 本地 `.local/operator-profile.md`（不入 Git）。
+6. **多公司多产品**：通用层（RULES/specs/lessons/tools）共享；档案层 `runs/<运营方>/<产品>/` 每产品一份完整可核查记录 + `runs/_template/`；运营方唯一源 = 本地 `.local/operators/<operator_key>.md`（不入 Git）。
 7. 其他新增机制：S0-S12 状态机 + 铁律 0-8（RULES 唯一真源）、`gate_check.sh` 硬闸门、`onboard_check.py` 三步引导、`wait_save_done.py` 时序守卫、`verify_exclude.py`/`verify_sequence.py`、`gen_templates.py` 统一模板生成器（create_en_*_12rounds 系列已 deprecated）、`rebuild_templates.py` 重建顺序铁律（L-43）、旁观者审查 `review-cycle.md`、会话回落（本地记录，不入 Git）。
 
 ## 📋 旧"待办（做 Skill 前）"清单对照（按现状重列）
@@ -44,7 +46,7 @@ audience: 人（开发者）
 - [x] **测试完整流程（换产品端到端）**：电动自行车/金属粉末/步进电机/玻璃瓶/皮筏艇已多产品跑通；⚠️ 半完成——S12 激活被激活接口未就绪（sequence-active 接口 500）阻塞，"端到端含真实发信"最后一棒未闭环。
 - [x] **邮件模板结构 Prompt（单封优化）**：官方教程原文（未随库分发；整理版见 `docs/07`）。
 - [~] **审计规则表完善（audit-rules.md）**：未建独立文件；规则已固化进 `audit_company.py`（硬编码规则表）+ `specs/threshold-method.md`（AI 反思判据）。判定：独立文件可省，保持工具+spec 双固化即可。
-- [ ] **产品档案描述模板**：仍未建；现由本地运营方档案（`.local/operator-profile.md`）+ 产品档案接口 + S2 推演客群覆盖。发布前可补一份独立模板，也可维持现状。
+- [ ] **产品档案描述模板**：仍未建；现由本地运营方档案（`.local/operators/<operator_key>.md`）+ 产品档案接口 + S2 推演客群覆盖。发布前可补一份独立模板，也可维持现状。
 - [ ] **客户画像 Prompt（AI 推演输入）**：仍未建。
 - [x] **SKILL.md 入口**：本次落地（触发路由/前置/状态机判据/铁律/三步走/文件地图）。
 

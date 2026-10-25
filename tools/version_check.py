@@ -5,6 +5,18 @@
 比较结果缓存 24h（.local/version-check.json），避免每次启动都打 GitHub API（匿名限流 60次/h）。
 失败（无网/限流/文件缺）一律静默返回 None——升级提醒绝不阻塞或干扰获客主流程。
 """
+
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
+
 import json
 import re
 import time
@@ -44,7 +56,10 @@ def _remote_version_cached():
     import subprocess
     remote = None
     try:
-        r = subprocess.run(["curl", "-sSL", "-m", "5", REPO_API], capture_output=True, text=True, timeout=8)
+        # Windows 控制台/管道默认 GBK：GitHub 返回的 JSON 是 UTF-8，text=True 会按 GBK 解码并在 reader 线程抛
+        # UnicodeDecodeError（异常发生在子线程，except 捕不到，安装日志里会冒出 Traceback）。显式按 UTF-8 解码。
+        r = subprocess.run(["curl", "-sSL", "-m", "5", REPO_API], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=8)
         tag = (json.loads(r.stdout) or {}).get("tag_name", "")
         m = re.search(r"v?(\d+\.\d+\.\d+)", tag)
         remote = m.group(1) if m else None

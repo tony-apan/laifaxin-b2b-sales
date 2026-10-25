@@ -10,8 +10,19 @@
       --tmap runs/<operator_key>/<product_key>/tmap.json --profile runs/<operator_key>/<product_key>/product-profile.md --from-name <纯昵称> --tz "America/New_York" \
       --approval <ap-id> --project <operator_key>/<product_key> [--dry-run]
 默认规则(用户拍板): max_emails_per_day=30000 / domain_emails_per_day=5 / notSentTags=按名解析 询盘+不发
-步长: step1=minute/30, step2=day/5, step3=day/15, step4-12=day/30；完成后跑 verify_sequence.py 终检
+步长: step1=minute/30, step2=day/5, step3=day/15, step4-12=day/30；
+★2026-10-23 加固: 建完自动跑 verify_sequence 核心终检（12步+每步绑定模板+状态inactive），失败 exit 2 且不推进状态；S11 仍须再跑 verify_sequence.py 人工终检
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, sys, argparse, re, hashlib
 from pathlib import Path
 
@@ -21,6 +32,7 @@ from approval import require_approval, stable_params_hash
 from profile_utils import ensure_same_project_paths, profile_gate, validate_nickname
 from project_lock import acquire_project_lock
 from update_run_state import require_state, update_frontmatter
+from verify_sequence import check_sequence as _check_sequence
 from workspace_guard import preflight
 
 ap = argparse.ArgumentParser()
@@ -87,19 +99,61 @@ _org_sha = hashlib.sha256(str(args.org).encode("utf-8")).hexdigest()
 if tmeta.get("org_sha256") != _org_sha:
     _meta_fail("tmap meta.org_sha256 与 --org 不一致——禁止跨账号/租户复用模板映射")
 try:
-    _prof_rel = str(profile_path.resolve().relative_to(KB.resolve()))
+    _prof_rel = profile_path.resolve().relative_to(KB.resolve()).as_posix()
 except ValueError:
     _prof_rel = str(profile_path)
-if tmeta.get("profile_path_rel") != _prof_rel:
+_meta_prof = str(tmeta.get("profile_path_rel") or "").replace("\\", "/")
+if _meta_prof != _prof_rel:
     _meta_fail(f"tmap meta.profile_path_rel={tmeta.get('profile_path_rel')!r} 与当前档案 {_prof_rel!r} 不一致——禁止跨档案建序列")
 if tmeta.get("profile_sha256") != profile_sha or tmeta.get("profile_status") != profile_status:
     print("❌ tmap 对应的产品档案版本/hash 已变化——重新生成模板计划与模板，禁止跨档案建序列"); sys.exit(1)
 
 # ★N1/N5: tmap 先校验(最常见错误最早暴露,且在审批前; 存在性已在上面 meta 校验中确认) → 再审批
 try:
-    mapping = json.load(open(args.tmap))
+    mapping = json.load(open(args.tmap, encoding="utf-8"))
 except Exception as e:
     print(f"❌ tmap 不是合法 JSON（{e}）——用 gen_templates.py --out 重新生成，勿手改。"); sys.exit(1)
+
+# 1) tmap 校验（24hex + 唯一 + 按 name 轮/变体网格重构序——防手工重排错组, terra 1-④）
+# ★每轮变体数不再硬编码 10：用 tmap_grid 从总数动态推算（2026-09-11 用户把每轮变体 10→4）
+from tmap_grid import GridError, ROUNDS, group_by_round
+all_ids = list(mapping.values())
+bad = [i for i in all_ids if not re.fullmatch(r"[0-9a-f]{24}", str(i))]
+if bad or len(set(all_ids)) != len(all_ids):
+    print(f"❌ tmap 异常: 数量={len(all_ids)} 坏id={bad[:3]} 重复={len(all_ids)-len(set(all_ids))}——先跑 gen_templates.py 重新生成"); sys.exit(1)
+# ★2026-10-23 加固（任务A-1）：网格不可信时不再"按顺序切分"静默继续——
+#   tmap 名字不含 R##/V## 网格、轮数≠12、每轮步数不一致，任何一项都在**任何平台读写之前**
+#   中文报错 exit 2（顺序切分一旦错组=发错人，属于不可接受的静默风险）。
+try:
+    groups_pairs, exact = group_by_round(mapping)
+except GridError as exc:
+    print(f"❌ tmap 网格异常: {exc}——先跑 gen_templates.py 重新生成（轮数固定 {ROUNDS}，每轮模板数必须等量）")
+    sys.exit(2)
+per_round = len(groups_pairs[0][1]) if groups_pairs else 0
+groups = [ids for _, ids in groups_pairs]
+if not exact:
+    print("❌ tmap 分组不可信: 模板名不含 R##/V## 轮/变体网格，旧实现会按顺序切分——错组会把第 N 轮模板发到别的轮，禁止静默继续")
+    print("   处理: 用 gen_templates.py --out 重新生成 tmap（名字带 R01-V01…R12-Vxx），勿手改/重排 tmap。")
+    sys.exit(2)
+if len(groups) != ROUNDS:
+    print(f"❌ tmap 轮数异常: 实际 {len(groups)} 轮，必须 {ROUNDS} 轮——先跑 gen_templates.py 重新生成")
+    sys.exit(2)
+_counts = [len(ids) for _, ids in groups_pairs]
+if per_round <= 0 or len(set(_counts)) != 1 or per_round * ROUNDS != len(all_ids):
+    print(f"❌ tmap 每轮步数异常: 每轮模板数={_counts}（总数 {len(all_ids)}）——必须 {ROUNDS} 轮等量，先跑 gen_templates.py 重新生成")
+    sys.exit(2)
+print(f"✅ tmap 网格校验通过({ROUNDS}轮 × {per_round}变体 = {len(all_ids)} 个, 按轮序)")
+
+# 1b) ★序列命名规范校验：名字里的「N轮M封」必须与实际批次一致（2026-09-11 用户拍板）
+#    名字是对外的事实声明；写错会让平台里显示的规模与实际步骤挂载数不符，交接时极易误判。
+from tmap_grid import validate_sequence_name
+_name_ok, _name_msg = validate_sequence_name(args.name, per_round)
+if not _name_ok:
+    print(f"❌ 序列命名不符规范: {_name_msg}")
+    print(f"   规范: [产品]-[语言]-{ROUNDS}轮{per_round}封-[策略]（可选客群档位后缀如 -S04）")
+    sys.exit(2)
+print(f"  ✅ 序列命名: {_name_msg}")
+
 S9_RULES_BINDING = {"steps": 12, "waits": "step1=30分,step2=5天,step3=15天,step4-12=30天",
                     "tz": args.tz, "daily_limit": f"{args.max_per_day}/{args.per_domain}", "not_sent_tags": "询盘/不发"}
 binding = {"project": args.project, "org_sha256": _org_sha, "name": args.name, "from_name": args.from_name,
@@ -110,10 +164,19 @@ require_approval(args.approval, args.project, ("S9",), what="建序列", expecte
 preflight(args.token, args.org, dry_run=args.dry_run, what="建序列")
 
 def api(path, p, t=60, exit_on_fail=True):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     cmd = ["curl","-sSL","-m","55","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t, encoding="utf-8", errors="replace")
     try:
         d = json.loads(r.stdout)
         if d.get("success") is False:
@@ -128,34 +191,6 @@ def api(path, p, t=60, exit_on_fail=True):
         if exit_on_fail:
             print("  ⚠️ 接口无返回——可能是网络不通（这不是配置问题，不用改参数），稍等重试；反复出现再看 平台接口间歇空(已知)。")
         return {}
-
-# 1) tmap 校验（24hex + 唯一 + 按 name 轮/变体网格重构序——防手工重排错组, terra 1-④）
-# ★每轮变体数不再硬编码 10：用 tmap_grid 从总数动态推算（2026-09-11 用户把每轮变体 10→4）
-from tmap_grid import GridError, ROUNDS, group_by_round
-all_ids = list(mapping.values())
-bad = [i for i in all_ids if not re.fullmatch(r"[0-9a-f]{24}", str(i))]
-if bad or len(set(all_ids)) != len(all_ids):
-    print(f"❌ tmap 异常: 数量={len(all_ids)} 坏id={bad[:3]} 重复={len(all_ids)-len(set(all_ids))}——先跑 gen_templates.py 重新生成"); sys.exit(1)
-try:
-    groups_pairs, exact = group_by_round(mapping)
-except GridError as exc:
-    print(f"❌ tmap 网格异常: {exc}——先跑 gen_templates.py 重新生成"); sys.exit(1)
-per_round = len(groups_pairs[0][1])
-groups = [ids for _, ids in groups_pairs]
-if exact:
-    print(f"✅ tmap 网格校验通过({ROUNDS}轮 × {per_round}变体 = {len(all_ids)} 个, 按轮序)")
-else:
-    print(f"⚠️ tmap name 不含 R轮/V变体 模式，按顺序每轮 {per_round} 个分组（手工重排过=有错组风险，建议用 gen_templates 原始产物）")
-
-# 1b) ★序列命名规范校验：名字里的「N轮M封」必须与实际批次一致（2026-09-11 用户拍板）
-#    名字是对外的事实声明；写错会让平台里显示的规模与实际步骤挂载数不符，交接时极易误判。
-from tmap_grid import validate_sequence_name
-_name_ok, _name_msg = validate_sequence_name(args.name, per_round)
-if not _name_ok:
-    print(f"❌ 序列命名不符规范: {_name_msg}")
-    print(f"   规范: [产品]-[语言]-{ROUNDS}轮{per_round}封-[策略]（可选客群档位后缀如 -S04）")
-    sys.exit(2)
-print(f"  ✅ 序列命名: {_name_msg}")
 
 # 2) 运行时解析 schedule_id（各账号不同）
 d = api("settings/sequence/schedule-list", {"current":1,"pageSize":100})
@@ -179,9 +214,29 @@ def tag_by_name(nm):
         if t.get("name") == nm: return t.get("id") or t.get("_id")
     return None
 t_inq, t_stop = tag_by_name("询盘"), tag_by_name("不发")
-if not (t_inq and t_stop):
-    miss = [n for n, v in (("询盘",t_inq),("不发",t_stop)) if not v]
-    print(f"❌ 未找到 notSent 标签: {miss}——先在系统建这两个联系人标签(名字须完全一致),或本工具加参数扩展"); sys.exit(1)
+_miss = [n for n, v in (("询盘", t_inq), ("不发", t_stop)) if not v]
+if _miss:
+    # ★三审 K 缺口（2026-10-23）：RULES 要求「不存在才创建」，旧实现只查不建 → 首次运行 exit 1。
+    if args.dry_run:
+        print(f"[dry-run] 缺少 notSent 标签 {_miss}：正式运行会先自动创建后再建序列（dry-run 不写平台）")
+    else:
+        print(f"ℹ️ 缺少 notSent 标签 {_miss}：按规则自动创建（type=contacts，名字完全一致）……")
+        for _nm in _miss:
+            _r = api("contacts/tags-add", {"name": _nm, "type": "contacts"}, exit_on_fail=False)
+            if not _r.get("success"):
+                print(f"❌ 自动创建标签「{_nm}」失败: {_r.get('message') or str(_r)[:120]}")
+                print("   不写平台、不建序列。请先在平台手动建同名联系人标签，或检查账号权限。")
+                sys.exit(2)
+        # 重查一次，用平台权威 id
+        _d = api("contacts/tags-list", {"type": "contacts"})
+        _tl = _d.get("data", {})
+        _tl = _tl if isinstance(_tl, list) else _tl.get("list", [])
+        t_inq = next((t.get("id") or t.get("_id") for t in _tl if t.get("name") == "询盘"), None)
+        t_stop = next((t.get("id") or t.get("_id") for t in _tl if t.get("name") == "不发"), None)
+        _miss2 = [n for n, v in (("询盘", t_inq), ("不发", t_stop)) if not v]
+        if _miss2:
+            print(f"❌ 自动创建后仍解析不到标签: {_miss2}——不写平台、不建序列"); sys.exit(2)
+        print(f"✅ 已自动创建并解析 notSentTags: 询盘={t_inq} 不发={t_stop}")
 print(f"✅ notSentTags 解析: 询盘={t_inq} 不发={t_stop}")
 
 rules = {"finishReply": False, "notSentInvalid": True, "notSentBlack": True, "aiGuard": True,
@@ -240,6 +295,18 @@ for step in range(1, 13):
     if not ok:
         print(f"  ⚠️ 半成品序列 {seq_id}（{step-1}/12 步）——勿激活；到界面删除它后从本工具重跑（重跑会因同名被拦，先删）")
         sys.exit(1)
+
+# ★建完自动终检（2026-10-23 加固，任务A-1）：复用 verify_sequence 的核心逻辑。
+#   平台写已经发生，终检不过也不推进 S9——把半成品挡在"激活"之前，而不是等 S11 人工终检才发现。
+_vok, _vissues, _vinfo = _check_sequence(
+    lambda _path, _payload: api(_path, _payload).get("data", {}), seq_id)
+if not _vok:
+    print(f"❌ 建完自动终检未通过（序列 {seq_id} 已建但不可用）:")
+    for _issue in _vissues:
+        print(f"   - {_issue}")
+    print("   本地状态不推进（仍停留在本步）。先复跑 verify_sequence.py 复核；确属半成品再到界面删除后重跑本工具（重跑会因同名被拦，先删）。")
+    sys.exit(2)
+print(f"✅ 建完自动终检通过: {_vinfo.get('steps')} 步均绑定模板；状态={_vinfo.get('status')}；邮件模板库={_vinfo.get('templates')} 个")
 
 if args.record:
     update_frontmatter(args.record, {"status": "S9", "next_state": "S10", "updated": __import__('time').strftime("%Y-%m-%d"),

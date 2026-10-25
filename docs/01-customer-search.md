@@ -1,15 +1,18 @@
 ---
+doc_id: "docs-01-customer-search"
 title: "客户搜索（AI 数据库）"
 description: "4 种搜索方式（搜域名/AI推演/提纯搜/找相似）+ 服务词vs产品词心法 + 实测 API 参数"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-09-03
 author: "AI Agent + 运营方"
 source: "https://www.laifa.xin/zhinan/refine-search-all"
 related: [02-filter-customers, 08-workflow-ops, specs/api-reference]
 tags: [搜索, AI数据库, API, 找相似]
-status: verified
 audience: 人+AI
 ---
+
 # 01 · 客户搜索（AI 数据库）
 
 > 来源：`https://www.laifa.xin/zhinan/refine-search-all` + 实测 API 验证

@@ -4,6 +4,16 @@
 ⚠️ 局限(对抗审查 抽样验证局限)：默认仅抽前3页×10=30家(≈0.4%)；且验的是 company-list(列表) 非 company-save 实际保存结果=proxy验证。抽样请 --pages 1,2,3,50,100,200 扩大；保存结果的4区最终以 backend-task-status 联系人清单为准。
 用法: python3 verify_exclude.py --token <TOKEN> --org <orgId> --keyword <种子> [--pages 1,2,3]
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, argparse, sys
 ap=argparse.ArgumentParser(); ap.add_argument("--token",required=True); ap.add_argument("--org",required=True)
 ap.add_argument("--keyword",required=True); ap.add_argument("--pages",default="1,2,3",help="页码csv")
@@ -13,7 +23,7 @@ def clist(pg):
     p={"logic":"and","current":pg,"pageSize":10,"filters":[{"property":"country_code","operator":"exclude","value":"","values":["CN","TW","HK","MO"],"valueType":"select"}],"sort":{},"keyword":args.keyword,"filter":{}}
     cmd=["curl","-sSL","-X","POST","https://web.laifaxin.com/api/refine/company-list","-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
-    r=subprocess.run(cmd,capture_output=True,text=True,timeout=60)
+    r=subprocess.run(cmd,capture_output=True,text=True,timeout=60, encoding="utf-8", errors="replace")
     try:
         d=json.loads(r.stdout)
         if d.get("success") is False: raise ValueError(d.get("message") or "服务端拒绝")

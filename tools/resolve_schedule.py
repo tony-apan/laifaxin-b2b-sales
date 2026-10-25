@@ -7,6 +7,16 @@
   python3 resolve_schedule.py --token <T> --org <orgId> --list                    # 列出全部计划时间模板
 建序列前必须先跑本工具拿 schedule_id（node-playbook S9 / sequence-config 引用）。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, argparse, sys
 ap = argparse.ArgumentParser()
 ap.add_argument("--token", required=True); ap.add_argument("--org", required=True)
@@ -16,10 +26,19 @@ ap.add_argument("--list", action="store_true", help="列出全部模板")
 args = ap.parse_args()
 
 def api(path, p, t=60):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     cmd = ["curl","-sSL","-m","55","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t, encoding="utf-8", errors="replace")
     try: return json.loads(r.stdout).get("data", {})
     except: return {}
 

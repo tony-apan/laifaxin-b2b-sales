@@ -1,7 +1,12 @@
+import sys
+import unittest
+if sys.platform == "win32":
+    raise unittest.SkipTest("pty/termios 仅 POSIX 可用；Windows 不跑终端交互用例")
 import io
 import json
 import os
 import pty
+import shutil
 import stat
 import subprocess
 import sys
@@ -416,6 +421,7 @@ class LoginTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
 
 
+@unittest.skipUnless(shutil.which("bash"), "需要 bash（Windows 未装 Git Bash 时跳过）")
 class ShellRoutingTest(unittest.TestCase):
     def run_script(self, name, args=(), input_text=None):
         with tempfile.TemporaryDirectory() as tmp:
@@ -446,7 +452,7 @@ class ShellRoutingTest(unittest.TestCase):
                 capture_output=True,
                 env=env,
                 timeout=5,
-            )
+            encoding="utf-8", errors="replace")
             calls = ([json.loads(line) for line in capture.read_text(encoding="utf-8").splitlines() if line]
                      if capture.exists() else [])
             return result, calls

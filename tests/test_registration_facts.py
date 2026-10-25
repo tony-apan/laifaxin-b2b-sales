@@ -11,6 +11,8 @@
 本测试锁定：注册引导必须在位；过时数字不得复现；权益口径必须带"以平台实时为准"免责。
 """
 import re
+import shutil
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -20,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 USER_DOCS = (
     "README.md", "SKILL.md", "wiki/faq.md",
     "docs/09-mass-outreach-to-precision-follow-up.md",
-    "output-templates/T-token引导.md",
+    "output-templates/T-token-guide.md",
 )
 
 
@@ -38,7 +40,7 @@ class RegistrationGuidanceTest(unittest.TestCase):
         self.assertRegex(text, r"还没有.{0,4}账号|没有账号", "README 应显式覆盖'还没账号'场景")
 
     def test_connect_card_covers_no_account(self):
-        text = read("output-templates/T-token引导.md")
+        text = read("output-templates/T-token-guide.md")
         self.assertIn("免费注册", text, "连接卡必须覆盖'没有账号'")
         self.assertIn("不代办注册", text, "AI 不得代办注册")
 
@@ -48,7 +50,7 @@ class RegistrationGuidanceTest(unittest.TestCase):
         self.assertIn("不代办注册", text, "SKILL 应写明 AI 不代办注册")
 
     def test_registration_is_free_no_prepay(self):
-        for name in ("README.md", "output-templates/T-token引导.md"):
+        for name in ("README.md", "output-templates/T-token-guide.md"):
             with self.subTest(file=name):
                 text = read(name)
                 self.assertRegex(text, r"注册免费|不用先付费|无需先付费",
@@ -105,7 +107,7 @@ class TaskMenuFormatTest(unittest.TestCase):
     """任务菜单格式（2026-09-10 用户拍板）：逐行 + emoji 突出 + 标 ⭐推荐。"""
 
     def setUp(self):
-        self.path = ROOT / "output-templates" / "S0-任务菜单.md"
+        self.path = ROOT / "output-templates" / "S0-task-menu.md"
 
     def test_menu_template_exists(self):
         self.assertTrue(self.path.is_file(), "缺任务菜单展示模板")
@@ -134,24 +136,20 @@ class TaskMenuFormatTest(unittest.TestCase):
             with self.subTest(line=line.strip()[:30]):
                 self.assertRegex(line, emoji_re, f"菜单项缺 emoji 突出: {line.strip()[:40]}")
 
-    def test_menu_is_state_aware_and_hides_irrelevant(self):
-        """★按状态裁剪：两个菜单（有/无旧项目）各自给 4 项；不得含「更新/换机」。"""
-        blocks = re.findall(r"```[a-zA-Z]*\n(.*?)```", self.path.read_text(encoding="utf-8"), re.S)
-        self.assertEqual(2, len(blocks), "应分别给出「有旧项目」「无旧项目」两个菜单")
-        with_proj, without_proj = blocks
-        # 有旧项目 → 必须出现"继续"；无旧项目 → 不得出现"继续"（列"（无）"是噪音）
-        self.assertIn("继续", with_proj, "有旧项目菜单应含「继续项目」")
-        self.assertNotIn("继续", without_proj, "无旧项目菜单不应出现「继续项目」")
-        # 两份都不得把"更新/换机"当菜单项（刚装完无关；用户主动说才走路由）
-        for name, block in (("有旧项目", with_proj), ("无旧项目", without_proj)):
-            with self.subTest(menu=name):
-                self.assertNotIn("更新系统", block, f"{name}菜单不应含「更新系统」")
+    def test_menu_only_for_history_and_hides_irrelevant(self):
+        """★2026-10-23 用户裁决：任务菜单只在「有旧项目」时出现；新用户直接问昵称+产品。"""
+        text = self.path.read_text(encoding="utf-8")
+        blocks = re.findall(r"```[a-zA-Z]*\n(.*?)```", text, re.S)
+        self.assertEqual(1, len(blocks), "任务菜单只应保留「有旧项目」1 个代码块（新用户不出菜单）")
+        self.assertIn("继续", blocks[0], "有旧项目菜单应含「继续项目」")
+        self.assertIn("有旧项目", text, "标题/说明应写清只在有旧项目时展示")
+        self.assertNotIn("## 无旧项目时", text, "不得再保留「无旧项目时」菜单")
+        self.assertNotIn("更新系统", blocks[0], "菜单不应含「更新系统」")
 
     def test_menu_marks_recommendation(self):
         text = self.path.read_text(encoding="utf-8")
         self.assertIn("⭐推荐", text, "菜单必须标注推荐项")
-        self.assertIn("无旧项目", text, "应区分有无旧项目的推荐")
-        self.assertIn("有旧项目", text)
+        self.assertIn("有旧项目", text, "应写清只在有旧项目时展示")
 
     def test_menu_forbids_inline_compression(self):
         text = self.path.read_text(encoding="utf-8")
@@ -184,7 +182,7 @@ class BeginnerFriendlyReportTest(unittest.TestCase):
     """小白适配（2026-09-10 对抗审查）：安装后先白话汇报，禁抛内部术语。"""
 
     def setUp(self):
-        self.path = ROOT / "output-templates" / "S0-安装完成汇报.md"
+        self.path = ROOT / "output-templates" / "S0-install-report.md"
         self.text = self.path.read_text(encoding="utf-8") if self.path.is_file() else ""
 
     def test_report_template_exists(self):
@@ -223,6 +221,8 @@ class PlainStepMappingTest(unittest.TestCase):
     def setUp(self):
         self.source = (ROOT / "tools" / "onboard_check.py").read_text(encoding="utf-8")
 
+    @unittest.skipUnless(all(shutil.which(t) for t in ("bash", "curl", "grep", "awk")),
+                         "需要 bash/curl/grep/awk（onboard_check 自检前置；Windows 无 Git Bash 时跳过）")
     def test_plain_hint_exists_and_covers_key_nodes(self):
         import importlib.util, tempfile, shutil, subprocess, sys
         # 直接跑函数：白话映射必须真能翻译关键节点（防"表被清空但仍匹配键名"的假通过）
@@ -236,7 +236,8 @@ class PlainStepMappingTest(unittest.TestCase):
             repo = Path(tmp) / "repo"
             shutil.copytree(ROOT, repo, ignore=shutil.ignore_patterns(".git", "__pycache__", ".local", "runs"))
             out = subprocess.run([sys.executable, "-c", script], cwd=str(repo),
-                                 capture_output=True, text=True, timeout=120)
+                                 capture_output=True, text=True,
+                                 encoding="utf-8", errors="replace", timeout=120)
         self.assertEqual(0, out.returncode, out.stderr[-400:])
         lines = dict(l.split(" => ", 1) for l in out.stdout.strip().splitlines() if " => " in l)
         # ★语义断言：白话必须真的描述那个阶段（防 fallback 兜底通过）
@@ -258,12 +259,12 @@ class PlainStepMappingTest(unittest.TestCase):
     def test_jargon_stays_out_of_user_facing_text(self):
         """README 的安装指令不得再让 AI 汇报'安装目录和当前版本'这种技术项。"""
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("S0-安装完成汇报", readme, "README 安装指令应指向白话汇报模板")
+        self.assertIn("S0-install-report", readme, "README 安装指令应指向白话汇报模板")
         self.assertNotIn("安装目录和当前版本", readme, "README 不应让 AI 汇报技术目录/版本")
 
 
 class ReadmeMenuConsistencyTest(unittest.TestCase):
-    """README 里的菜单说明必须与 S0-任务菜单.md 的 4 项一致（防两处不同步）。"""
+    """README 里的菜单说明必须与 S0-task-menu.md 的 4 项一致（防两处不同步）。"""
 
     def test_readme_does_not_list_six_items(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -316,6 +317,12 @@ class ReleaseBookkeepingTest(unittest.TestCase):
         knowledge = ROOT.parent / "laifaxin-knowledge"
         if not knowledge.is_dir():
             self.skipTest("知识仓不在同级目录")
+        dirty = subprocess.run(
+            ["git", "-C", str(knowledge), "status", "--porcelain"],
+            capture_output=True, text=True,
+        encoding="utf-8", errors="replace")
+        if dirty.stdout.strip():
+            self.skipTest("知识仓有未提交改动，版本同步留到发版时再核")
         kp = knowledge / "SKILL.md"
         if not kp.is_file():
             self.skipTest("知识仓无 SKILL.md")

@@ -1,10 +1,12 @@
 ---
+doc_id: "runs-template-reflection"
 title: "「产品」全流程·反思提炼"
 description: "本次「产品」获客全程的反思：做对的、犯的错、可优化点（供旁观者对抗分析）"
+type: "template"
+status: "active"
+updated: "2026-10-23"
 created: "YYYY-MM-DD"
-updated: "YYYY-MM-DD"
 author: "AI + 用户对抗"
-status: inprogress
 related: [../../../specs/threshold-method, ../../../specs/sequence-config, ../../../lessons/lessons-learned]
 tags: [反思, 流程复盘, 对抗分析]
 ---

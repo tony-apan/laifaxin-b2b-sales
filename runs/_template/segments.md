@@ -1,3 +1,12 @@
+---
+doc_id: "runs-template-segments"
+title: "客群索引 · 「产品」（★生成物，由 segments/ 重生成）"
+description: "客群索引生成物模板：汇总客群、语言、状态与批次，维护多客群项目时用。"
+type: "template"
+status: "active"
+updated: "2026-10-23"
+---
+
 # 客群索引 · 「产品」（★生成物，由 segments/ 重生成）
 
 > 每行=一个客群；**标签/模板批次/序列三列必须专属**（铁律 7d：一客群一标签一计划，禁止合并）。

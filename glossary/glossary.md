@@ -1,13 +1,15 @@
 ---
+doc_id: "glossary-glossary"
 title: "术语表（Glossary）"
 description: "来发信外贸获客全流程术语：中英对照 + 通俗解释，人机通用"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-08-21
 author: "AI Agent + 运营方"
 source: "来发信官方文档 + 实战验证"
 related: [docs/00-overview, docs/01-customer-search, docs/05-email-marketing]
 tags: [术语表, glossary, 中英对照]
-status: verified
 audience: 人+AI
 ---
 

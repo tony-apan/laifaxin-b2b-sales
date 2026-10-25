@@ -1,13 +1,15 @@
 ---
+doc_id: "rules"
 title: "来发信获客·规则总纲（唯一真源）"
 description: "所有规则的唯一入口：无论会话长短/换电脑，先读本文件再执行。强制流程+校验清单。"
+type: "rule"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-29
-updated: 2026-09-09
 author: "AI + 用户对抗"
 source: "皮筏艇/电动自行车全程"
 related: [specs/threshold-method, specs/domain-scale-sop, specs/sequence-config, specs/marketing-rules-2.0]
 tags: [规则总纲, 唯一真源, 强制流程, 迁移]
-status: verified
 audience: 人+AI
 ---
 
@@ -15,50 +17,62 @@ audience: 人+AI
 
 > **★ 执行原则**：**每次操作前先读本文件 + 引用的 specs**，严格按流程，**禁止凭记忆跳步**。
 > **本文件是唯一真源**，所有子规则从这里引用。换电脑/新会话：先读本仓库对应文件。
-> **★ 安装/学习入口与业务入口必须分开**：用户让 AI 安装、更新或学习本 Skill 时，只执行下载/更新、环境准备、通读规则、`onboard_check.py` 自检和旧项目扫描；完成后汇报并只问“你现在想做什么？”。**安装阶段禁止索取产品、市场、官网、昵称、token 或其他业务资料，也不得默认启动新项目。** 用户明确选择“新获客项目”后，才进入 S0；选择适配判断/网站提炼/续接/更新/了解流程时，分别走对应路由。
-> **★ 新获客项目入口总线**：用户明确选择开始新项目 → 先收昵称+一句话产品并完成 S0/S0a 产品了解与适配判断 → **首次调用来发信平台前，必须运行 `check_login.py`（无 token 才引导用户按[官方教程](https://www.laifa.xin/share/ai/laifaxin-ai-account-connection)获取）** → `bash tools/gate_check.sh`（★bash 脚本，用 `bash` 调用不是 `python3`；闸门未通过**禁止任何保存/模板/序列/contact-add**）→ `flow_orchestrator.py`（向导）。登录检查是平台操作前第一步，不是安装或对话开局第一句；闸门=写操作的唯一通行证。
-> **★ 凭据唯一交付路径**：需要连接平台时，用户只在浏览器执行一键双取，然后把 `accesstoken=` + `orgId=` 两行整段直接粘贴到当前受信任、正在本机操作的主 AI 聊天框。AI **禁止要求用户**设置 TOKEN/ORG 环境变量、创建 `.env`、执行 Python/Shell 命令、拆分或改写参数。仓库工具不主动回显或落盘**原始凭据**，不写 `.env`/日志/持久环境变量、不传子代理；主 AI 通过宿主程序化 stdin 把两行原样交 `check_login.py --credentials-stdin`。
-  失效重试只允许在 `.local/token-fail.json` 保存 token 短哈希、次数和时间，不保存原文。宿主不支持程序化 stdin 时，也不得把内部操作甩给用户；可由主 AI 使用内部兼容调用，并如实遵循宿主审计边界。聊天服务是否保存对话取决于其隐私政策。缺任一字段必须停止，禁止从 token 中段回退 orgId。
+> **★ 安装/学习入口与业务入口必须分开**：用户让 AI 安装、更新或学习本 Skill 时，只执行下载/更新、环境准备、通读规则、`onboard_check.py` 自检和旧项目扫描；完成后汇报并只问“你现在想做什么？”。**安装阶段禁止索取产品、市场、官网、昵称、token 或其他业务资料，也不得默认启动新项目。**（唯一例外：安装完成、按 `S0-install-report.md` 汇报之后，新用户按 `S0-opening-questions.md` C1 只问「昵称 + 产品」两样——这是进入新项目的入口，不算安装阶段索取。）用户明确选择“新获客项目”后，才进入 S0；选择适配判断/网站提炼/续接/更新/了解流程时，分别走对应路由。
+> **★ 新获客项目入口总线**：用户明确选择开始新项目 → 先收昵称+一句话产品并完成 S0/S0a 产品了解与适配判断 → **首次调用来发信平台前，必须运行 `check_login.py`（无 token 才引导用户按[官方教程](https://www.laifa.xin/share/ai/laifaxin-ai-account-connection)获取）** → `bash tools/gate_check.sh`（★bash 脚本，用 `bash` 调用不是 `python3`；它是登录/权限/工作空间预检，不是“读过规则”的证明；未通过**禁止任何保存/模板/序列/contact-add**）→ `flow_orchestrator.py`（向导）。登录检查是平台操作前第一步，不是安装或对话开局第一句。V2 保存还必须走 `save_company_cli.py prepare→confirm→execute` 的 confirmed plan；gate_check 不能替代计划、审批或真实证据。开工必读登记（新会话/新 AI 首次执行前）只是加一道前置门槛，**不改变本流程顺序、不要求用户在安装阶段回答业务问题**；安装完成后按第 89 行口径先问昵称+产品，拿到后再登记。
+> **★ 凭据三层降级（唯一交付路径）**：①**首选 CDP 自动**——按 `output-templates/T-token-guide.md` 用真实 Chrome/Edge 登录，由 `browser_login.py` 取参；②**一键命令兜底**——自动失败时原样给出下面命令，用户粘贴回车即自动复制两行，回聊天框粘贴；③**手动两值兜底**——命令被拦时才让用户分别复制 `accesstoken` 与 `orgId`，并说明企业账号二者不同、漏 orgId 会连错空间。**禁止**让用户手敲/背诵 token；**禁止**只说“去复制 token”却不给一键命令；**禁止**把一键命令当首选。AI 禁止要求用户设置 TOKEN/ORG 环境变量、创建 `.env`、执行 Python/Shell 命令。除本机 `session_store`（目录 0700、文件 0600、仅本机、可用 `browser_login.py --forget` 清除）外，token 不得出现在任何文件/日志/命令行走廊（含 `.env`、持久环境变量与子代理消息）；主 AI 在内存中处理并经宿主程序化 stdin 交内部工具。
+>
+> ````
+> var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！回到对话框 Ctrl+V（Mac按⌘V）粘贴发送给 AI"):(location.host.indexOf("laifaxin")<0&&location.host.indexOf("worldtradetool")<0?"❌ 你现在打开的网页（"+location.host+"）不是来发信——请在 app.laifaxin.com 页面执行本命令":"❌ 来发信页面上没取到登录凭证——先看右上角有没有你的账号头像：没有=先登录；有=按 F5 刷新后再运行一次");
+> ```
+  失效重试只允许在 `session_store` 保存 token 短哈希、次数和时间，不保存原文。宿主不支持程序化 stdin 时，也不得把内部操作甩给用户；可由主 AI 使用内部兼容调用，并如实遵循宿主审计边界。聊天服务是否保存对话取决于其隐私政策。缺任一字段必须停止，禁止从 token 中段回退 orgId。
+> **域名分工与跨域验证**：AI 自动取参入口为 `https://web.laifaxin.com`；引导用户手动操作入口为 `https://app.laifaxin.com`，两者是同一平台不同入口、账号相同；如遇登录态互踢，以平台实际为准并停下报错。跨域 token 有效性为 **UNVERIFIED，待首次真实平台冒烟验证**，不得写成已确认；每次取参后强制执行 `workspace_guard` 落点校验，通过前停止。错误码 11/14/20/21/26 → `E_BROWSER_UNSUPPORTED` + 三步 app 手动指引；13/15/12/23 → “确认目标空间/重新登录”类指引，禁止引导手动取参。
+> **会话文件与摘要边界**：只允许剪贴板粘贴与 `session_store` 保存会话凭证（目录 0700、文件 0600）；禁止用户手写文件，AI 不回显 token、不写 runs 日志。该文件不是安全边界，真正防线是远端校验：每进程首次复用须通过 `check_login` 与 `workspace_guard --require-verified`。未加盐摘要可由本机任何人重算，只用于早失败、防意外损坏，不能作为安全边界；最终仍须远端登录及工作空间校验。
 > **审批信任边界**：本仓工具防呆，不提供密码学真人证明。它能阻断误操作、参数漂移、旧凭证和错误状态；无法阻止恶意进程直接改源码或本地审批/证据文件。S12 必须由用户在受信任的 AI 会话里亲口说出「确认激活」（工具按原话+参数哈希绑定），主机级身份签名应由宿主产品提供。
-> **★ token 中途失效 SOP**：立即停止写操作 → 引导用户在浏览器重新一键双取并把两行整段直接粘贴到当前聊天框 → 主 AI 经 stdin 交 check_login 复验 → 从当前 operation-record 节点继续，勿从 S0 重跑。
+> **★ token 中途失效 SOP**：立即停止写操作 → 首选真实浏览器重新登录，由 `browser_login.py` 重新取参；自动失败再用 T-token 卡的一键命令重新拿两行 → 主 AI 复验 check_login/workspace_guard → 从当前 operation-record 节点继续，勿从 S0 重跑。
 
 ## 🚨 新获客项目的强制流程与状态机（用户明确选择后才进入，禁止安装后自动启动）
 ```
 S0 INPUT_GATE: 
-    ★对话开局只需昵称+一句话产品（中英皆可）；卖给谁、卖到哪、用户自己的官网/产品页/目录全部选填，缺失不得阻断或重复追问——AI 先给有理由的客群/市场建议并标为分析，不得冒充用户输入。先做产品了解/适配判断；**首次调用平台前**再运行 tools/check_login.py 只读验证（无token/失效→此时才引导用户按官方教程获取后交给AI），登录闸门仍是任何平台查询/写操作前第一步。
+    ★对话开局只需昵称+一句话产品（中英皆可）；卖给谁、卖到哪、用户自己的官网/产品页/目录全部选填，缺失不得阻断或重复追问——AI 只给非客群的准备性建议（不生成/选择具体买家类型），不得冒充用户输入。先做产品了解/适配判断；**首次调用平台前**再运行 tools/check_login.py 只读验证（无token/失效→此时才引导用户按官方教程获取后交给AI），登录闸门仍是任何平台查询/写操作前第一步。
     ★缺昵称或产品只问缺项，不写入。
     ★昵称规范（2026-09-09 模拟补强）：**只含一个纯个人称呼**（如 Tony / Iris / Jean-Pierre / 老王 / 张伟 / 欧阳娜娜）。
         英文+中文混合昵称一律拒绝（常见“人名+公司/产品”拼接，如 `Tony-包装厂`、`Amy宠物食品`）；纯中文昵称须为 2-4 个纯汉字，带连字符或厂/包装/食品/机械等公司产品词拒绝（如 `王-包装厂`、`张伟食品包装`）。
         同时禁止公司名/产品名/职位/号码等（如 `Iris | XX Textiles`、`Tony-保温杯厂` 一律要求改）。
-    ★产品适配度判定（只读前置，出 ABCD 方案前）：按 specs/product-fit.md 四问判 强/条件/弱适配，结论+理由随方案展示；弱适配必须如实告知预期（冷邮件回询盘以月/年计，建议小样 ≤500 家/1 轮验证），用户决定是否继续——不拒绝、不静默、不加输入项。
-    ★S0 出 A/B/C/D 获客方向方案（含推荐与淘汰理由）供选字母。
+    ★产品适配度判定（只读前置，在用途卡之前的独立说明里）：按 specs/product-fit.md 四问判 强/条件/弱适配，结论+理由随 output-templates/S0-fit-notes.md 展示、不要求回复；弱适配必须如实告知预期（冷邮件回询盘以月/年计）；可建议用户选择小样（如 ≤500 家/1 轮）验证，但必须由用户明确选择并进入同一 plan/预算/审计校验，AI 不得默认写 500 或擅自缩量——不拒绝、不静默、不加输入项。
+    ★**本地不产出买家类型（v3 用户裁决）**：不再生成 A/B/C/D 买家类型清单/字母选项，只给「往哪个方向找」的参考（离产品近/买得多/会回邮件），非必答、不落档；平台没返回时不得用参考兜底，不得映射成标签或客群。
+    ★**职责边界（硬约束）**：本地 AI 可做产品了解、适配判断、用途假设、解释与排序建议；**禁止产出/命名/选择具体客群，禁止把本地建议映射成客群，禁止在平台未返回时给 S3+ 提供客群依赖输入**。具体客群只能在 S2 由平台推演返回。
+    ★**开场两分支**（照 `output-templates/S0-opening-questions.md`）：无任何历史项目或本地读取失败 → 一次只问昵称+产品，禁止说"我记得您…"；有历史项目 → **复用 `output-templates/S0-task-menu.md` 四项**（不另造菜单），用户明确选继续或"看看之前做到哪"后才展示产品别名+人话阶段；一次最多 3 个项目，超出说"还有 N 个更早的项目，要看吗"；展示值转义 markdown，禁止展示 token/凭据/内部枚举/路径。
     ★渐进索取（2026-09-03 拍板 + 2026-09-04 修正边界）：每次只问当前节点必需的一件事；禁止开局列清单。
     ★**可主动要（用户自己的商业资产，仅供 AI 建档/分析用）**：公司名/官网/邮箱/认证证书/产能/MOQ/交期/价格带——用户自己的业务名片与产品实力，AI 主动要并给填空模板+示例（可跳过、不逼问），**用于 AI 的 product-profile.md 文档 / 背调 / 客群判断；公司身份与联系信息不自动写入邮件，认证/产能/MOQ/交期/价格带等产品事实只有在用户确认且有字段级来源后才可用于正文卖点；邮件签名始终只有昵称**。
     ★**签名/落款铁律（2026-09-04 用户再次拍板）**：邮件正文签名**只有昵称**，禁止公司名/官网/邮箱/认证等任何其他内容。
     ★**禁止索要（他人信息）**：潜在买家/客户/联系人的联系方式清单、终端用户邮箱——不索要、不收集。
     ★没有用户提供时：正文不写这些字段、**不编造具体数字**。
     ★例外：S0 方案末尾可提供**一次**官网/产品页入口（可选贡献，不追问不催促），用户给了即触发 AI 读取分析
-S0a PROFILE_PENDING: 按 `specs/operator-profile-sop.md` 与 `specs/product-profile-sop.md` 分两轮主动索取并回落：公司级资料→`.local/operators/<operator_key>.md`；产品级资料→`runs/<operator_key>/<product_key>/product-profile.md`。每轮只问一组、给模板/可跳过/不逼问。
-  用户提供自己的官网/产品页/目录时，可走独立可选 `specs/website-profile-sop.md`：先确认网址角色，AI 只读公开页生成六区候选；未确认不得进入正式档案，模块失败/跳过不改 operation-record、不阻断主线，买家网址只转 S3。批准产品补丁导入后回 draft，须重新确认；S12 active 拒绝导入，先停用。产品档案 `draft` 禁止进入 S1；用户确认→`confirmed`，跳过→`declined`，两者记录 path/version/hash 后方可继续。
+S0a PROFILE_PENDING: 产品级资料为必经（`specs/product-profile-sop.md`→`runs/<operator_key>/<product_key>/product-profile.md`）；公司级资料按需（`specs/operator-profile-sop.md`→`.local/operators/<operator_key>.md`）——首次安装不额外弹公司资料轮，仅当用户主动提供公司名/官网/邮箱，或换产品/换机复用时才邀请，可跳过、不逼问。
+  用户提供自己的官网/产品页/目录时，可走独立可选 `specs/website-profile-sop.md`：**先按 D1-D4 四类分流**——D1 自己的网址（官网/产品页/目录）走六区候选、用户批准后才写入档案；D2 潜在客户网址只作 S1 可选/S3 起点，**不得写入产品档案、公司信息、邮件签名**；D3 第三方参考页只作分析参考，不入档案、不作起点；D4 归属不明先问一句"这个网址是您自己的，还是一个您认得的买家的？"。AI 只读公开页生成六区候选；未确认不得进入正式档案，模块失败/跳过不改 operation-record、不阻断主线；两类网址同时给时各自独立处理，不得混用。批准产品补丁导入后回 draft，须重新确认；S12 active 拒绝导入，先停用。产品档案 `draft` 禁止进入 S1；用户确认→`confirmed`，跳过→`declined`，两者记录 path/version/hash 后方可继续。
   邮件签名区只昵称；confirmed 有来源产品事实可进正文卖点。
-S1 PATH_PENDING: **连接平台是独立前置**——产品档案确认后必须先走 `output-templates/T-token引导.md`（引导用户浏览器一键双取→主 AI stdin 跑 check_login + workspace_guard + gate），连上后才进入选起点。有精准网址（询盘客户/认得的精准买家）→快速路径A；无→标准路径B自动选择不追问（用户随时可补网址切换）；两条路径的产出都会在后续节点展示确认
+S1 PATH_PENDING: **连接平台是独立前置**——产品档案确认后必须先走 `output-templates/T-token-guide.md`（首选 CDP 自动→失败给一键命令备用→命令被拦再手动两值；主 AI 跑 check_login + workspace_guard + gate），连上后才进入选起点。★只问一句出口：「您手上有熟悉或问过价的买家网址吗？有就发我；没有也行，我先帮您找买家类型。」有网址→快速路径A；无→标准路径B自动选择不追问（用户随时可补网址切换）；两条路径的产出都会在后续节点展示确认
 ★**起点引导（2026-09-09 用户拍板）**：档案确认话术末尾必须给一次起点引导（"有询盘客户或认得的精准买家官网现在就可以发我"），不追问、不阻断；S3 也从旧版"没网址就不追问"改为**优先主动引导**。
-S2 SEGMENT_PENDING: **两条路径都推演**（2026-09-09 方案B：有种子时把种子公司名/角色/摘要并进推演输入，保证 `segments/` 不空、客群标签可用）。推演默认4个；打印全部，判断是否精准潜在客户，给成交周期/询盘速度/量级/邮箱/竞争度/推荐；用户确认或要求更多。★推演失败不终止向导（如实告警并继续），已完成 S3+ 的项目不重复推演
+S2 SEGMENT_PENDING: **两条路径都推演**（2026-09-09 方案B：有种子时把种子公司名/角色/摘要用于推演输入与 S3 判定；按 v3 E 节，种子公司细节不写入 product_desc_zh）。推演默认4个；打印全部，判断是否精准潜在客户，给成交周期/询盘速度/量级/邮箱/竞争度/推荐；用户确认或要求更多。已完成 S3+ 的项目不重复推演。
+  ★**来源硬约束（v3）**：客群只能逐条来自本次平台返回；必须记录来源接口、调用成功状态、返回条数、轮次、是否补推及原因（`tools/segment_source.py`）。本地不得补条、不得凑数、不得改名凑数。
+  ★**失败不冒充（五种情形）**：①success=false ②异常/超时 ③成功但列表空 ④只拿到旧客群（非本次） ⑤成功且有客群。①②③④ → **不推进客群状态、不执行任何依赖客群的 S3+ 动作、不本地填充（不本地补条）**，停在可重试状态并给用户一句"平台这次没推出来，我稍后重试，或您稍等再点一次"；允许继续的只有不依赖客群的解释/准备。只有⑤才进入客群选择。
+  ★**质量补推（最多 2 轮）**：返回空、与已否定/已选客群高度重复（同名或同义）、明显跑偏（与本产品用途无关）→ 可主动再推一轮（同一推演描述）；补推前先说"我按 … 理解推的，这次结果不太贴，我再试一次"；补推不得改变用户已确认的用途；仍差 → 如实告知并给三个出口（换个说法描述用途 / 稍后重试 / 先从别的方向小批试）；补推后仍空 → 不进入客群选择。
+  ★**用途与推演来源落盘（可复现）**：把「用途选择 + product_desc_zh + 轮次 + 来源接口 + 调用成功状态 + 返回条数 + 是否补推及原因」写入 operation-record 的「用途与推演来源」行（`tools/usage_record.py`）；换会话/重跑时按该行 payload 原样复现，不重新生成用途。失败/空/旧客群也记录，但**不改 status**、不推进。
 ★**客群是下游硬依赖**：S4 匹配率以目标客群客户线为分子（threshold-method §33）、直采/OEM/拓品分开计数（§34）、标签命名用客户群体中文名、模板痛点按客户线占比加权（§35）。故任何路径都不得留下空客群标签。
 S3 SEED_PENDING: 
     ★**入口二选一**（2026-09-09 用户拍板）：①用户已给起点网址（询盘客户/认得的精准买家）→ 直接核对并确认，AI 判定该起点所属客群/客户线请用户确认；②用户没给 → 从已推演的客群里挑精准买家当起点（沿用该客群）。**起点必须关联客群**（S4 匹配率分母/客户线计数/标签命名/模板加权都依赖它）。
-    ★种子发现·统一 AI 数据库搜索链（3步）（2026-09-03 用户拍板定稿，取代旧"文本搜+域名搜"两段式与相似列表接口路径）：①**预览**——客群 query_en 长句直接作关键词搜索第一页 10 条（每条含权威id/公司名/国家/角色/NAICS/客户类型/置信度/邮箱数/电话/社媒/摘要/匹配分；列表项无域名字段；长句直搜已实测）——按**客户线**评估候选（直采/OEM/拓品三线皆可为锚；S3 不加排除4区 filter，S4/S5 才排除）；②**取域名**——代表买家的 `id` 调公司详情接口（传 id 或域名均可）即得真实域名+详情；③**找相似**——域名作关键词继续走主搜索（
-    ★不使用相似列表接口）→ 用户确认锚点。随后进入 S4 审计；S5/S6 再按审计所用关键词保存前 N（域名/长文本均已实测：保存=列表同批）。勿拿公司名当搜索锚（同名多司）；禁翻页收集 id（铁律3）不受影响。
-S4 AUDIT_RUNNING: 只读搜客和AI语义审计；50页跳→三页平均→逐页→跌破往前；完成后必须把审计证据与独立对抗审查报告交 `tools/finalize_audit.py`。manifest须 `evidence_mode=live` 且证据不含模拟/离线/网络桩/占位标记；仅真实证据含70%临界且review“放行”无P0/P1时推进S4→S5。simulation只能出报告，禁止推进状态；未收口不能保存
-S5 SAVE_PENDING: 展示临界、前N、排除、max、重复保存检查和点数；用户确认后才保存
+    ★种子发现·统一 AI 数据库搜索链（3步）（2026-09-03 用户拍板定稿，2026-10-21 V2 收紧来源绑定）：①**预览**——用当前项目/产品/活跃 generation 已选客群的 query_en **逐字**作关键词搜索第一页 10 条（不 trim/改大小写/折叠空白；每条含权威id/公司名/国家/角色/NAICS/客户类型/置信度/邮箱数/电话/社媒/摘要/匹配分；列表项无域名字段）——按**客户线**评估候选（直采/OEM/拓品三线皆可为锚；S3 不加排除4区 filter，S4/S5 才排除）；②**取域名**——代表买家的 `id` 调公司详情接口（base-info，传 id 即得真实域名+详情），落选择记录；③**找相似**——用**已选候选的域名**作 keyword 继续走主搜索；
+    ★不使用相似列表接口；用户自带网址须记录原始来源、规范化域名、同客群关联与确认，不能捏造平台 candidate id）→ 用户确认锚点。随后进入 S4 审计（同一已选域名/来源范围）；S5/S6 必须沿用 S4 审计的同一 keyword/filters/logic/sort 与审计范围保存前 N，不得另换关键词。历史实测“域名/长文本都能保存”只证明 front 保存通路，不代表可任意换词。勿拿公司名当搜索锚（同名多司）；禁翻页收集 id（铁律3）不受影响。
+S4 AUDIT_RUNNING: 只读搜客和AI语义审计；100页跳→**连续5页滑动平均**→逐页→跌破往前（执行细则=threshold-probe-spec v3.1）；单页只记抖点，High比例/搜索分数/页1/2/5抽样不能替代窗口证据。完成后必须把审计证据与独立对抗审查报告交 `tools/finalize_audit.py`。manifest须 `evidence_mode=live` 且证据不含模拟/离线/网络桩/占位标记；仅真实证据含连续窗口70%临界且review“放行”无P0/P1时推进S4→S5。simulation只能出报告，禁止推进状态；未收口不能保存
+S5 SAVE_PENDING: 展示 confirmed plan 的 N（selectTotal·家）/E（预计邮箱）/P（预计点）/B（预算）及来源、审计范围、四区 filters、标签实际ID、max_points 来源/版本、重复保存检查；用户原话确认后才保存。`prepare` 只出 draft、`confirm` 才绑定 plan/render/ticket、`execute` 才写；无 confirmed plan 不写；菜单/列表里的数字只是选择，不构成保存授权；保存卡必须先写清家数、预计邮箱数、扣多少额度与预算，用户回含家数的确认原话（如「确认保存 前2000家」）才视为授权（`save_plan.py` 会校验原话含 N 家，只回 1 会被拒）（AI 必须原样复述这些数字，数字没给全不许让用户回）。用户明确20家且计划成立则允许，AI不得擅自缩量或扩量
 S6 SAVE_RUNNING: front保存；等任务finished；用标签结果对账（⚠️companySaveCount=任务进度计数(=total=finished)，非去重敏感指标——防重保存/全新增判断一律以 contactSaveCount/家基线对齐为准,2026-08-31补审P2-1）
-S7 TEMPLATE_PENDING: 只生成本地草稿；展示3-8个跨轮模板（★渲染后的收件人视图效果，非HTML源码——用 tools/render_preview.py）+理由；用户确认后才批量创建。★签名铁律（2026-09-04 用户拍板）：**邮件末尾签名区=只有昵称**，禁止公司名/官网/邮箱/职位/认证、宣传语等任何其他内容。★公司名/官网/联系邮箱只供 AI 建档/理解企业，不自动进入正文；`product-profile.md` 中经用户确认且有字段级来源的认证/产能/MOQ/交期/价格带可用于正文卖点，无来源或仅为推断的具体事实禁止写入。★客户/联系人邮箱等他人信息不索要
+S7 TEMPLATE_PENDING: 只生成本地草稿；展示3-8个跨轮模板（★渲染后的收件人视图效果，非HTML源码——用 tools/render_preview.py）+理由；用户确认后才批量创建。★签名铁律（2026-09-04 用户拍板）：**邮件末尾签名区=只有昵称**，禁止公司名/官网/邮箱/职位/认证、宣传语等任何其他内容。★公司名/官网只供 AI 建档/理解企业，不自动进入正文；邮箱不索取（平台不支持绑定自有邮箱）；`product-profile.md` 中经用户确认且有字段级来源的认证/产能/MOQ/交期可用于正文卖点；**价格/折扣/cheap 类表述一律禁止进模板正文**（2026-10-22 用户拍板），只能由买家回复 CTA 关键词 PRICE 后走受控人工回复；无来源或仅为推断的具体事实禁止写入。★客户/联系人邮箱等他人信息不索要
 S8 TEMPLATE_BUILD: 创建后断言变量样式、标题、正文差异、轮次绑定；失败回S7
-S9 SEQUENCE_PENDING: 展示12步(30分/5/15/30天)、时区(★默认纽约)、每日30000(全账号)/每公司每日5、notSentTags=[询盘,不发]；用户确认后建序列。★客群成交/询盘周期以季~年计时（条件/弱适配）→ 如实告知"节奏为快周期品类设计"，建议调低轮次或转人工培育，禁套固定节奏打扰周期外买家
+S9 SEQUENCE_PENDING: 展示12步(30分/5/15/30天)、时区(★默认纽约)、每日30000(全账号)/每公司每日5、notSentTags=[询盘,不发]；用户确认后建序列。★客群成交/询盘周期以季~年计时（条件/弱适配）→ 如实告知"节奏为快周期品类设计"，建议先不激活（轮数固定 12，不承诺改轮次）、等有需求再开，或转人工低频培育，禁套固定节奏打扰周期外买家
 S9a 固定标签（S9内部子检查，不单独推进operation status）: 「询盘」「不发」账号级一次性标签——build_sequence前先查同名复用，不存在才经绑定审批创建；notSentTags解析失败则S9 fail-closed
 S10 CONTACT_PENDING: 保存finished、标签联系人>0、序列inactive、人数对账且用户确认后才contact-add
 S11 READY_INACTIVE: 输出完整流程和参数；verification-manifest须 `evidence_mode=live`，4份证据必须来自真实线上验证且不含模拟/离线/网络桩/占位标记；simulation只能出报告，禁止推进 S11。正式测试保持inactive，等待用户确认
-S12 ACTIVE: 仅明确“确认激活/激活序列<名称>”才激活。compliance-check须 `evidence_mode=live`，五项均为72小时内真实证据；模拟/离线/网络桩/占位/未实际标记一律拒绝。已到S11的项目用 flow `--resume-s12 --confirm "<用户原话>"` 只签绑定凭证（不联网、不激活、不重跑S0-S10），再由activate工具完成所有本地闸门后首次联网并回读active。★**两条路都支持**（2026-09-17 用户要求）：①用户在聊天里说「确认激活」→ AI 执行；②**用户自己去** https://web.laifaxin.com/marketing/sequences 核对并手动打开开关 → 回来告知 → AI 用 `activate_sequence.py --sync-manual` 只读回读确认 active 并同步本地（**不发起平台写操作、不需要审批凭证**，因为平台侧开关是用户亲手开的）。两条路都必须原话含"激活"、seq 与 record 一致；同步路径回读非 active 一律拒绝并保持 S11。★**用户确认方式=聊天里回一句**（2026-09-17 用户拍板推翻旧的"开终端交互确认"设计：普通用户不认识终端，那是拦路虎，不是安全）。AI 必须传入用户**原话**且含"激活"字样；含糊应答（"好的""可以"）一律拒绝。激活前 AI 逐项自查并展示：目标市场规则、名单来源、发送主体信息、实际退订入口、拒收机制；用户只对展示结果做最终确认
+S12 ACTIVE: AI 代激活路径必须原话含「确认激活」四个字（只含「激活」会被工具 exit 2 拒绝）；用户网页手动路径回读也须原话含「激活」且 seq/record 一致。compliance-check须 `evidence_mode=live`，五项均为72小时内真实证据；模拟/离线/网络桩/占位/未实际标记一律拒绝。已到S11的项目用 flow `--resume-s12 --confirm "<用户原话>"` 只签绑定凭证（不联网、不激活、不重跑S0-S10），再由activate工具完成所有本地闸门后首次联网并回读active。★**两条路都支持**（2026-09-17 用户要求）：①用户在聊天里说「确认激活」→ AI 执行；②**用户自己去** https://app.laifaxin.com/marketing/sequences 核对并手动打开开关 → 回来告知 → AI 用 `activate_sequence.py --sync-manual` 只读回读确认 active 并同步本地（**不发起平台写操作、不需要审批凭证**，因为平台侧开关是用户亲手开的）。两条路都必须原话含"激活"、seq 与 record 一致；同步路径回读非 active 一律拒绝并保持 S11。★**用户确认方式=聊天里回一句**（2026-09-17 用户拍板推翻旧的"开终端交互确认"设计：普通用户不认识终端，那是拦路虎，不是安全）。AI 必须传入用户**原话**且含"激活"字样；含糊应答（"好的""可以"）一律拒绝。激活前 AI 逐项自查并展示：目标市场规则、名单来源、发送主体信息、实际退订入口、拒收机制；用户只对展示结果做最终确认
 ERROR_BLOCKED: 异常/参数变/对账不一致时只读检查；恢复须项目内 `recovery-manifest.json` 绑定project/目标状态/72小时内时间/修复原因/验证文件hash+pass，只能回到record.next_state，通用关键词文本不可解锁
 ```
 
@@ -67,21 +81,23 @@ ERROR_BLOCKED: 异常/参数变/对账不一致时只读检查；恢复须项目
 - “自由发挥/不用看”只豁免**指定节点展示**，不得豁免Gate0、客群、保存、contact-add或激活。
 - 产品、种子、临界N、标签、模板、配额任一变化，原确认失效并回到对应状态。
 - 可自由执行的只有只读查询、格式整理、读取重试和报告；所有写操作须有本节点确认。
-- **★签名区与正文事实必须分开**：邮件末尾签名区**只能是纯个人昵称**，禁止公司名/官网/邮箱/职位/认证、宣传语等任何其他内容；正文卖点区可以使用 `product-profile.md` 中**经用户确认且有字段级来源**的产品事实（认证、产能、MOQ、交期、价格带等），无来源或仅为行业推断的具体事实禁止写入正文。公司名/官网/联系邮箱用于 AI 理解企业、读取资料与本地建档，不进入签名区。
+- **★签名区与正文事实必须分开**：邮件末尾签名区**只能是纯个人昵称**，禁止公司名/官网/邮箱/职位/认证、宣传语等任何其他内容；正文卖点区可以使用 `product-profile.md` 中**经用户确认且有字段级来源**的产品事实（认证、产能、MOQ、交期等；**不含价格/折扣**），无来源或仅为行业推断的具体事实禁止写入正文。公司名/官网用于 AI 理解企业、读取资料与本地建档，不进入签名区；邮箱不索取——平台不支持绑定自有邮箱，绑自己邮箱容易被封号。
 - **★审批硬闸门（工具级）**：写操作必须带 `--approval <id> --project <项目键>`；只有 `decision=confirm + status=confirmed` 可授权，modify/pending/backfilled 都只留痕不可写。新项目稳定键=`<operator_key>/<product_key>`；工具必须按本次实际参数（含 profile/plan/tmap/seq/tag/task 等）重算 stable hash 并与凭证 memo 一致，不能只验证 id。legacy 项目可暂用旧产品名但不得跨运营方复用。换机旧 approvals 只作历史审计；未执行写节点和 S12 必须新机当前对话重新确认。
 
 ### 面向用户的输出纪律（B7-4）
 - **★总纪律：对用户开口的"任何时刻"都禁工具名与行话（2026-09-11 用户实测拍板）**：不只是照模板汇报的那一刻——**成功、失败、停下、异常、等待、报进度，全都算**。给用户的每句话里**禁止出现**工具/脚本文件名（`onboard_check.py`/`gate_check.sh`/`check_login.py`/`workspace_guard`/`flow_orchestrator` 等，包括去掉后缀写成 `onboard_check`）、退出码/`rc=`、`[PASS]`/`[FAIL]`、`落点`/`凭据`/`校验未通过`/`复核失败` 这类内部说法。用户实测反例（2026-09-11）：汇报写成"`onboard_check.py`：通过；`gate_check.sh`：未通过。登录复核和工作空间落点复核均失败"——小白只看懂"失败"，且误以为**自己账号坏了**（实际只是 AI 还没收到账号钥匙）。工具原始输出**永远只给自己看**。
-- **★失败/停下必须给"唯一下一步"，且必须先说"跟您有没有关系"**：任何未通过、暂停、告警的汇报，结构固定为三段——①**一句话结论**（哪一步没成 + **是不是您的账号/操作有问题**；绝大多数属于"流程没走完"或"平台临时问题"，**必须明说不是用户的问题**，否则用户会反复重登、作废掉本来有效的钥匙）②**您现在要做的一件事**（有且只有一个动作；用户无需操作时明确说"您什么都不用做，等我"）③**本次没动您的数据**（没搜索/没保存/没扣点/没发送）。**禁止**只报"已按规则停止"就结束——那等于把球踢回去还不说规则。**禁止**罗列一堆可能原因让小白自己判断。**如实汇报 = 如实说人话**，不是转述工具原文；照 `output-templates/S0-连接未通过.md`（工具 `bash tools/gate_check.sh` 末尾的「给用户看的这一段」已是白话，直接照抄）。
-- **★状态码只给自己看，对用户必须说白话（2026-09-10 对抗审查补）**：`S0`-`S12`、`contact_add.py`、`status=declined`、`.local/`、`runs/` 等**内部术语禁止出现在给用户的输出**里。向用户报告续接进度必须用白话（如 `S10` → "正在把客户加进跟进计划"），对照表见 `output-templates/S0-安装完成汇报.md`。`onboard_check.py` 的原始输出（含 `流程状态=S10`、工具清单）**只给 AI 自己看**；给用户看的是按模板改写后的话术。
-- **★安装完成先白话汇报、再给菜单（2026-09-10 对抗审查补）**：安装/学习阶段结束后，**先**按 `output-templates/S0-安装完成汇报.md` 说清"装好没有/能帮做什么/哪些必须你确认/有无旧项目"，**再**展示 `S0-任务菜单.md` 的 4 项菜单。禁止把 onboard 原始输出直接抛给用户。
+- **★失败/停下必须给"唯一下一步"，且必须先说"跟您有没有关系"**：任何未通过、暂停、告警的汇报，结构固定为三段——①**一句话结论**（哪一步没成 + **是不是您的账号/操作有问题**；绝大多数属于"流程没走完"或"平台临时问题"，**必须明说不是用户的问题**，否则用户会反复重登、作废掉本来有效的钥匙）②**您现在要做的一件事**（有且只有一个动作；用户无需操作时明确说"您什么都不用做，等我"）③**本次没动您的数据**（没搜索/没保存/没扣点/没发送）。**禁止**只报"已按规则停止"就结束——那等于把球踢回去还不说规则。**禁止**罗列一堆可能原因让小白自己判断。**如实汇报 = 如实说人话**，不是转述工具原文；照 `output-templates/S0-connect-failed.md`（工具 `bash tools/gate_check.sh` 末尾的「给用户看的这一段」已是白话，直接照抄）。
+- **★状态码只给自己看，对用户必须说白话（2026-09-10 对抗审查补）**：`S0`-`S12`、`contact_add.py`、`status=declined`、`.local/`、`runs/` 等**内部术语禁止出现在给用户的输出**里。向用户报告续接进度必须用白话（如 `S10` → "正在把客户加进跟进计划"），对照表见 `output-templates/S0-install-report.md`。`onboard_check.py` 的原始输出（含 `流程状态=S10`、工具清单）**只给 AI 自己看**；给用户看的是按模板改写后的话术。
+- **★安装完成先白话汇报、再问两样（2026-10-23 用户裁决，替代旧「再给菜单」）**：安装/学习阶段结束后，**先**按 `output-templates/S0-install-report.md` 说清「装好没有/能帮做什么/哪些必须你确认/有无旧项目」；**新用户紧接着按 `S0-opening-questions.md` C1 只问「昵称 + 产品」，不展示菜单、不要求回数字**。**只有检测到旧项目时**才展示 `S0-task-menu.md`「有旧项目时」的 4 项菜单。禁止把 onboard 原始输出直接抛给用户。
 - **★菜单/选项必须逐行+emoji突出+标⭐推荐+控制项数（2026-09-10 用户两道追问后定稿）**：给用户选的任务菜单或选项列表，①**逐项独立成行**、每项前加 emoji、明确标出推荐项（禁止压成 `①②③` 连成一行——用户实测"1234 不明显、不知道选哪个"）；②**项数上限 4**，且**按当前状态裁剪**——只放这个状态下真正可用的动作（用户追问"6 个选项是不是多了、不会选择困难？"：新用户看到"继续项目（无）""刚装完就更新"这类用不上的项=噪音+选择困难）。要加动作先问"能不能并进现有项"。聊天话术鼓励 emoji；**邮件正文**另有禁 emoji 规则（`specs/sequence-config.md`），两处不混用。
+- **★用户可见黑话替换表（v3，S0/S2/S3 必须照改）**：客群推演→帮你猜几类可能买你货的买家；产品适配度→这产品适不适合这样群发找客户；询盘→有人回你、问你价格；成交周期→从发信到谈成大概多久；临界/70%→这批名单够不够一批、像不像；渠道层→中间商（贸易商/代理/分销）；种子→拿来当样板的那个买家。
 - **★用户可见文案禁黑话（2026-09-09 用户拍板：小白要能看懂）**：给用户看的正文（`output-templates/*.md` 代码块内的部分）**禁止出现**内部术语与开发信息——`status=`/`sha256`/`hash`/`profile_version`/`draft`/`confirmed`/`declined`/`runs/`/`.local/`/`.py` 命令/`approval`/`claims`/`S0a`/`S11`/`S12`/`evidence_mode`/`query_en`/`base-info`；
   也禁止 `SEND_READY`/`NOT_SEND_READY`/`Shadow Run`/`blockers` 这类英文状态码，以及"十三套单测全部 0 失败""5 个文件已更改 +425 -0"这类开发进度。内部术语只写在每个模板的"AI 执行要点与边界"里。`tests/test_user_facing_copy.py` 自动扫描，违规即测试失败。
 - **★禁止要求用户设置环境变量或声称只读授权**：凭据唯一交付路径=浏览器一键复制后把两行整段粘贴到聊天框。禁止要求设置 `LAIFAXIN_TOKEN` 等环境变量、创建 `.env`；**禁止声称"只读 token/只读接口取授权"**——平台没有只读 token 这种权限级别（见「审查代理权限」）。
 - 任何英文错误/术语（FAIL:/ERR:/None/undefined/null/接口 message）出现在给用户看的输出前，**先给一句中文解释 + 下一步**；不确定就说"这是系统内部日志，我来看，你不用操作"。
 - 禁止裸 `None` 面向用户（改"未取到"）；错误要说明"能否安全重跑"。
-- **链接排版铁律（2026-09-06 用户反馈：裸URL贴全角字符→GitHub吞进链接→点击404）**：裸 URL **前后必须留空格**（或改 markdown `[文字](URL)` 链接）；写完文档用"裸URL贴全角字符"扫描自查。
+- **链接排版铁律（2026-09-06 用户反馈：裸URL贴全角字符→GitHub吞进链接→点击404）**：裸 URL **前后必须留空格**（或改 markdown `[文字](URL)` 链接；此处是示例占位，非真实链接，扫描时跳过）；写完文档用"裸URL贴全角字符"扫描自查。
+- **P5 文档引用**：文件定位基准为仓库根，便于查找目标文件；Markdown 相对链接按源文档所在目录解析。给用户的链接必须能从引用所在文档目录正确打开；文件定位基准与链接解析方式不一致时，以 Markdown 相对源文档目录的解析规则为准。外部链接和绝对路径不受此限。
 
 ### 节点输出标准
 - 客群：每个客群写“精准潜在客户：是/否/条件成立时是”，并给周期、询盘速度、量级、邮箱可得性、竞争度、推荐。
@@ -91,9 +107,9 @@ ERROR_BLOCKED: 异常/参数变/对账不一致时只读检查；恢复须项目
 
 ## ⚠️ 核心铁律（违反即错）
 0. **排除中国/中国香港/中国台湾/中国澳门**（4区 `CN,TW,HK,MO`）——**保存与 S4 扩量搜索（域名搜审计）要排除**；**S3 种子发现文本搜不排除**（★2026-08-31 用户拍板：找种子阶段无需排除，种子客户搜出来、确定之后再排除——排除在 S4/S5 执行；filters 使用完整 exclude schema（见 API 参考））
-   - save_first_n.py 默认 `--exclude CN,TW,HK,MO`；domain-scale-sop 已固化
+   - 旧 `save_first_n.py` 等已封停；V2 由 confirmed plan 的 filters 传同一四区 exclude schema（缺 `value:""`/`valueType` 即拒）
 
-1. **保存用 `selectOption:"front"`**（≠"current"，current邮箱0），`contactMaxCount:3`（★默认3，数据不足才按3→6→9升阶）
+1. **保存用 `selectOption:"front"`**（≠"current"，current邮箱0），`selectKeys:[]`、`selectTotal` 为确认计划的正整数（家），`contactMaxCount:3`（★默认3，数据不足才按3→6→9升阶）；`count` 只能做相等性校验且不发平台
 2. **模板变量用 `<code class="lfxFieldVeriable" contenteditable="false">{联系人:名称}</code>`**（否则不替换），标题纯文案，差异≥30%
 3. **不翻页收集id**（封号）——保存前N用 selectTotal
 4. **验证用 `backend-task-status`**（contactSaveCount），**不用** company-save-list（误显邮箱0）
@@ -109,7 +125,7 @@ ERROR_BLOCKED: 异常/参数变/对账不一致时只读检查；恢复须项目
    - **命名区分**：标签名必须带该客群自身角色（`英语-咖啡器具-批发商`、`英语-户外露营-零售商`），禁止把多个客群拼成一个名；序列名带客群档位后缀（如 `-S04`/`-S05`），模板前缀带客群标识；★序列名里的「N轮M封」**必须与实际一致**（当前 12轮4封，随每轮变体数同步改），`build_sequence.py` 会校验并拒绝不符者。
    - **落档**：S2 用户选中的客群用 `tools/segment_select.py --record <record> --segments "S04:客群名,..."` 写入 `operation-record.md` 的「客群」行（只允许 S1/S2/S3 状态），并在 `segments/<ID>-<客群名>.md` 各档登记（含标签/保存/序列三列），禁止只记在对话里。
 
-7c. **★语言三方配对铁律**：标签、模板、序列的**语言必须一致**才许 contact-add——标签前缀语言 ∈ 模板名前缀语言 ∈ 序列市场语言（西语客群禁收英语信；模板分组按 `语言-产品` 建组，序列按语言各建，时区按语言市场 `resolve_schedule --tz` 解析）。**legacy 兜底**：无语言前缀的旧标签（如"水上运动行业客户"）→ 按其现关联序列/模板的实际语言判定；新客群一律新格式，禁止再建无前缀标签
+7c. **★语言三方配对铁律**：标签、模板、序列的**语言必须一致**才许 contact-add——标签前缀语言 ∈ 模板名前缀语言 ∈ 序列市场语言（西语客群禁收英语信；模板分组按 `语言-产品-客群` 建组，序列按语言各建，时区按语言市场 `resolve_schedule --tz` 解析）。**legacy 兜底**：无语言前缀的旧标签（如"水上运动行业客户"）→ 按其现关联序列/模板的实际语言判定；新客群一律新格式，禁止再建无前缀标签
    **★种子语言不限制序列语言（2026-08-31 用户拍板）**：种子=向量锚（任何国家的好锚点都行，ES/FR 公司做种子不影响英语序列）——序列语言由**保存时的国家筛选/标签**决定，不由种子国籍决定。非英语种子的价值=挖到英语竞品挖不到的邻域；保存时可加 country_code include 筛选只存英语区
 8. **★内部命名一律中文**（标签/视图/序列/模板分组名）；邮件正文语言=目标市场语言；运营方档案存 `.local/operators/<operator_key>.md`（旧单文件兼容，不入 Git）。
 
@@ -145,7 +161,7 @@ ERROR_BLOCKED: 异常/参数变/对账不一致时只读检查；恢复须项目
 
 留痕方式：反思结论一行写入确认材料或 ops-log detail（"对抗反思:过/发现的坑"），未过不得触发动作。
 
-**审查代理权限**：只读仓库文件 + 主代理提供的**脱敏线上抽验结果**（请求参数哈希、响应必要字段、数量/状态与证据截图或摘要）。**平台 token 没有“只读 token”这种权限级别，完整 accesstoken/orgId 只留在当前受信任主 AI 内存，严禁传给子代理。**需要线上抽验时由主代理执行，再把脱敏结果交审查代理。
+**审查代理权限**：只读仓库文件 + 主代理提供的**脱敏线上抽验结果**（请求参数哈希、响应必要字段、数量/状态与证据截图或摘要）。**平台 token 没有“只读 token”这种权限级别，完整 accesstoken/orgId 只留在当前受信任主 AI 内存或本机会话凭证文件（`session_store`，0600），严禁传给子代理。**需要线上抽验时由主代理执行，再把脱敏结果交审查代理。
 **产出**：本地对抗审查记录（`rev-<日期>-<时分>-<操作>.md`，不入 Git），结论只有 **放行 / 整改清单(P0/P1/P2)**；P0=操作不得执行或须回滚；整改后重审。
 **凭证链**：review 文件与 approvals.tsv 并列；写操作三凭证齐备才合规：用户确认(approvals) + 对抗审查(reviews) + 操作流水(ops-log)。
 
@@ -163,7 +179,7 @@ runs/INDEX.md          运营方×产品导航卡（生成物，源自 runs.tsv+
 ```
 - **运行状态真源与自动推进**：`runs/<operator_key>/<product_key>/operation-record.md` frontmatter 的 `status/next_state/profile_version/profile_sha256` 是换机/新会话当前节点真源。对应工具成功后必须推进：product_profile confirm/declined→S1；客群确认→S2；种子确认→S3；真实live审计→S4；保存确认/完成→S5/S6；模板预览/创建→S7/S8；序列完成→S9；联系人加入→S10；真实live终检inactive→S11；真实live合规+用户亲口确认的凭证+激活回读→S12。失败或对账不一致→ERROR_BLOCKED；只打印 approvals 或 simulation 报告不等于状态完成。
 - **证据模式信任边界**：`evidence_mode=live` 是防误操作声明，不是密码学来源证明。只允许主 AI 在本轮真实调用平台/验证工具并取得原始输出后写为 live；手工把 simulation 改成 live、伪造关键词或自写 pass 文件均属无效证据。finalizer 的 mode/marker/path/hash/72h 闸门防呆不防恶；独立审查须核对工具输出与调用记录，不能只看 manifest 自称。
-- **当前工具覆盖缺口（完整模拟确认）**：S3 尚无独立 `finalize_seed.py`，种子确认/状态记录仍由 flow/受控状态工具完成；S5 防重复保存规则尚未内置进 `save_first_n.py`，执行前必须由主 AI 查询最近成功 task/标签基线人工判重。这两项不得宣称已自动闭环。
+- **当前工具覆盖缺口（V2 实施验收前）**：S3 的最终选择落盘仍以 flow/受控状态工具为准；S5 防重复保存/scope 对账以 `save_company_cli.py` 的 plan/status/reconcile 为准，未通过代码作者验收前不得宣称已自动闭环。旧 `save_first_n.py` 只作历史，继续封停。
 - **生成链**：L1 详情 → AI 更新后重生成 L2/L3/INDEX（手改生成物无效）；本地运行记录（db/runs.tsv，本地数据，不入 Git）仍是产品级操作真源（不加列，语言从标签前缀读）
 - **L2/L3/INDEX 的 saved/emails 生成源**：取该客群 seeds 表**最新一次成功行**（结果列含✅）；legacy 合并值统一写 `(合并:N)` 格式（不可聚合，仅供溯源）；INDEX 唯一数据源 = 本地运行记录 + 本地客群总表 汇编（本地数据，不入 Git）
 - **ops-log 保存行必填（6项）**：segment_id / saved_n / emails_n / company_tag / contact_tag / task_id——哪天存了哪个客群多少到哪个标签，一查即得；**sequence_id 不在保存行必填**（S5 保存先于 S9 建序列，时序不可满足）——序列归属由后续 `--op sequence` 行按同一 segment_id 登记；append-only 无技术拦截，以 git 历史为改写凭证
@@ -172,21 +188,21 @@ runs/INDEX.md          运营方×产品导航卡（生成物，源自 runs.tsv+
 ## 📌 对抗固化（Terra验证后）
 - **去重机制（实证）**：重复保存同一批 → 系统去重 → **contactSaveCount 只算新增**（实测 19689→46→0，batch均为9990家）
 - **contactSaveCount = 本次新增(去重后)写入数**（≠该批总数）
-- **防重复保存（省额度）**：保存前查该 `(keyword+seed+阈值+selectTotal+排除4区)` 是否曾完成保存（用完成标志/最近成功task），已保存则**不重存**（否则幂等重存+点数守卫）
+- **防重复保存（省额度）**：以 `query_scope_key`（工作空间+product/generation/selection+keyword+effective filters+logic+sort）判断是否已有 front 占用/attempt；已保存或结果不明一律不重发同 scope，不能靠换 plan_id/batch/标签/selectTotal 绕过。防重基线以 contactSaveCount/家对账，不拿 companySaveCount=selectTotal 当“全新增”证据。
 - **测试不激活（★用户强制）**：流程跑完 → **发完整流程待确认**，**不激活序列**；**仅用户明确正向命令（"确认激活"）才激活**，禁止自行激活
 
 ## 🔄 任务类型 → 状态/进度接口对照（★必背，别用错）
 | 任务类型 | 查询接口 | id 字段 | 返回 |
 |----------|---------|---------|------|
-| **保存**（cluesSave，save_first_n返回 data.id）| `operation/backend-task-status` `{"type":"cluesSave","id":<task id>}` | data.id（save返回）| status/finished/total/**contactSaveCount** |
+| **保存**（cluesSave，`save_company_cli.py execute` 受理回执的 task_id；旧 save_first_n 已封停）| `operation/backend-task-status` `{"type":"cluesSave","id":<task id>}` | task_id（execute返回）| status/finished/total/**contactSaveCount** |
 | **删除**（contactsDelete，delete返回 backendId）| `operation/backend-progress` `{"id":<backendId>}` | data.backendId（delete返回）| status/total/finished/**progress** |
 | **template/序列** | 直接查对应 list 接口 | - | - |
 > ⚠️ backend-task-status 查删除=只返回id无进度（L-36 误判教训）；保存任务用 task-status（有contactSaveCount），删除用 backend-progress。
-> ⚠️ **token 来源**：首次平台调用前，用户在浏览器一键双取 `accesstoken=` + `orgId=` 两行并直接粘贴到当前主 AI 聊天框；主 AI 经程序化 stdin 检查并在内存中解析。token 第 2 段是用户 UID，不是企业工作空间 orgId；缺 orgId 一律停止。旧 `--token/--org` 仅为主 AI 内部不安全兼容入口，不面向用户。★**用户只发一段时（2026-09-18 强化，实测有外部工具教用户只复制 accesstoken）**：①不继续（缺 orgId 无法确认工作空间，静默落个人空间=数据存错地方）②**禁止**让用户再单独跑一条"只取 orgId"的命令（多余动作）③把 `T-token引导.md` 的**完整一键双取命令**重新展示，让用户一次复制两行④禁止回退 token 第 2 段（那是用户UID不是orgId）。
-> 🔴 **★已给的值不重问 + orgId 对错由工具裁决（2026-09-23 真机事故：AI 不依不饶）**：用户把 token/orgId 在**任意一条消息**里发过（含手拼粘贴：键一行值一行、全角冒号「：」、大小写混写、首尾空格）即视为**已提供**——AI 自行取出拼装喂 `--credentials-stdin`，**禁止再向用户索要已给过的值**；这些格式差异 `credential_input.py` 已自动兼容，禁止以"格式不对"退回用户重发、更禁止教用户改格式。拼装只允许用用户原话里已有的字符，**禁止**把 token 第 2 段补当 orgId（缺才走上一条的只发一段处置）。**orgId 值的对错由工具连平台裁决，AI 禁止跑工具前凭"orgId 和 token 中段相同"臆断用户发错**：个人工作空间 orgId==用户ID 是合法自洽（`workspace_guard`：isOrg=false 且 org==uid→通过）；企业空间才另配独立数字ID。先跑 `workspace_guard` 再按结果走（exit 1=落点不匹配按失败卡、exit 5=无法判定话术）。凭据排查由 AI 用工具完成，**禁止把用户变调试员**（让用户查浏览器右键菜单、发屏幕截图、读控制台报错）；唯一重取场景=工具明报凭据失效→重发同一条一键双取命令。
+> ⚠️ **token 来源**：首次平台调用前，首选 CDP 自动取 `accesstoken` 与 `orgId`；自动失败用完整一键命令兜底；命令被拦才让用户分别复制两个值。主 AI 在内存中解析并校验。token 第 2 段是用户 UID，不是企业工作空间 orgId；缺 orgId 一律停止。旧 `--token/--org` 仅为主 AI 内部不安全兼容入口，不面向用户；多步流程可改用 `--credentials-from-session`（内部读 `session_store`，不再把 token 放进命令行参数）。★**用户只发一段时**：①不继续（缺 orgId 无法确认工作空间）②**禁止**只追问“再给我 orgId”，也禁止让用户再单独跑一条“只取 orgId”的命令③再给一次**完整一键命令**；命令被拦再让用户分别复制 accesstoken 与 orgId，并说明企业账号两者不同④禁止回退 token 第 2 段当 orgId。
+> 🔴 **★已给的值不重问 + orgId 对错由工具裁决（2026-09-23 真机事故：AI 不依不饶）**：用户把 token/orgId 在**任意一条消息**里发过（含手拼粘贴：键一行值一行、全角冒号「：」、大小写混写、首尾空格）即视为**已提供**——AI 自行取出拼装喂 `--credentials-stdin`，**禁止再向用户索要已给过的值**；这些格式差异 `credential_input.py` 已自动兼容，禁止以"格式不对"退回用户重发、更禁止教用户改格式。拼装只允许用用户原话里已有的字符，**禁止**把 token 第 2 段补当 orgId（缺才走上一条的只发一段处置）。**orgId 值的对错由工具连平台裁决，AI 禁止跑工具前凭"orgId 和 token 中段相同"臆断用户发错**：个人工作空间 orgId==用户ID 是合法自洽（`workspace_guard`：isOrg=false 且 org==uid→通过）；企业空间才另配独立数字ID。先跑 `workspace_guard` 再按结果走（exit 1=落点不匹配按失败卡、exit 5=无法判定话术）。凭据排查由 AI 用工具完成，**禁止把用户变调试员**（让用户查浏览器右键菜单、发屏幕截图、读控制台报错）；唯一重取场景=工具明报凭据失效→首选真实浏览器重新登录；自动失败再给完整一键命令；命令被拦再手动两值。
 > 🔴 **★工作空间靠 HTTP header `uid` 传输（2026-09-09 真实双空间对照实测，推翻旧做法）**：平台**不读 query 参数 `?uid=`**——实测同一 token、同一 orgId：header `uid: <企业ID>` → `isOrg=true`、余额/配额/联系人均为企业空间数据；query `?uid=<企业ID>` → `isOrg=false`、个人空间数据（且 query 传任意值含不存在的 ID 都返回个人空间）。**所有平台调用必须把 uid 放进请求 header**（curl：`-H "uid: <orgId>"`；urllib：`headers={"uid": org}`）；**URL 里一律不得再拼 query `?uid=`**（2026-09-11 全仓清除——留着会被误读成"uid 走查询串"，进而在重构时删掉真正生效的 header；`tests/test_workspace_transport.py` 扫描 `tools/*.py` 强制此约束）。这解释了"给了企业 orgId 却写进个人账号"的历史事故。
 > 🔴 **工作空间落点必须显式校验（2026-09-09 真实双空间实测定案）**：工作空间由 **HTTP header `uid`** 决定，query `?uid=` 无效（见上条）；历史事故"给了企业 orgId 却写进个人账号"的根因=工具把 uid 放 query。即便如此落点仍须显式校验（token 可能属于别的账号、orgId 可能抄错、切换空间后没重取）。规则：①任何写操作前必须先跑 `tools/workspace_guard.py`（只读 `benefits/refine-data` 的 `isOrg`，比对"声明的 orgId"与"token 中段用户UID"）；
-  ②命中"声明企业但平台判个人"或"判企业却 orgId==用户UID"→ **阻断，禁止写**；③平台未返回 `isOrg` → 记"未校验"，**不得声称已核对空间**；④**所有写工具**（`gen_templates`/`tag_add`/`save_first_n`/`contact_add`/`build_sequence`/`activate_sequence`/`rebuild_templates`/`delete_all_products`/`segments_infer`）已内置该预检，`gate_check.sh` 的 `[2b]` 也强制校验；
+  ②命中"声明企业但平台判个人"或"判企业却 orgId==用户UID"→ **阻断，禁止写**；③平台未返回 `isOrg` → 记"未校验"，**不得声称已核对空间**；④**所有写工具**（`save_company_cli`/`gen_templates`/`tag_add`/`contact_add`/`build_sequence`/`activate_sequence`/`rebuild_templates`/`delete_all_products`/`segments_infer`）已内置该预检；旧 `save_first_n` 仍封停；`gate_check.sh` 的 `[2b]` 也强制校验；
   ⑤汇报时只能写"落点校验通过"或"未校验"，禁止用"参数回显一致"冒充空间正确。
 
 ## ★ 模板变量（★字段清单=记录；实际使用=策略，勿滥用）
@@ -212,13 +228,24 @@ runs/INDEX.md          运营方×产品导航卡（生成物，源自 runs.tsv+
 - **默认**：决策节点必须确认。用户说"不用看/自由发挥"时，只能跳过**展示环节**并采用推荐方案；建标签、保存、批量模板、建序列、contact-add、激活和清空等写操作仍须对应节点明确确认与审批凭证，任何口头豁免都不能跳过。
 - **建议原则**：每个决策给出**推荐+理由**（成交周期短/询盘快/量级大 = 推荐），用户可改
 
+## 🧱 脚本使用边界（P3，文档层约束）
+
+- 判据是脚本是否受 V2 票据/plan 门禁，不按文件名或后缀判断。
+- **不受 V2 票据门禁、已加物理封条的禁用写脚本（`save_guard.require()` 无条件 `SystemExit("DEPRECATED: use save_guard")`，最早可执行位置；`--help` 仍可用）**：`save_first_n`、`lfx_pipeline`、`lfx_mass_save*`、`lfx_save_raft_fixed`、`contact_add`、`wait_save_done`、`delete_all_products`；禁止 AI 用于真实写入。现役：S5=`save_company_cli.py` V2；S10=`contact_add_authorized.py`。物理封条仅防误触，**仍非安全边界（可被删封条/伪造模块绕过）**，见下边界声明。
+- **删除类脚本**：`delete_all_contacts`、`delete_all_products`、`delete_all_tags`、`delete_all_templates`、`purge_all_contacts` 均有 `save_guard`，默认 dry-run，真实删除还需 `--execute --confirm "DELETE-ALL"`；仍永久禁止 AI 执行，保留人工使用。
+- **已封条的浏览器抓包脚本（P6，2026-10-22）**：`cap_savebtn2`、`capture_save_front_n`、`cap_seq_edit`、`cap_confirm` 能真实点击保存；现已在最早可执行位置调用 `save_guard.require()`（无条件 `SystemExit("DEPRECATED: use save_guard")`），`--help` 仍可用。属“已封条”，与“已知暂禁”区分：不得当可用工具，不得为恢复运行加后门。
+- **边界声明（三席要求）**：封条 = **仅防误触/防走神**，不构成安全边界；已知可被绕过的方式包括：伪造 `save_guard` 模块、复制脚本删掉封条、裸 `except BaseException` 吞掉 `SystemExit`。真正的防护来自规则（default-deny）+ 人工审核 + 平台侧权限。已封存脚本禁止改动封条与 `.click()` 逻辑（仅作取证保留）。
+- 未列入清单或未知工具，一律 default-deny，禁止真实写入。
+- 以上条目除 P6 四个浏览器抓包脚本与本次 4 个旧脚本（`save_first_n`/`contact_add`/`delete_all_products`/`wait_save_done`，均 `save_guard.require` 无条件封条）外，其余仍为文档层约束、代码层无封条；不得把文档约束描述为代码已物理拦截，也不得把物理封条描述为安全边界（见上一条边界声明）。
+
 ## 📂 子规则（引用，非重复）
-- 临界：`specs/threshold-method.md`（AI反思/三页平均/50页跳）
+- 临界：`specs/threshold-method.md`（AI反思/连续5页窗口/100页跳；执行细则见 threshold-probe-spec v3.1）；执行细则见 `specs/threshold-probe-spec.md` v3（判据仍以 threshold-method 为准）
 - 适配：`specs/product-fit.md`（★S0 前置：产品适配度强/条件/弱三档判定+各档打法+弱适配话术）
 - **产品档案**：`specs/product-profile-sop.md`（S0 主动索取→字段级来源→用户确认→版本/hash→回落→S2/S4/S7/S9 复用）
 - **环境准备**：`specs/environment-setup.md`（无 Python 也能启动的 bootstrap + 跨平台依赖复查）
 - **换机续接**：`specs/migration-handoff.md`（旧机迁移本地状态→新机恢复→从当前节点继续，禁止重跑）
-- 规模化：`specs/domain-scale-sop.md`（域名搜/front保存）
+- 规模化：`specs/domain-scale-sop.md`（query_en→已选域名→同审计范围 front 保存）
+- **保存入口（V2，实施中）**：`tools/save_company_cli.py prepare|confirm|execute|status|reconcile`；未 confirmed plan 不写，旧 save_first_n 封停；参数见 `specs/api-reference.md` §4 与 S5 模板
 - 模板：`specs/sequence-config.md`（code变量/差异30%）
 - 序列：`specs/sequence-config.md`（12步步长30分/5/15/30天/美国时间/发送上限/禁发询盘）
 - 平台侧缺口（内部整改清单，未随库分发）：认证/合规/冷启动/去重 P0-P3——以当前规则与 market-rules-2.0 表述为准
@@ -226,7 +253,7 @@ runs/INDEX.md          运营方×产品导航卡（生成物，源自 runs.tsv+
 ## 🔄 迁移/持久性
 - **规则都在本仓库**（GitHub/外置盘可同步）；**本地状态不在 Git**（`.local/`、`runs/<运营方>/`、本地 `db/`），换电脑必须按 `specs/migration-handoff.md` 迁移，不能只重新 clone 仓库。
 - **换电脑**：旧机备份 `.local/` + `runs/` + 可选本地 `db/` → 新机先安装/更新仓库与依赖 → 恢复到同名路径 → `tools/onboard_check.py` 枚举项目与状态 → 读目标项目 `operation-record.md` + `product-profile.md` → 从当前节点继续，**禁止从 S0 重跑已有产品**。token 不迁移，在新机浏览器重新获取。
-- **新会话（同机）**：`tools/onboard_check.py` 枚举可续接项目并展示任务菜单；有项目先让用户选择是否续接，再读其 operation-record status/profile_version/hash/待确认项；没有项目也不得自动新建，只有用户选择“开始新的获客项目”后才进入 S0。
+- **新会话（同机）**：`tools/onboard_check.py` 枚举可续接项目；**有项目**先报告并让用户选是否续接（复用 `S0-task-menu.md`「有旧项目时」4 项），再读 operation-record status/profile_version/hash/待确认项；**没有项目不展示菜单**，按 `S0-opening-questions.md` C1 只问昵称+产品，不得自动新建项目。
 - **换机审批**：迁移的 approvals 只作历史审计；未执行的高风险写节点和 S12 激活必须在新机当前对话重新确认、生成新凭证。
 - **工具**：`tools/` 下脚本封装正确规则；环境未就绪先走 `tools/bootstrap.sh --install`（macOS/Linux/Git Bash/WSL）或 `powershell -ExecutionPolicy Bypass -File tools/bootstrap.ps1 -Install`（Windows PowerShell），再运行 Python 工具。
 

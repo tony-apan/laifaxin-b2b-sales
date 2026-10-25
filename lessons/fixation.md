@@ -1,13 +1,15 @@
 ---
+doc_id: "lessons-fixation"
 title: "固化机制（如何防止问题再犯）"
 description: "把踩坑经验固化成可执行机制：规则进工具/清单/规范/自动化校验，防止再犯"
+type: "record"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-08-30
-author: "AI Agent + 运营方"
+author: "AI Agent (DeepSeek) + 用户 Tony"
 source: "基于 lessons-learned.md 的固化设计"
 related: [lessons/lessons-learned, methodology/checklists, specs/api-reference, tools/README]
 tags: [固化, 机制, 防再犯, 工程化]
-status: verified
 audience: 人+AI
 ---
 
@@ -29,7 +31,9 @@ audience: 人+AI
 | 排除中国区 CN/TW/HK/MO | audit_company.py 默认 exclude | ✅ 已实现 |
 | 审计用规则表 | audit_company.py（MATCH/REJECT/MARGINAL 硬编码） | ✅ 已实现 |
 | pageSize≥10 | 工具统一 pageSize=20 | ✅ 已设计 |
-| 保存纯API | save_first_n.py（front+selectTotal） | ✅ 已实现（旧"走界面"结论已废 L-29） |
+| 保存计划链 | `save_company_cli.py prepare/confirm/execute` + front/selectTotal + confirmed plan | V2 实施中；文档作者未实测；旧 save_first_n 封停 |
+| 真实数量/单位 | `rule_check.py`：selectTotal 严格正整数（家）、count 只相等性、18 字段 wire | V2 实施中；未验收前不宣称闭环 |
+| front/unknown | `save_plan.py` scope O_EXCL + `status/reconcile` 本账簿绑定 | V2 实施中；不明结果保留锁，不盲重试 |
 
 ### 第 2 层：规范层（文档 · 有据可查）
 
@@ -46,7 +50,7 @@ audience: 人+AI
 **四条铁律**（写进 methodology/best-practices.md 顶部）：
 1. **先实测再下结论**：任何参数空 body 试探 → 补全 → 验证结果数字（不是只看 success）
 2. **判断标准写死**：可复现，不主观漂移
-3. **批量操作先小批量**：先 1 个看 add 数量，确认再全量
+3. **新字段先在隔离沙箱单条验证；真实保存按 confirmed plan 的 N**，不自行缩量；先 1 个看 add 数量（add:8140 ✅ / add:1398445 ❌）只适用于新参数验证，不适用于缩小用户已确认的保存规模
 4. **接口逆向跟踪懒加载 chunk**：不全量 dump 主 bundle
 
 ### 第 4 层：记忆层（AI 辅助 · 每次会话自动带）
@@ -64,20 +68,20 @@ audience: 人+AI
 
 ### 1. 工具函数（tools/）
 - [x] `audit_company.py`（审计规则表）✅
-- [x] `gen_templates.py`（统一模板生成器）✅（旧版专用模板脚本未随库分发，见 L-39）
-- [x] `contact_add.py`（内置 views:[] + 数量确认 + 时序守卫）✅
-- [x] `tag_add.py`（按名称查/建标签 ID + 中文名铁律提醒）✅
-- [ ] ~~`save_flow.py`（Playwright 界面保存）~~ —— **已废不建**（L-29 纯 API 破解：save_first_n.py 的 front+selectTotal 已替代界面保存，无需再建此工具）
+- [x] `create_es_templates.py`（模板批量）✅（⚠️ 现 deprecated：已由统一生成器 gen_templates.py 替代，见 L-39 / db/tools.tsv）
+- [ ] `contact_add.py`（内置 views:[] + 数量确认——**尚未创建此工具**，现靠人工 curl + wait_save_done 时序守卫）
+- [ ] `get_tag_id.py`（按名称查/建标签 ID）
+- [ ] ~~`save_flow.py`（Playwright 界面保存）~~ —— **已废不建**（L-29 纯 API 破解：front+selectTotal 通路保留；V2 保存入口为 `save_company_cli.py` 计划链，旧 save_first_n 封停）
 
 ### 2. 文档更新
 - [x] api-reference 标注（views:[] 🔴 / seqId ⚠️ / 标签ID ⚠️）✅
 - [x] checklists 加检查项 ✅
 - [x] best-practices 顶部加四条铁律 ✅（已加，见 methodology/best-practices.md 顶部"🚨 四条铁律"）
-- [x] 操作前自查步骤已并入 `methodology/checklists.md`（通用铁律）
+- [ ] runs/tony/_archive/operation-log.md 加"操作前自查"步骤
 
 ### 3. 自动化校验（进阶）
 - [ ] 工具脚本对 contact-add 的 add>10000 自动警告/暂停
-- [ ] 保存任务后自动查询 validSave>0 验证（不是只看 success）
+- [ ] 保存任务后按 `save_company_cli.py status` 本 plan/attempt 的 task_id 回读 contactSaveCount/companySaveCount，并用 `reconcile` 只消费本 CLI 记录（不是只看 success）
 
 ## 如何持续积累（记忆系统）
 

@@ -1,13 +1,15 @@
 ---
+doc_id: "specs-marketing-rules-2-0"
 title: "营销获客规则 2.0（用户拍板 + 对抗升级）"
 description: "规则2.0：默认70%/每司3邮箱(覆盖更多公司)/暖机针对系统通道不同；用户拍板版"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-25
-updated: 2026-08-25
 author: "用户拍板 + 对抗升级"
 source: "用户三点澄清 + 预算对抗分析"
 related: [specs/operations-sop, specs/sequence-config]
 tags: [规则2.0, 70%默认, 3邮箱, 暖机, 覆盖优先]
-status: verified
 audience: 人+AI
 ---
 

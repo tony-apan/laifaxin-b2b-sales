@@ -11,6 +11,16 @@
   - 审批凭证须绑定本次实际参数(哈希由本工具重算, 不信CLI传入): 绑定schema与 flow S10 / approval.py grant 一致:
       {"project":"<operator_key>/<product_key>","seq":"<序列id>","tags":["<标签id>",...](去重排序),"task":"<保存任务id>"}
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import hashlib, json, subprocess, sys, time, argparse
 from pathlib import Path
 
@@ -33,6 +43,14 @@ ap.add_argument("--project", required=True, help="稳定项目键=<operator_key>
 ap.add_argument("--timeout", type=int, default=900, help="等保存任务最大秒数")
 ap.add_argument("--dry-run", action="store_true", help="只打印 payload/时序检查,不写")
 args = ap.parse_args()
+# ★旧脚本物理封条（save_guard.require，2026-10-23）：--help 已在 parse_args 内提前返回；
+# 其余任何写/推进路径（含 dry-run）一律 SystemExit，无环境变量可绕过。
+# 仅防误触/防走神，仍非安全边界（可被删封条/伪造模块绕过）——见 RULES 边界声明。
+try:
+    from save_guard import require as _save_guard_require
+    _save_guard_require()
+except ImportError:
+    raise SystemExit("DEPRECATED: use save_guard")
 if not args.dry_run and not args.record:
     print("❌ 正式 contact-add 必须带 --record <operation-record.md>，否则换机状态无法推进"); sys.exit(2)
 if not args.dry_run:
@@ -55,10 +73,19 @@ preflight(args.token, args.org, dry_run=args.dry_run, what="加联系人入序�
 gots = {}
 
 def api(path, p, t=40):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     cmd = ["curl","-sSL","-m","35","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t, encoding="utf-8", errors="replace")
     try: return json.loads(r.stdout)
     except:
         print("  ⚠️ 接口无返回——可能是网络不通（这不是配置问题），稍等重试；反复出现看 平台接口间歇空(已知)。")

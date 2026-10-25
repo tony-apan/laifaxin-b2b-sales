@@ -3,6 +3,16 @@
 """S11 本地终检收口：核对三份验证证据与项目状态后推进 READY_INACTIVE。
 不调用平台；线上验证由 verify_sequence / verify_exclude / check_template_diff 先执行并保存输出。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import argparse
 import datetime
 import hashlib
@@ -29,7 +39,9 @@ def evidence_ok(path, keywords):
         return False, "文件含否定结论"
     if "❌" in text or re.search(r"(?im)^\s*(?:FAIL(?:ED)?\b(?!\s*=\s*0)|ERROR_BLOCKED\b)", text):
         return False, "文件含失败标记"
-    if keywords and not all(word in text for word in keywords):
+    # verify_sequence 现输出「步骤数=12」，历史证据可能写「步骤数: 12」；两种写法等价
+    normalized = re.sub(r"步骤数\s*=\s*", "步骤数: ", text)
+    if keywords and not all(word in normalized for word in keywords):
         return False, "缺必需的类型化通过标记"
     return True, ""
 
@@ -97,9 +109,14 @@ def main():
     if failed:
         print("❌ S11未收口: " + ", ".join(failed))
         return 1
+    import datetime as _dt
+    import hashlib as _hashlib
+    _manifest_sha = _hashlib.sha256(Path(args.manifest).read_bytes()).hexdigest()
     update_frontmatter(args.record, {"status": "S11", "next_state": "S12",
                                       "profile_version": f'"{meta.get("profile_version", "")}"',
-                                      "profile_sha256": f'"{sha}"'}, expected_states=("S10",))
+                                      "profile_sha256": f'"{sha}"',
+                                      "s11_finalized_at": f'"{_dt.datetime.now().isoformat(timespec="seconds")}"',
+                                      "s11_manifest_sha256": f'"{_manifest_sha}"'}, expected_states=("S10",))
     print(f"✅ S11 READY_INACTIVE 已收口: {args.record}（next=S12；仍未激活）")
     return 0
 

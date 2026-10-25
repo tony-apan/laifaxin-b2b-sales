@@ -3,6 +3,16 @@
 """★ 时序守卫：等联系人保存任务 status:finished + 校验标签联系人>0，才可 contact-add 加序列。
 用法: python3 wait_save_done.py --token <TOKEN> --org <orgId> --task <保存任务id> --tag <联系人标签id> --record runs/<operator_key>/<product_key>/operation-record.md --timeout 900
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, sys, time, argparse
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -16,6 +26,14 @@ ap.add_argument("--tag", required=True, help="联系人标签id（contact tag）
 ap.add_argument("--record", required=True, help="项目operation-record；finished+标签>0后推进S6,next=S7")
 ap.add_argument("--timeout", type=int, default=900, help="最大等待秒数")
 args = ap.parse_args()
+# ★旧脚本物理封条（save_guard.require，2026-10-23）：--help 已在 parse_args 内提前返回；
+# 其余任何写/推进路径（含 dry-run）一律 SystemExit，无环境变量可绕过。
+# 仅防误触/防走神，仍非安全边界（可被删封条/伪造模块绕过）——见 RULES 边界声明。
+try:
+    from save_guard import require as _save_guard_require
+    _save_guard_require()
+except ImportError:
+    raise SystemExit("DEPRECATED: use save_guard")
 try: require_state(args.record, ("S5",))
 except ValueError as exc: print(f"❌ {exc}"); sys.exit(4)
 rec = read_meta(args.record)
@@ -24,10 +42,19 @@ if rec.get("save_task_id", "") != args.task or rec.get("contact_tag_id", "") != 
     sys.exit(4)
 
 def api(path, payload, timeout=40):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     cmd = ["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(payload)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, encoding="utf-8", errors="replace")
     try: return json.loads(r.stdout)
     except: return {}
 

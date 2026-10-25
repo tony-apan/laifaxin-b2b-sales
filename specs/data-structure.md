@@ -1,13 +1,15 @@
 ---
+doc_id: "specs-data-structure"
 title: "数据结构规范（Data Structure Standard）"
 description: "代运营数据存储：md vs tsv vs jsonl 对抗分析 + 目录结构 + 索引规范 + 每文件格式"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-09-08
 author: "AI Agent + 运营方"
 source: "对抗分析（代运营场景）"
 related: [specs/operations-sop, docs/08-workflow-ops]
 tags: [数据结构, 格式对抗, 目录规范, 索引]
-status: historical
 audience: 人+AI
 ---
 
@@ -83,13 +85,13 @@ laifaxin-ops/                              # 代运营总根目录
 | 文件 | 格式 | 写入时机 | 内容 |
 |------|------|---------|------|
 | `index.md` | MD | 每次操作后更新 | 导航+当前进度（人先看这个） |
-| `company-profile.md` | MD | 客户签约时 | 公司/产品/职位/姓名/网址（★用户给网址提炼） |
+| `product-profile.md`（旧称 company-profile.md） | MD | S0a 建档时 | 公司/产品/职位/姓名/网址（★用户给网址提炼） |
 | `segments.md` | MD | AI 推演后 | 客群固化（段名/路径/理由/搜索词/覆盖量） |
 | `search-log.tsv` | TSV | 每次搜索后 append | 日期/方式/关键词/网址/结果数/审计精准度 |
 | `seeds.tsv` | TSV | 每次找相似后 | 种子网址/状态(已用/待用)/来源/相似结果数 |
 | `customers.tsv` | TSV | 每次保存后 | 邮箱/公司/国家/标签/任务ID/邮箱数 |
 | `templates/*.md` | MD | 生成模板时 | 模板本体（subject+html+元信息） |
-| `template-analysis.md` | MD | 每周分析 | 各模板打开/回复/效果对比 |
+| `templates.md` | MD | 每周分析 | 各模板打开/回复/效果对比（模板效果段） |
 | `inquiries.tsv` | TSV | 收到询盘时 | ★询盘单独记录（时间/邮箱/内容/状态/跟进） |
 | `daily-logs/*.tsv` | TSV | 每天结束 | 当天所有操作（搜了什么/存了什么/发了什么） |
 | `accounts.tsv` | — | **禁止创建** | 历史设计已废弃；token/orgId 只能由用户在当前聊天临时提供给受信任主 AI，禁止落盘 |
@@ -110,7 +112,7 @@ laifaxin-ops/                              # 代运营总根目录
 - 种子网址: 5 个（见 seeds.tsv）
 - 已保存客户: 13333（见 customers.tsv）
 - 序列: 皮筏艇-西班牙语-12轮4封（见 sequences/）（旧例"5轮"已过时，现行=12轮）
-- 模板: 10 个（见 templates/，效果见 template-analysis.md）
+- 模板: 10 个（见 templates/，效果见 templates.md（模板效果段））
 
 ## 📊 指标
 - 发送/送达/打开/回复: ...

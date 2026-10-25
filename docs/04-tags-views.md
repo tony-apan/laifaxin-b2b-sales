@@ -1,15 +1,18 @@
 ---
+doc_id: "docs-04-tags-views"
 title: "标签与视图"
 description: "标签=静态名片（黄金公式：语言-国家-产品-角色），视图=动态筛选器（一次设置永久复用）+ 4 个开箱视图"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-08-21
 author: "AI Agent + 运营方"
 source: "https://doc.laifa.xin/zhinan/contacts-tags-views.html"
 related: [03-save-customers, 05-email-marketing]
 tags: [标签, 视图, 客户管理]
-status: verified
 audience: 人+AI
 ---
+
 # 04 · 标签与视图（给客户贴名片 + 一键筛人群）
 
 > 来源：`https://doc.laifa.xin/zhinan/contacts-tags-views.html`

@@ -1,3 +1,12 @@
+---
+doc_id: "runs-template-readme"
+title: "📂 runs/ 模板（新公司/新产品从这里复制）"
+description: "目录索引：runs 模板的复制步骤、目录规则与命名铁律，新建产品档案前读。"
+type: "readme"
+status: "active"
+updated: "2026-10-23"
+---
+
 # 📂 runs/ 模板（新公司/新产品从这里复制）
 
 **用法**：以创建时确定且不再改名的 `operator_key/product_key` 建目录：复制 `runs/_template/` 到 `runs/<operator_key>/<product_key>/` → 先按 `specs/product-profile-sop.md` 初始化并确认/decline `product-profile.md` → 按 RULES 状态机 S0→S12 跑 → 每步更新 operation-record 标准状态与证据。

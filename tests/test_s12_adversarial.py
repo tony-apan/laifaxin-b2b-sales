@@ -35,7 +35,9 @@ import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
+NOW_ISO = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 from pathlib import Path
+import os as _os
 
 ROOT = Path(__file__).resolve().parents[1]
 SEQ = "a" * 24
@@ -106,6 +108,42 @@ def _iso(dt=None):
     return (dt or datetime.now(timezone.utc)).isoformat()
 
 
+def _install_curl(bin_dir, cwd_dir, body):
+    """POSIX 用 sh 壳；Windows 编译 curl.exe 到工具 cwd（CreateProcess 先查当前目录）。"""
+    bin_dir = Path(bin_dir)
+    cwd_dir = Path(cwd_dir)
+    fake_py = cwd_dir / "fake_curl.py"
+    fake_py.write_text(body, encoding="utf-8")
+    if os.name != "nt":
+        curl = bin_dir / "curl"
+        curl.write_text('#!/bin/sh\nexec "%s" "%s" "$@"\n' % (sys.executable, fake_py), encoding="utf-8")
+        curl.chmod(0o755)
+        return
+    try:
+        from test_cross_platform import _WIN_CURL_SHIM_CS
+    except ImportError:
+        from tests.test_cross_platform import _WIN_CURL_SHIM_CS
+    win = Path(os.environ.get("WINDIR", r"C:\Windows"))
+    csc = next((q for q in (
+        win / "Microsoft.NET" / "Framework64" / "v4.0.30319" / "csc.exe",
+        win / "Microsoft.NET" / "Framework" / "v4.0.30319" / "csc.exe",
+    ) if q.exists()), None)
+    if csc is None:
+        raise unittest.SkipTest("Windows 需要 .NET Framework csc.exe 编译 curl 影子")
+    src = cwd_dir / "curl_shim.cs"
+    src.write_text(_WIN_CURL_SHIM_CS, encoding="utf-8")
+    exe = cwd_dir / "curl.exe"
+    subprocess.run([str(csc), "/nologo", "/out:" + str(exe), str(src)],
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, check=True)
+
+
+
+
+try:
+    from gate_env import gate_test_env
+except ImportError:
+    from tests.gate_env import gate_test_env
+
 class S12AdversarialTest(unittest.TestCase):
     """在隔离副本里真跑工具，逐一尝试绕过激活闸门。"""
 
@@ -134,7 +172,9 @@ class S12AdversarialTest(unittest.TestCase):
         self.record.write_text(
             "---\n"
             f"operator_key: tony\nproduct_key: pet-pack\nproject: {PROJECT}\n"
-            f"status: {status}\nsequence_id: {SEQ}\n---\n", encoding="utf-8")
+            f"status: {status}\nsequence_id: {SEQ}\n"
+            + ('s11_finalized_at: "' + NOW_ISO + '"\ns11_manifest_sha256: "' + 'a' * 64 + '"\n' if status == "S11" else "")
+            + "---\n", encoding="utf-8")
 
     def write_compliance(self, mode="live", age_hours=0, detail="已逐项核验通过（详细说明）"):
         ts = _iso(datetime.now(timezone.utc) - timedelta(hours=age_hours))
@@ -151,7 +191,7 @@ class S12AdversarialTest(unittest.TestCase):
         path = self.repo / ".local" / "approvals.tsv"
         if not path.exists():
             return []
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
         header = lines[0].split("\t")
         return [dict(zip(header, line.split("\t"))) for line in lines[1:]]
 
@@ -167,7 +207,7 @@ class S12AdversarialTest(unittest.TestCase):
              "--seq", seq or SEQ,
              "--compliance-file", str(compliance or self.compliance),
              "--confirm", quote],
-            capture_output=True, text=True, cwd=self.repo, timeout=90)
+            capture_output=True, text=True, cwd=self.repo, timeout=90, encoding="utf-8", errors="replace")
 
     def activate(self, approval="", profile=None, project=None, record=None, compliance=None):
         return subprocess.run(
@@ -179,7 +219,7 @@ class S12AdversarialTest(unittest.TestCase):
              "--record", str(record or self.record),
              "--confirm", "确认激活 皮筏艇",
              "--approval", approval],
-            capture_output=True, text=True, cwd=self.repo, timeout=90)
+            capture_output=True, text=True, cwd=self.repo, timeout=90, encoding="utf-8", errors="replace")
 
     # ---------- 基线：正常路径必须仍然可用 ----------
     def test_baseline_legit_confirmation_issues_and_keeps_s11(self):
@@ -196,7 +236,7 @@ class S12AdversarialTest(unittest.TestCase):
             [sys.executable, str(self.repo / "tools" / "flow_orchestrator.py"),
              "--resume-s12", "--org", ORG, "--profile", str(self.profile),
              "--seq", SEQ, "--compliance-file", str(self.compliance)],
-            input="", capture_output=True, text=True, cwd=self.repo, timeout=90)
+            input="", capture_output=True, text=True, cwd=self.repo, timeout=90, encoding="utf-8", errors="replace")
         self.assertEqual(2, r.returncode)
         self.assertEqual([], self.s12_rows(), "无原话不得签发")
 
@@ -268,7 +308,7 @@ class S12AdversarialTest(unittest.TestCase):
             [sys.executable, str(self.repo / "tools" / "approval.py"), "grant",
              "--project", PROJECT, "--state", "S12_激活", "--quote", "确认激活",
              "--params", json.dumps({"project": PROJECT, "seq": SEQ})],
-            capture_output=True, text=True, cwd=self.repo, timeout=60)
+            capture_output=True, text=True, cwd=self.repo, timeout=60, encoding="utf-8", errors="replace")
         self.assertEqual(2, r.returncode, r.stdout + r.stderr)
         self.assertEqual([], self.s12_rows(), "grant 不得铸造 S12 凭证")
 
@@ -276,6 +316,50 @@ class S12AdversarialTest(unittest.TestCase):
         r = self.activate(approval="")
         self.assertNotEqual(0, r.returncode)
         self.assertIn("审批凭证", r.stdout + r.stderr, "无凭证不得激活")
+
+    # ---------- ★P0-B 激活口令：必须含「确认激活」四个字 ----------
+    def activate_offline(self, confirm, approval=""):
+        """不联网跑 activate_sequence：假 curl 只记录调用（用于验证本地口令闸门且零网络）。"""
+        bin_dir = self.tmp / "bin-offline"
+        bin_dir.mkdir(exist_ok=True)
+        log = self.tmp / "activate-curl.log"
+        _install_curl(bin_dir, self.repo,
+            "import os, sys\n"
+            "with open(os.environ['ACT_LOG'], 'a', encoding='utf-8') as f:\n"
+            "    f.write(' '.join(sys.argv[1:]) + '\\n')\n"
+            "print('{\"success\": true}')\n")
+        env = os.environ.copy()
+        env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+        env["ACT_LOG"] = str(log)
+        env.update(gate_test_env())
+        env["LFX_FAKE_PYTHON"] = sys.executable
+        r = subprocess.run(
+            [sys.executable, str(self.repo / "tools" / "activate_sequence.py"),
+             "--token", "fake", "--org", ORG, "--seq", SEQ,
+             "--project", PROJECT, "--profile", str(self.profile),
+             "--compliance-file", str(self.compliance),
+             "--record", str(self.record),
+             "--confirm", confirm, "--approval", approval],
+            capture_output=True, text=True, cwd=self.repo, env=env, timeout=90, encoding="utf-8", errors="replace")
+        calls = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+        return r, calls
+
+    def test_p0b_only_activation_word_is_rejected_without_network(self):
+        """★旧缺陷：activate_sequence 只要求原话含「激活」→「激活 皮筏艇」即可放行。"""
+        r, calls = self.activate_offline("激活 皮筏艇")
+        self.assertEqual(2, r.returncode, r.stdout + r.stderr)
+        self.assertIn("确认激活", r.stdout + r.stderr, "拒绝原因须指出必须含「确认激活」")
+        self.assertEqual([], calls, "口令闸门必须在任何联网之前拒绝")
+
+    def test_p0b_confirm_activation_passes_local_gates_without_network(self):
+        """「确认激活 …」须通过本地口令闸门（随后因缺审批凭证 exit 1，证明不是死锁）。"""
+        r, calls = self.activate_offline("确认激活 皮筏艇")
+        self.assertEqual(1, r.returncode, r.stdout + r.stderr)
+        self.assertNotIn("确认原话校验未过", r.stdout + r.stderr,
+                         "「确认激活」不应被口令闸门拒绝")
+        self.assertIn("审批凭证", r.stdout + r.stderr,
+                      "应停在审批闸门（无 --approval），而不是口令闸门")
+        self.assertEqual([], calls, "本地闸门未过前不得联网")
 
     def test_a13_approval_is_bound_to_project(self):
         self.issue()
@@ -291,8 +375,11 @@ class S12AdversarialTest(unittest.TestCase):
             encoding="utf-8")
         other_record = other_dir / "operation-record.md"
         other_record.write_text(
-            f"---\noperator_key: tony\nproduct_key: other\nproject: tony/other\n"
-            f"status: S11\nsequence_id: {SEQ}\n---\n", encoding="utf-8")
+            "---\noperator_key: tony\nproduct_key: other\nproject: tony/other\n"
+            f"status: S11\nsequence_id: {SEQ}\n"
+            's11_finalized_at: "' + NOW_ISO + '"\n'
+            f's11_manifest_sha256: "{"a" * 64}"\n---\n',
+            encoding="utf-8")
         other_compliance = other_dir / "compliance-check.json"
         other_compliance.write_text(self.compliance.read_text(encoding="utf-8"), encoding="utf-8")
         r = self.activate(approval=ap, profile=other_profile, project="tony/other",
@@ -303,6 +390,50 @@ class S12AdversarialTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+FAKE_PLATFORM = r'''#!/usr/bin/env python3
+import json, os, sys
+from urllib.parse import urlparse
+args = sys.argv[1:]
+url = next((a for a in args if a.startswith("http")), "")
+path = urlparse(url).path
+{log_code}
+marker = {marker!r}
+SEQ = {seq!r}
+STATUS = {status!r}
+TPL = {tpl}
+if path.endswith("/sequences/sequence-list"):
+    active = STATUS == "active" or (marker and os.path.exists(marker))
+    out = {{"success": True, "data": {{"list": [{{"id": SEQ, "status": "active" if active else "inactive"}}]}}}}
+elif path.endswith("/sequences/sequence-details"):
+    out = {{"success": True, "data": {{"rules": {{"max_emails_per_day": 30000, "domain_emails_per_day": 5,
+             "notSentTags": ["000000000000000000000043", "000000000000000000000044"]}}}}}}
+elif path.endswith("/benefits/refine-data"):
+    out = {{"success": True, "data": {{"isOrg": True, "vip": 2, "dailyLimit": 500,
+             "monthlyLimit": 10000, "dailyUsed": 1, "monthlyUsed": 2}}}}
+elif path.endswith("/contacts/tags-list"):
+    out = {{"success": True, "data": {{"list": [{{"id": "000000000000000000000043", "name": "询盘"}},
+             {{"id": "000000000000000000000044", "name": "不发"}}]}}}}
+elif path.endswith("/sequences/step-list"):
+    waits = [("minute", 30), ("day", 5), ("day", 15)] + [("day", 30)] * 9
+    out = {{"success": True, "data": [{{"step": i + 1, "template_ids": [TPL[i]],
+             "wait_mode": waits[i][0], "wait_time": waits[i][1]}} for i in range(12)]}}
+elif path.endswith("/mailbox/templates-list"):
+    out = {{"success": True, "data": {{"list": [{{"_id": t}} for t in TPL]}}}}
+elif path.endswith("/sequences/sequence-active"):
+    if marker:
+        open(marker, "w").write("1")
+    out = {{"success": True, "data": {{}}}}
+else:
+    out = {{"success": True, "data": {{}}}}
+print(json.dumps(out))
+'''
+
+
+def _fake_platform_script(status, log_code=""):
+    tpl = "[" + ", ".join('"%024x"' % (i + 0x300) for i in range(12)) + "]"
+    return FAKE_PLATFORM.format(status=status, seq=SEQ, marker=None, log_code=log_code, tpl=tpl)
 
 
 class ManualActivationSyncTest(unittest.TestCase):
@@ -338,7 +469,9 @@ class ManualActivationSyncTest(unittest.TestCase):
     def write_record(self, status):
         self.record.write_text(
             f"---\noperator_key: tony\nproduct_key: pet-pack\nproject: {PROJECT}\n"
-            f"status: {status}\nsequence_id: {SEQ}\n---\n", encoding="utf-8")
+            f"status: {status}\nsequence_id: {SEQ}\n"
+            + ('s11_finalized_at: "' + NOW_ISO + '"\ns11_manifest_sha256: "' + 'a' * 64 + '"\n' if status == "S11" else "")
+            + "---\n", encoding="utf-8")
 
     def status(self):
         for line in self.record.read_text(encoding="utf-8").splitlines():
@@ -346,23 +479,25 @@ class ManualActivationSyncTest(unittest.TestCase):
                 return line.split(":", 1)[1].strip()
         return ""
 
-    def fake_platform(self, seq_status=None):
+    def fake_platform(self, seq_status=None, log=None):
         """模拟平台：给定序列状态（None=接口返回空）。"""
-        payload = "{}" if seq_status is None else json.dumps(
-            {"success": True, "data": {"list": [{"id": SEQ, "status": seq_status}]}})
-        fake = self.bin / "curl"
-        fake.write_text(f'#!/bin/sh\necho \'{payload}\'\n', encoding="utf-8")
-        fake.chmod(0o755)
+        status = "none" if seq_status is None else seq_status
+        log_code = ""
+        if log is not None:
+            log_code = 'with open(' + repr(str(log)) + ', "a") as fh:\n    fh.write(path + "\\n")'
+        _install_curl(self.bin, self.repo, _fake_platform_script(status, log_code))
 
     def sync(self, confirm="我已在网页激活 皮筏艇找客户", seq=None, record=None, extra=()):
         env = os.environ.copy()
+        env.update(gate_test_env())
         env["PATH"] = str(self.bin) + os.pathsep + env.get("PATH", "")
+        env["LFX_FAKE_PYTHON"] = sys.executable
         return subprocess.run(
             [sys.executable, str(self.repo / "tools" / "activate_sequence.py"),
              "--token", "fake", "--org", ORG, "--seq", seq or SEQ, "--sync-manual",
              "--record", str(record or self.record), *( ("--confirm", confirm) if confirm is not None else () ),
              *extra],
-            capture_output=True, text=True, cwd=self.repo, env=env, timeout=90)
+            capture_output=True, text=True, cwd=self.repo, env=env, timeout=90, encoding="utf-8", errors="replace")
 
     # ---- 正向：用户在网页开好后同步 ----
     def test_sync_after_manual_activation_advances_local(self):
@@ -421,23 +556,20 @@ class ManualActivationSyncTest(unittest.TestCase):
     def test_sync_requires_record(self):
         self.fake_platform("active")
         env = os.environ.copy()
+        env.update(gate_test_env())
         env["PATH"] = str(self.bin) + os.pathsep + env.get("PATH", "")
         r = subprocess.run(
             [sys.executable, str(self.repo / "tools" / "activate_sequence.py"),
              "--token", "fake", "--org", ORG, "--seq", SEQ, "--sync-manual",
              "--confirm", "我已在网页激活"],
-            capture_output=True, text=True, cwd=self.repo, env=env, timeout=90)
+            capture_output=True, text=True, cwd=self.repo, env=env, timeout=90, encoding="utf-8", errors="replace")
         self.assertNotEqual(0, r.returncode)
 
     def test_sync_makes_no_write_call_to_platform(self):
         """★关键：这条路径不得对平台发起任何写请求（只回读）。"""
         self.fake_platform("active")
         log = self.tmp / "curl.log"
-        fake = self.bin / "curl"
-        fake.write_text("#!/bin/sh\nprintf '%s\\n' \"$@\" >> " + str(log) + "\n"
-                        "echo '{\"success\":true,\"data\":{\"list\":[{\"id\":\"" + SEQ
-                        + "\",\"status\":\"active\"}]}}'\n", encoding="utf-8")
-        fake.chmod(0o755)
+        self.fake_platform("active", log=log)
         r = self.sync()
         self.assertEqual(0, r.returncode, r.stdout + r.stderr)
         calls = log.read_text(encoding="utf-8") if log.exists() else ""

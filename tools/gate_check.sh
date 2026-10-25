@@ -11,6 +11,11 @@ usage(){
   echo "Deprecated/不安全: --token TOKEN --org ORG（凭据会进入 argv，仅内部兼容）"
 }
 KB="$(cd "$(dirname "$0")/.." && pwd)"
+py_broken(){ printf '%s' "$1" | grep -qiE "Python was not found|xcrun: error|No such file or directory"; }
+env_white_block(){
+  echo "ℹ️ 我这边的准备工作还差一点（我来处理，**您不用管**），处理完我再请您继续。"
+  echo "目前没有动您任何数据：没搜索、没保存、没发送。**请您**先等我一下。"
+}
 TOKEN_GUIDE="https://www.laifa.xin/share/ai/laifaxin-ai-account-connection"
 TOKEN=""; ORG=""; PRODUCT=""; CREDENTIALS_STDIN=0
 while [ $# -gt 0 ]; do
@@ -23,6 +28,30 @@ while [ $# -gt 0 ]; do
     *) echo "未知参数: $1" >&2; exit 2 ;;
   esac
 done
+# ★解释器探测：Windows 的 python3 可能是应用商店占位符（退出码 49）。
+# 仅 Windows 实跑验证；macOS/Linux 不多起进程（也避免污染测试替身）。
+_py_usable() {
+  case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*) "$1" -c "import sys" >/dev/null 2>&1 ;;
+    *) return 0 ;;
+  esac
+}
+if command -v python3 >/dev/null 2>&1 && _py_usable python3; then PY=python3
+elif command -v py >/dev/null 2>&1 && _py_usable py; then PY=py
+elif command -v python >/dev/null 2>&1 && _py_usable python; then PY=python
+else PY=""
+fi
+# 解释器缺失 ≠ 账号问题：直接给用户 env 白话并停，不许落到"钥匙失效"
+if [ -z "$PY" ]; then
+  echo "  [FAIL] 未找到可用的 Python 解释器（AI 自己修，不要麻烦用户）"
+  echo
+  echo "════════ 给用户看的这一段（AI 请照抄，别加术语）════════"
+  env_white_block
+  echo "═══════════════════════════════════════════════════════════"
+  exit 1
+fi
+# ★子进程输出编码：Windows 下 python 写管道默认 GBK，本脚本把原始输出转给 AI 看，必须统一 UTF-8
+export PYTHONIOENCODING=utf-8
 PASS=0; FAIL=0; PENDING=0
 # BLOCK 取最高优先级的"卡在哪"（1=最需要用户动手），用于生成最后一节白话
 BLOCK=""; BLOCK_RANK=99
@@ -58,12 +87,14 @@ if [ "$CREDENTIALS_STDIN" -eq 1 ]; then
     echo "        教程: $TOKEN_GUIDE"
     note_block need_key 1
   else
-    LOGIN_OUT=$(printf '%s' "$CRED_BLOB" | python3 "$KB/tools/check_login.py" --credentials-stdin --gate-mode 2>&1)
+    LOGIN_OUT=$(printf '%s' "$CRED_BLOB" | "$PY" "$KB/tools/check_login.py" --credentials-stdin --gate-mode 2>&1)
     LOGIN_RC=$?
     [ -n "$LOGIN_OUT" ] && printf '        └─原始输出(仅供 AI，禁转述): %s\n' "$(printf '%s' "$LOGIN_OUT" | head -1)"
     # ★复审 F-09R：rc=1 可能是脚本自身崩溃（Python 未捕获异常=1）——先排除，
     #   否则会把"工具坏了"说成"您的钥匙失效"，害用户白重登
-    if printf '%s' "$LOGIN_OUT" | grep -q "Traceback"; then
+    if py_broken "$LOGIN_OUT"; then
+      bad "Python 解释器不可用（不是账号问题，AI 先修环境）"; note_block env 9
+    elif printf '%s' "$LOGIN_OUT" | grep -q "Traceback"; then
       bad "登录检查工具自身出错了（不是您的问题），AI 需要先排查"; note_block env 9
     elif [ "$LOGIN_RC" -eq 0 ]; then
       ok "账号钥匙有效，登录检查通过"
@@ -80,10 +111,12 @@ elif [ -n "$TOKEN" ] || [ -n "$ORG" ]; then
   if [ -z "$TOKEN" ] || [ -z "$ORG" ]; then
     bad "内部用法缺参数（旧入口必须同时给两项），AI 自己改"; note_block env 9
   else
-    LOGIN_OUT=$(python3 "$KB/tools/check_login.py" --token "$TOKEN" --org "$ORG" --gate-mode 2>&1)
+    LOGIN_OUT=$("$PY" "$KB/tools/check_login.py" --token "$TOKEN" --org "$ORG" --gate-mode 2>&1)
     LOGIN_RC=$?
     [ -n "$LOGIN_OUT" ] && printf '        └─原始输出(仅供 AI，禁转述): %s\n' "$(printf '%s' "$LOGIN_OUT" | head -1)"
-    if printf '%s' "$LOGIN_OUT" | grep -q "Traceback"; then
+    if py_broken "$LOGIN_OUT"; then
+      bad "Python 解释器不可用（不是账号问题，AI 先修环境）"; note_block env 9
+    elif printf '%s' "$LOGIN_OUT" | grep -q "Traceback"; then
       bad "登录检查工具自身出错了（不是您的问题），AI 需要先排查"; note_block env 9
     elif [ "$LOGIN_RC" -eq 0 ]; then
       ok "账号钥匙有效，登录检查通过"
@@ -105,11 +138,13 @@ fi
 echo "[2b] 工作空间核对（确认客户/模板会存进您选的那个工作空间）"
 if [ "$CREDENTIALS_STDIN" -eq 1 ] && [ -z "$TOKEN" ] && [ -z "$ORG" ]; then
   if [ -n "$CRED_BLOB" ]; then
-    WS_OUT=$(printf '%s' "$CRED_BLOB" | python3 "$KB/tools/workspace_guard.py" --credentials-stdin --require-verified 2>&1)
+    WS_OUT=$(printf '%s' "$CRED_BLOB" | "$PY" "$KB/tools/workspace_guard.py" --credentials-stdin --require-verified 2>&1)
     WS_RC=$?
     [ -n "$WS_OUT" ] && printf '        └─原始输出(仅供 AI，禁转述): %s\n' "$(printf '%s' "$WS_OUT" | head -1)"
     # ★F-09：rc=1 也可能是脚本自身崩溃（Python 未捕获异常=1）——先排除，别把工具故障说成"您连错空间"
-    if printf '%s' "$WS_OUT" | grep -q "Traceback"; then
+    if py_broken "$WS_OUT"; then
+      bad "Python 解释器不可用（不是账号问题，AI 先修环境）"; note_block env 9
+    elif printf '%s' "$WS_OUT" | grep -q "Traceback"; then
       bad "核对工具自身出错了（不是您的问题），AI 需要先排查"; note_block env 9
     elif [ "$WS_RC" -eq 0 ]; then
       ok "工作空间核对通过"
@@ -127,7 +162,7 @@ if [ "$CREDENTIALS_STDIN" -eq 1 ] && [ -z "$TOKEN" ] && [ -z "$ORG" ]; then
     note_block need_key 1
   fi
 elif [ -n "$TOKEN" ] && [ -n "$ORG" ]; then
-  WS_OUT=$(python3 "$KB/tools/workspace_guard.py" --token "$TOKEN" --org "$ORG" --require-verified 2>&1)
+  WS_OUT=$("$PY" "$KB/tools/workspace_guard.py" --token "$TOKEN" --org "$ORG" --require-verified 2>&1)
   WS_RC=$?
   [ -n "$WS_OUT" ] && printf '        └─原始输出(仅供 AI，禁转述): %s\n' "$(printf '%s' "$WS_OUT" | head -1)"
   if printf '%s' "$WS_OUT" | grep -q "Traceback"; then
@@ -201,8 +236,7 @@ case "$BLOCK" in
   profile)
     echo "ℹ️ 在正式开始前，我需要您先看一眼产品资料整理得对不对（我会把要点列给您，您回复确认或修改就行）。" ;;
   env)
-    echo "ℹ️ 我这边的准备工作还差一点（我来处理，**您不用管**），处理完我再请您继续。"
-    echo "目前没有动您任何数据：没搜索、没保存、没发送。**请您**先等我一下。" ;;
+    env_white_block ;;
   *)
     echo "✅ 检查全部通过，咱们可以往下走了。" ;;
 esac

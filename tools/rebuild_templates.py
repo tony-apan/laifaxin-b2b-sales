@@ -18,6 +18,16 @@
   - 每个 step-save 失败立即中止, 绝不删除旧模板; 全部12步回读验证均指向新模板ID后才删旧模板
 本脚本只重建模板与步骤, 不 contact-add 不激活。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, time, sys, argparse, re, hashlib, shutil
 from pathlib import Path
 
@@ -46,10 +56,19 @@ if not args.prefix.strip() or not args.suffix.strip():
     print("❌ --prefix/--suffix 不能为空（空prefix会匹配全部模板，禁止）"); sys.exit(2)
 
 def api(path, p, t=60):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     cmd = ["curl","-sSL","-X","POST",f"https://web.laifaxin.com/api/{path}",
            "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t, encoding="utf-8", errors="replace")
     try: return json.loads(r.stdout)
     except: return {"success": False}
 
@@ -67,7 +86,7 @@ def collect_old():
         lst = d.get("data", {}).get("list", [])
         if not lst: break
         for t in lst:
-            if t.get("folder"): continue
+            # ★分组/未分组都计入：folder 只是归属分组，不能因此排除本批模板
             if (t.get("name") or "").startswith(args.prefix):
                 ids.append((t.get("name"), t.get("_id")))
     return ids
@@ -195,7 +214,7 @@ except subprocess.CalledProcessError:
     sys.exit(1)
 finally:
     temp_record.unlink(missing_ok=True)
-mapping = json.load(open(outf))
+mapping = json.load(open(outf, encoding="utf-8"))
 all_ids = list(mapping.values())
 from tmap_grid import GridError, ROUNDS, group_by_round, per_round_count
 try:

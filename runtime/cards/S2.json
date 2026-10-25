@@ -1,0 +1,27 @@
+{
+  "state": "S2",
+  "title": "客群落档",
+  "must_read": [
+    "RULES.md 客群铁律",
+    "specs/domain-scale-sop.md（客群英文概述铁律+信任链）"
+  ],
+  "required_fields": [
+    "segment_id",
+    "segment_name",
+    "query_en",
+    "platform_id",
+    "generation_id"
+  ],
+  "format_rules": {
+    "query_en": "逐字来自平台，禁止改写"
+  },
+  "self_check": [
+    "segment_fields 可读出且 sha256 一致",
+    "record 客群行含该 id"
+  ],
+  "forbidden": [
+    "手写 segments JSON",
+    "用名称回退匹配"
+  ],
+  "next": "S3"
+}

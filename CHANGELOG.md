@@ -1,6 +1,47 @@
+---
+doc_id: "changelog"
+title: "Changelog"
+description: "公开库版本记录：按版本列出功能、修复与文档变更，排查版本差异或发布前查。"
+type: "record"
+status: "active"
+updated: "2026-10-25"
+---
+
 # Changelog
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
+
+## [v0.6.0] - 2026-10-25
+
+**新手线收口：装完只问两样、6 步走完、换电脑能自检（含话术/机器门/跨平台）。**
+
+- **首屏与话术**：新用户装完直接问「怎么称呼您 + 一句话产品」，不再出任务菜单/数字；确认点统一回数字；保存只认「确认保存 + 家数」；S12 激活两条路（「确认激活 <计划名>」/「我已在网页激活 <计划名>」）并三态回读；对用户可见话术去黑话（客群/序列/硬门/审批凭证等）。
+- **新手文档**：新增 `docs/14-novice-walkthrough-demo.md`（14 环节逐屏演示 + 走叉处理）、`docs/fresh-computer-checklist.md`（全新电脑自检）、`docs/cross-platform-setup.md`（Windows/macOS 差异）；`specs/step-map.md` 补 Mermaid 总览与逐模块逻辑；README 快速入口新增演示稿。
+- **机器门**：开工前 6 份必读 sha256 登记（`startup_gate`）、执行卡校验、16 个写脚本入口统一拦截；新增跨平台 `tools/preflight.py`；pre-commit/pre-push 钩子统一跑 `tools/preflight.sh`。
+- **模板命名**：`output-templates/` 中文文件名统一为英文（内容不变；索引/README/文档已同步）。映射：
+
+| 旧文件名 | 新文件名 |
+|---|---|
+| `S0-产品知识档案.md` | `S0-product-profile.md` |
+| `S0-任务菜单.md` | `S0-task-menu.md` |
+| `S0-安装完成汇报.md` | `S0-install-report.md` |
+| `S0-画像方案.md` | `S0-fit-plan.md` |
+| `S2-客群确认.md` | `S2-segment-confirm.md` |
+| `S3-种子确认.md` | `S3-seed-confirm.md` |
+| `S4-审计进行中.md` | `S4-audit-running.md` |
+| `S5-保存确认.md` | `S5-save-confirm.md` |
+| `S6-数量账.md` | `S6-count-report.md` |
+| `S7-模板确认.md` | `S7-template-confirm.md` |
+| `S8-模板构建中.md` | `S8-template-building.md` |
+| `S9-序列确认.md` | `S9-sequence-confirm.md` |
+| `S10-加联系人确认.md` | `S10-contacts-confirm.md` |
+| `S11-完成汇报.md` | `S11-completion-report.md` |
+| `S12-激活确认.md` | `S12-activation-confirm.md` |
+
+- **测试**：381 条增至 647 条；修复 4 个测试把 S11 收口时间写死为 2026-10-23 的时间炸弹（超过 24h 窗口后任何电脑都会失败），改为运行时生成。
+- **CI**：新增 `.github/workflows/preflight.yml`（ubuntu bash/python 双入口 + Windows smoke，Windows 暂为证据用、不阻断）。
+- **回答纪律**：SKILL/AGENTS 增加「涉及规则/数字/话术前先读文档并给出来源，不凭记忆作答」。
+- **边界**：Windows 全新实机尚未验收；平台投递能力（SPF/DKIM/DMARC、域名/IP、预热）由平台负责，不承诺询盘或订单。
 
 ## [v0.5.44] - 2026-09-23
 
@@ -150,8 +191,8 @@ token 值一行 + `orgId：z44422` 全角冒号，AI 解析失败后反复索要
 | 「已保存任务」 | ❌ 非界面名 | **「客户保存记录」**（在 搜客引擎 下） |
 | 「AI 数据库搜索」 | ⚠️ 内部方法名 | 平台菜单真名是「**AI 数据库** 🔥」；该短语以真名开头（用户搜得到），且是本仓内部方法名（"AI 数据库搜索链三步"），**保留但已确认不误导** |
 
-修正：`SKILL.md`（平台页面路由表 2 行）、`output-templates/S7-模板确认.md`（用户话术"平台模板库"→"设置 → 邮件模板"）、
-`output-templates/S12-激活确认.md`（"登录 → 营销报告看送达率"→"邮件追踪/智能跟进计划看送达/阅读/点击次数"）、
+修正：`SKILL.md`（平台页面路由表 2 行）、`output-templates/S7-template-confirm.md`（用户话术"平台模板库"→"设置 → 邮件模板"）、
+`output-templates/S12-activation-confirm.md`（"登录 → 营销报告看送达率"→"邮件追踪/智能跟进计划看送达/阅读/点击次数"）、
 `specs/sequence-config.md`、`tools/verify_sequence.py`。
 
 ### 三、平台公告核对
@@ -189,7 +230,7 @@ token 值一行 + `orgId：z44422` 全角冒号，AI 解析失败后反复索要
 | `/settings/templets` | ✅ 正确 | 邮件模板 |
 
 - **修正范围**（两仓）：`RULES.md`、`SKILL.md`（含平台页面路由表 4 行）、`specs/node-playbook.md`、
-  `output-templates/S11-完成汇报.md`、`output-templates/S12-激活确认.md`、
+  `output-templates/S11-completion-report.md`、`output-templates/S12-activation-confirm.md`、
   `tools/activate_sequence.py`（--sync-manual 的提示文案）；知识仓另修 3 个历史采集脚本。
 - **新增 `PlatformLinkTruthTest`（3 项）**，把平台路由真值表固化进测试：
   - `test_no_dead_platform_paths`：任何文件出现已废弃路径 → 失败（**用户不会再点到 404**）
@@ -214,7 +255,7 @@ token 值一行 + `orgId：z44422` 全角冒号，AI 解析失败后反复索要
   - 仍要求：原话含"激活"（登记用户意志）、record 处于 S11、seq 与 record 逐字一致（防串台）；
   - 回读**非 active / 读不到** → 一律拒绝且**保持 S11**，并提示常见原因（开关没生效 / 开在别的工作空间）；
   - 已 S12 时幂等（"无需重复同步"）。
-- **卡片 `S12-激活确认.md` 改为并列两条路**（用户话术）：
+- **卡片 `S12-activation-confirm.md` 改为并列两条路**（用户话术）：
   - **方式一 · 让我来（推荐）**：回复"确认激活 <序列名>" → AI 执行并核对；
   - **方式二 · 您自己去网页激活**：4 步逐行 emoji —— ①打开 `https://web.laifaxin.com/mailing/sequence`
     ②找到该计划、点开核对（12 步/模板/每天上限/不发送保护）③确认无误后打开开关
@@ -240,9 +281,9 @@ token 值一行 + `orgId：z44422` 全角冒号，AI 解析失败后反复索要
 
 | # | 问题 | 修复 |
 |---|---|---|
-| **UG-01 (P1)** | `S0-连接成功.md` 下一步话术写"告诉我您的落款昵称 + 一句话产品"——但这两项**在开局就收过了**，`T-token引导.md:64` 还明令"连接后不要重复问"，三处互相矛盾 → AI 照抄就会让用户把答过的再答一遍 | 改为"我现在开始给您找买家"，并注明**不要重复索取**；索引同步 |
-| **UG-03 (P2)** | `T-token引导.md` 一次甩 **7 条警告**（null/双域名/单点失效/切换重取…），小白还没动手先读一堵墙 → 放大畏难 | 代码块内**只留 2 条必遇项**（paste 提示/别发群里）；其余 4 条移到 AI 要点，**遇到才按失败卡讲** |
-| **UG-04 (P2)** | `S0a-网站资料确认.md` 要用户回"确认导入公司资料：**f-001**"——内部取证编号转嫁给用户 | 改为"全部导入"/"只要公司资料"/"第 2 条不要"——**按顺序数即可，编号映射由 AI 做** |
+| **UG-01 (P1)** | `S0-connect-success.md` 下一步话术写"告诉我您的落款昵称 + 一句话产品"——但这两项**在开局就收过了**，`T-token-guide.md:64` 还明令"连接后不要重复问"，三处互相矛盾 → AI 照抄就会让用户把答过的再答一遍 | 改为"我现在开始给您找买家"，并注明**不要重复索取**；索引同步 |
+| **UG-03 (P2)** | `T-token-guide.md` 一次甩 **7 条警告**（null/双域名/单点失效/切换重取…），小白还没动手先读一堵墙 → 放大畏难 | 代码块内**只留 2 条必遇项**（paste 提示/别发群里）；其余 4 条移到 AI 要点，**遇到才按失败卡讲** |
+| **UG-04 (P2)** | `S0a-website-profile.md` 要用户回"确认导入公司资料：**f-001**"——内部取证编号转嫁给用户 | 改为"全部导入"/"只要公司资料"/"第 2 条不要"——**按顺序数即可，编号映射由 AI 做** |
 | **UG-05 (P2)** | 网站导入后档案回 draft 要**再确认一遍**，用户重看几乎相同的 8 行=重复劳动 | `website-profile-sop.md` 明确**二次确认只报变更摘要**（"新增/修改 N 条，其余未变"），只有新增具体数字/认证才逐条过目 |
 | **UG-06 (P2)** | `onboard_check.py`/`bootstrap.sh` 的环境兜底写着"手动装 Python（勾选 Add to PATH）/ 手动装 Homebrew"——一旦被 AI 照转，小白就要去 python.org 自己装，与"我来处理，您不用管"直接矛盾 | 加标注"**★仅供 AI 内部执行，禁止直接转述给用户**" |
 | **UG-02 (P2)** | Q1-Q5 卡说"发现有回复请第一时间告诉我"（责任甩给用户），另处又说"由我（或您）打标签"——**责任归属不清** | 实测平台**只给回复总数、没有"谁回复了"的名单**（`api-reference` 核对），故**不能承诺自动巡检**；改为如实交代："您看到回复随时告诉我，我教您打标签停下后续——这一步我做不了，平台只给回复总数" |
@@ -340,7 +381,7 @@ token 值一行 + `orgId：z44422` 全角冒号，AI 解析失败后反复索要
   - **保留全部实质闸门**（一条没少）：record 必须 S11、档案标准路径+状态、合规文件 `live` 五项 72h、
     project/seq/profile/compliance 哈希绑定、`approval.py` 仍禁止 `grant` 铸造 S12——
     这些才是防误操作的真闸门，与"在哪里敲字"无关。
-  - 文档同步：`S12-激活确认.md`（用户只需回一句，明确"不用开任何窗口、不用粘贴命令"）、
+  - 文档同步：`S12-activation-confirm.md`（用户只需回一句，明确"不用开任何窗口、不用粘贴命令"）、
     `RULES.md`、`SKILL.md`、`specs/node-playbook.md`、`README.md`（威胁模型边界重申）、
     `approval.py` 拦截说明。**删除**上一版新增的 `S12-您亲自确认.md`（该步骤不复存在）。
 - **端到端实测五场景**（真跑工具、真实 project/档案/合规文件）：
@@ -373,7 +414,7 @@ S12 最后一步（请您亲自确认）展示整改：命令改由**工具产�
 - **根因（不是设计错，是展示层缺位）**：要求用户在本机终端亲自确认是**有意的安全设计**
   （`approval.py`：S12 凭证禁止 `grant`、只能由 `flow_orchestrator` 在当前真实 TTY 签发，
   另加 `isatty()` 硬检查——就是为了防止 AI 自己给自己签发激活凭证）。
-  但这套设计**从来没有配套的"怎么跟用户说"的卡片**：`output-templates/S12-激活确认.md`
+  但这套设计**从来没有配套的"怎么跟用户说"的卡片**：`output-templates/S12-activation-confirm.md`
   只写了 AI 要点（"必须用 --resume-s12 在**当前真实 TTY**由用户现场确认"），
   没有任何用户话术——AI 只能现场编，于是编出了上面那段。
 - **工具层：新增 `flow_orchestrator.py --print-s12-command`**（只打印、不联网、不校验、不写凭证）：
@@ -436,7 +477,7 @@ S12 最后一步（请您亲自确认）展示整改：命令改由**工具产�
     `NoTokenJargonOutsideCredentialCardTest`（除 T-token 引导卡外任何卡不得出现 token/orgId）；
     新增 `GatePlainTextSingleSourceTest`（gate_check 白话段每句必须能在话术卡中逐字找到，
     杜绝两处手抄漂移）；新增 `test_no_card_claims_auto_stop_on_reply`（全卡禁"回复会自动停"）。
-- **一句话结论**：新失败卡 `S0-连接未通过.md` 六类话术（没收到/没复制全/失效/连错空间/网络/兜底）
+- **一句话结论**：新失败卡 `S0-connect-failed.md` 六类话术（没收到/没复制全/失效/连错空间/网络/兜底）
   \+ `gate_check.sh` 末段白话（AI 直接照抄）。
 - 测试 294 → **308**（+14），两仓全绿；`bash -n`/`py_compile` 通过。
 - **变异验证 15/15 有效**（含复现原截图字面文本、四个 P0/P1 回填、双源漂移、token 泄漏等）。
@@ -464,8 +505,8 @@ S12 最后一步（请您亲自确认）展示整改：命令改由**工具产�
   **"钥匙有效但连到的不是要用的那个工作空间"**——把用户往"去切空间"的错误方向指。
   现：exit 1 = 确凿误路由（要用户换空间重取）；**exit 5 = 无法判定**（可能钥匙失效/平台未返回）。
   契约写进 docstring，调用方话术强制区分。
-- **话术卡**：新增 `output-templates/S0-连接未通过.md`（5 类场景话术 + 执行边界），
-  与 `S0-连接成功.md` 成对；`output-templates/README.md` 索引与全局规则、`SKILL.md`
+- **话术卡**：新增 `output-templates/S0-connect-failed.md`（5 类场景话术 + 执行边界），
+  与 `S0-connect-success.md` 成对；`output-templates/README.md` 索引与全局规则、`SKILL.md`
   （"三个必照模板的固化产出"）、`RULES.md` 同步。
 - **RULES 升为总纪律**：对用户开口的**任何时刻**（成功/失败/停下/异常/等待）都禁工具名
   （`.py`/`.sh` 及去后缀写法）、退出码、`[PASS]`/`[FAIL]`、`落点`/`凭据` 等行话；
@@ -520,7 +561,7 @@ Skill 文档一致性收口：把「每轮 10 封」等在规格文档里的陈�
     断言 URL 不含 uid、header 恰含 `uid: <org>` 且不误用 token。
   - `test_credential_input.py` 的 `..._org_is_urlencoded_in_request_url` 改为 `..._org_goes_into_uid_header_not_url`。
 - 文档同步：`RULES.md` 铁律（"query 可保留作兼容"→"URL 一律不得再拼 `?uid=`"）、
-  `output-templates/T-token引导.md`（用户卡也把"API `?uid=` 一律用它"改成"放请求头 `uid`"）。
+  `output-templates/T-token-guide.md`（用户卡也把"API `?uid=` 一律用它"改成"放请求头 `uid`"）。
 - 变异验证有效：把 `?uid=` 加回任一工具（含知识仓独有脚本）→ 全工具扫描断言立即失败；复原通过。
 - 两仓 280 测试全绿（+0 项测试，含 1 项重写加固）；`py_compile` 全部通过。
 
@@ -534,7 +575,7 @@ Skill 文档一致性收口：把「每轮 10 封」等在规格文档里的陈�
     `environment-setup` / `migration-handoff` / `node-playbook` / `operations-sop` /
     `operator-profile-sop` / `product-profile-sop`（`lessons-learned` 副本 54 条 vs 真源 61 条，差 7 条）
   - `lessons-learned.md`（真源 `lessons/lessons-learned.md`）、`faq.md`（真源已并入其他文档）、
-    `T-token引导.md`（真源 `output-templates/T-token引导.md`）
+    `T-token-guide.md`（真源 `output-templates/T-token-guide.md`）
   - `specs/RULES.md`（停在 9-04，真源根 `RULES.md`）、`tools/SKILL.md`（v0.4.2，落后 23 个版本）
 - **`output-templates/` 10 个误放产物删除**：`product-profile` / `segments` / `templates` /
   `operation-record` / `reflection` + `audit-manifest` / `compliance-check` / `evidence` /
@@ -781,7 +822,7 @@ AI 执行层审查——修行号引用漂移(P0) + 每日上限语义错误 + �
 - P0-A README 底部仍写旧 6 项菜单（与已改的 4 项矛盾）→ 同步为 4 项，并说明"有旧项目时第一项自动换成继续项目，你不用记任何术语"
 - P0-B 缺「安装完成汇报」模板 → 原来 README 要求 AI 汇报"安装目录/环境/能做什么/哪些要确认/有无旧项目"，
   但没模板，AI 容易把 onboard_check.py 原始输出直接抛给用户（里面是 S1/S10/contact_add.py/status=declined，
-  小白完全看不懂）。新增 output-templates/S0-安装完成汇报.md：
+  小白完全看不懂）。新增 output-templates/S0-install-report.md：
   新用户版 + 老用户版两个话术，只讲四件事，必须强调"不确认激活一封都不发"、给"随时可喊停"承诺
 - P1-C 状态码没有白话映射 → onboard_check.py 新增 PLAIN_HINT + plain_step_for()，
   项目扫描输出加一行「👤 对用户说(白话,勿抛状态码)」；S0-S12 对照表写进汇报模板；
@@ -808,7 +849,7 @@ AI 执行层审查——修行号引用漂移(P0) + 每日上限语义错误 + �
   · 有旧项目 → ①📂继续「<项目名>」⭐推荐 ②🚀开始新项目 ③🌐官网提炼 ④📖了解流程
   · 无旧项目 → ①🚀开始新项目⭐推荐 ②🎯判断产品适配 ③🌐官网提炼 ④📖了解流程
 - tools/onboard_check.py 改为按 projects 有无分别输出对应 4 项菜单
-- output-templates/S0-任务菜单.md 重写为两版 4 项；RULES/README 全局规则/SKILL 同步"上限4项+按状态裁剪"
+- output-templates/S0-task-menu.md 重写为两版 4 项；RULES/README 全局规则/SKILL 同步"上限4项+按状态裁剪"
 - 测试 214→215：TaskMenuFormatTest 断言改为 4 项（上限 5）+ 状态裁剪（无旧项目不得含"继续"、两份都不得含"更新系统"）；
   三向变异验证有效（加回5-6项/塞回"继续（无）"/塞回"更新系统" 均立刻失败）
 
@@ -822,7 +863,7 @@ AI 执行层审查——修行号引用漂移(P0) + 每日上限语义错误 + �
 修复：
 - tools/onboard_check.py 输出改为要求【逐行 + emoji 突出 + 标注 ⭐推荐】，
   并明确禁止把 1-6 压成 ①②③ 连成一行；推荐项按情况定（有旧项目→推荐④继续项目；无→推荐①新项目）
-- 新增 output-templates/S0-任务菜单.md 展示模板：给两个版本（有旧项目/无旧项目），
+- 新增 output-templates/S0-task-menu.md 展示模板：给两个版本（有旧项目/无旧项目），
   6 项各带 emoji（🚀🎯🌐📂🔄📖）、推荐项标 ⭐推荐、结尾给最短回复指引
 - RULES「面向用户输出纪律」+ output-templates/README 全局规则 + SKILL 路由同步该格式纪律
 - 明确边界：聊天话术鼓励 emoji，邮件正文另有禁 emoji 规则（sequence-config），两处不混用
@@ -908,15 +949,15 @@ AI 执行层审查——修行号引用漂移(P0) + 每日上限语义错误 + �
 - **S0 卡**：措辞从「客群组合」改为「获客方向」，明确"下一轮会基于方向推演出具体客群清单，不是重复问一遍"。
 - **S5/S7/S9 卡**：确认卡标题统一写「<客群名>（第 i/K 批）」；标签名禁止合并多客群；模板前缀/序列名带客群标识（三方呼应）。
 - **SOP**：`operations-sop.md` 新增 §3.1「多客群分批执行 SOP」（串行执行顺序 + 皮筏艇分档样例 + 确认节点必答项 + 落档要求 + 例外条款）；`node-playbook.md` 的 S2/S5/S7/S9 各补分批说明。
-- **补齐分发改动**：`runs/_template/segments/README.md` 原来是 1 行空壳，补全为完整字段字典（含「多客群归属」三列表 + 混存后果）；新增 `runs/_template/segments/S01-客群档模板.md`；`runs/_template/segments.md` 索引加「模板批次/序列」列。
+- **补齐分发改动**：`runs/_template/segments/README.md` 原来是 1 行空壳，补全为完整字段字典（含「多客群归属」三列表 + 混存后果）；新增 `runs/_template/segments/S01-segment-profile-template.md`；`runs/_template/segments.md` 索引加「模板批次/序列」列。
 - **测试 149 → 173**：新增 `tests/test_multi_segment_batching.py`（24 项）锁定铁律 7d 要点、S2 提示块与成本披露、S0 措辞、三张卡的批次归属、SOP 章节、档案模板完整性。变异测试验证断言有效（删铁律/删提示块/删批次行均立刻失败）。两仓各 173 项通过。
 
 ## [v0.5.5] - 2026-09-09
 
 按用户实测反馈修三个"小白看不懂 / 流程顺序不通"的问题：**连接平台前置**、**有种子也要有客群标签**、**用户可见文案禁黑话**。
 
-- **连接平台前置为独立节点**：原来"档案确认 → 悄悄连平台 → 突然弹出客群"，用户不知道中间发生了什么。现在档案确认后**立即**按 `output-templates/T-token引导.md`（改造为"连接平台"卡）引导：4 步拿凭据 → 主 AI 走 `check_login` + `workspace_guard --require-verified` + `gate_check` → 展示账号状态卡，**连上才进入选起点**。连接是全流程唯一需要用户动手的一步，放在推演/搜索之前（后面都要联网）。
-- **起点引导（用户截图圈出）**：`S0-产品知识档案.md` 确认话术末尾新增"有询盘客户或认得的精准买家官网现在就可以发我"——不追问、不阻断。`S3-种子确认.md` 删掉旧规则"用户没有网址就自动走标准路径、不追问"，改为**入口二选一**：有网址→核对确认并由 AI 判定其所属客群/客户线请用户确认；没有→从已推演客群挑精准买家。
+- **连接平台前置为独立节点**：原来"档案确认 → 悄悄连平台 → 突然弹出客群"，用户不知道中间发生了什么。现在档案确认后**立即**按 `output-templates/T-token-guide.md`（改造为"连接平台"卡）引导：4 步拿凭据 → 主 AI 走 `check_login` + `workspace_guard --require-verified` + `gate_check` → 展示账号状态卡，**连上才进入选起点**。连接是全流程唯一需要用户动手的一步，放在推演/搜索之前（后面都要联网）。
+- **起点引导（用户截图圈出）**：`S0-product-profile.md` 确认话术末尾新增"有询盘客户或认得的精准买家官网现在就可以发我"——不追问、不阻断。`S3-seed-confirm.md` 删掉旧规则"用户没有网址就自动走标准路径、不追问"，改为**入口二选一**：有网址→核对确认并由 AI 判定其所属客群/客户线请用户确认；没有→从已推演客群挑精准买家。
 - **有种子也推演客群（方案B）**：`flow_orchestrator.py` 的 S2 不再被 `if not pathA` 跳过——两条路径都推演，有种子时把种子公司名/角色/中英摘要（只读 `domain/base-info`）并进推演输入。原因：S4 匹配率以客群客户线为分子、直采/OEM/拓品分线计数、标签命名、模板痛点加权**都依赖客群标签**，快速路径不能留空。推演失败改为**告警继续**（如实说明、不谎称成功、不推进 S2）；已完成 S3+ 的项目不重复推演。
 - **用户可见文案禁黑话（P0）**：用户话术块内清理掉 `status=`/`sha256`/`claims`/`runs/`/`.local/`/`S0a`/`confirmed`/`declined`/工具命令等内部术语（涉及 `S0-画像方案`/`S0a-运营方档案`/`S7-模板确认`/`S11-完成汇报`/`S12-激活确认`），改成白话；内部术语只留在每个模板的"AI 执行要点与边界"。同时明确禁止要求用户设置环境变量（如 `LAIFAXIN_TOKEN`）、禁止声称"只读 token / 只读授权"（平台无此权限级别）。
 - **新增 `tests/test_user_facing_copy.py`（17 项）**：自动扫描 `output-templates/*.md` 用户话术块，禁止内部术语、环境变量要求、只读授权声称；校验连接卡要素/检查顺序、档案卡起点引导、S3 主动引导、flow 的"连接早于推演""两条路径都推演""推演失败不推进 S2""已完成项目不重复推演"。变异测试验证扫描器能真抓到违规（塞 `status=` 或环境变量要求即失败）。
@@ -1023,7 +1064,7 @@ README 按“小白 3 秒看懂、30 秒能开始、细节按需展开”做结�
 **产品知识档案（product-profile）回落构建机制**（用户给目录/网站 → AI 提炼 → 回落可复用）：
 - RULES「多公司/多产品」新增产品知识档案机制：用户主动给官网/产品目录/卖点 → AI 读取提炼成 `runs/<运营方>/<产品>/product-profile.md`，8 字段规范（定位/产品线/卖点/客群市场/规格认证/差异化/合规禁忌/可引用数字）+ 来源标注（用户·官网·推断⚠️）——数字与认证无来源不写。
 - SKILL：S0 行升级为"读取分析并落成 product-profile → 请用户确认 → 反哺 S2/S4/S7/S9"；S2/S7 显式注明从该档案取知识（客群更准/卖点更真/钩子贴合）；断点续接先读它。
-- 新增话术模板 `output-templates/S0-产品知识档案.md`（AI 提炼 8 字段→用户重点核对③卖点⑧数字→回落）；output-templates 总索引挂上。
+- 新增话术模板 `output-templates/S0-product-profile.md`（AI 提炼 8 字段→用户重点核对③卖点⑧数字→回落）；output-templates 总索引挂上。
 - `runs/_template/product-profile.md` 占位 + INDEX 目录导览 + SKILL 档案行补 product-profile。
 
 ## [v0.3.9] - 2026-09-03
@@ -1108,7 +1149,7 @@ README 首屏重构（用户反馈"乱糟糟"）：
 
 ### 新增
 - 专题 `docs/09-mass-outreach-to-precision-follow-up.md`：成本账、询盘不等于订单、公司/联系人背调、A/B/C/D 分级、邮件/WhatsApp/商务社媒/电话长期跟进。
-- 询盘小白话术模板 `output-templates/Q1-Q5-询盘精准跟进.md`。
+- 询盘小白话术模板 `output-templates/Q1-Q5-inquiry-followup.md`。
 - Mermaid 主逻辑图升级为“双引擎”：批量获客找信号 → 标签停邮件 → 精准背调与长期转化；新增成本分工图。
 - SKILL/FAQ/INDEX 路由，让后续 AI 能回答询盘失联、背调和多渠道跟进问题。
 

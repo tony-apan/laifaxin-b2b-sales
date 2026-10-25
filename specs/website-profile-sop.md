@@ -1,12 +1,14 @@
 ---
+doc_id: "specs-website-profile-sop"
 title: "网站资料增强模块 SOP（独立可选·失败不阻断主线）"
 description: "用户提供自己的官网/产品页/目录时，AI 读取公开页面并生成候选资料；事实、企业自述、AI分析与优化建议隔离，用户批准后才可导入正式档案。"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-09-07
-updated: 2026-09-07
 author: "AI + 用户对抗完善"
 related: [RULES.md, operator-profile-sop.md, product-profile-sop.md, ../tools/website_profile.py]
 tags: [网站资料, 独立模块, 来源证据, 用户确认, 可选增强]
-status: verified
 audience: AI优先
 ---
 
@@ -96,7 +98,7 @@ AI 默认最多读取 10 个与当前产品高度相关的公开页面，优先�
 
 1. AI 访问公开页面并生成候选 JSON；
 2. `validate-candidate` 校验六区、网址角色、来源 host、证据和第三方资料；
-3. AI 按 `output-templates/S0a-网站资料确认.md` 展示事实、冲突、AI 分析和优化建议；
+3. AI 按 `output-templates/S0a-website-profile.md` 展示事实、冲突、AI 分析和优化建议；
 4. 用户明确选择哪些候选事实写入公司档案或产品档案；
 5. `prepare-patch` 分别生成 company/product 补丁；**一次补丁只能改一个正式档案**；AI 必须把选中条目 ID、目标字段、修改前后和 `patch_id/patch_sha256` 展示给用户；
 6. 用户明确批准本次展示后，运行 `approve-patch --patch <补丁路径> --ack-patch <patch_id> --by <纯昵称> --quote '<用户原话>'`；工具校验 ack 与当前补丁一致并把批准信息纳入 canonical hash；

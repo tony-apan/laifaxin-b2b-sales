@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-找 70% 临界点工具（★从前往后精确找"最后一张≥70%的页"）
+找 70% 临界点工具（★历史参考：从前往后精确找"最后一张≥70%的页"；现行定界以 RULES S4/threshold-probe-spec v3.1 的连续 5 页窗口为准，本工具不作为定界依据）
 用法:
   python3 find_threshold.py --query <seed-domain> --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> \
     --match-words "raft,inflatable,kayak,..." --start 100 --end 500 --threshold 70
@@ -13,15 +13,29 @@
   4. ⚠️ 只往前看，不看已经跌破70%的页后面
 使用 classify 复用 audit 的语义匹配词库，但【必须人工读描述复核】（L-20/21/22）
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, sys
 
+# 与 refine/company-list 请求一致的四区排除（RULES 铁律0；旧版 filters=[] 未排除 CN/TW/HK/MO）
+FOUR_REGION_FILTERS = [{"property": "country_code", "operator": "exclude", "value": "",
+                        "values": ["CN", "TW", "HK", "MO"], "valueType": "select"}]
+
 def fetch(page, keyword, token, org, page_size=10):
-    p = {"keyword": keyword, "current": page, "pageSize": page_size, "filters": [], "logic": "and"}
+    p = {"keyword": keyword, "current": page, "pageSize": page_size, "filters": FOUR_REGION_FILTERS, "logic": "and"}
     cmd = ["curl","-sSL","-X","POST","https://web.laifaxin.com/api/refine/company-list",
            "-H","Content-Type: application/json","-H",f"accesstoken: {token}",
            "-H", f"uid: {org}","-d",json.dumps(p)]
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
         return json.loads(r.stdout).get("data", {})
     except Exception:
         return {"list": []}

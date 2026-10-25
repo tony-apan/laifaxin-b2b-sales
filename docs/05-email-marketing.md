@@ -1,15 +1,18 @@
 ---
+doc_id: "docs-05-email-marketing"
 title: "邮件营销（自动营销怎么做）"
 description: "发送渠道决策（优质通道 vs 自有邮箱）+ 单次群发 vs 智能跟进计划 + 创建计划 4 步"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-08-21
 author: "AI Agent + 运营方"
 source: "https://www.laifa.xin/zhinan/04-email-marketing"
 related: [06-email-sequence, 07-ai-cold-email]
 tags: [邮件营销, 智能跟进, 发送渠道]
-status: verified
 audience: 人+AI
 ---
+
 # 05 · 邮件营销（自动营销怎么做）
 
 > 来源：`https://www.laifa.xin/zhinan/04-email-marketing`

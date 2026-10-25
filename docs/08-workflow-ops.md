@@ -1,15 +1,18 @@
 ---
+doc_id: "docs-08-workflow-ops"
 title: "实操链路（搜筛存发全流程·实战验证版）"
 description: "猫粮案例端到端跑通：AI推演→搜索/找相似→审计70%临界点→界面保存（⚠️已改纯API，见正文过时横幅）→智能跟进→发信；含已验证接口速查"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-08-21
 author: "AI Agent + 运营方"
 source: "实战验证（本会话）"
 related: [01-customer-search, 03-save-customers, 05-email-marketing, specs/api-reference]
 tags: [实操, 流程, 接口速查]
-status: verified
 audience: 人+AI
 ---
+
 # 08 · 实操链路：搜筛存发全流程（实战验证版）
 
 > ⚠️ **过时提示（2026-08-30）**：本篇"第四步：保存必须走界面（Playwright）、API 直调 0 保存"的旧结论**已废止**——现行保存 = 纯 API：`selectOption:"front"` + `selectTotal:N` + 排除4区 + `contactMaxCount:3`（`tools/save_first_n.py`，验证用 `backend-task-status`）。以 `RULES.md`/`specs/api-reference.md` 为准；猫粮案例的其余步骤记录为历史快照，仅作背景参考。
@@ -62,7 +65,7 @@ POST /api/profile/inference-segment-list {"product_id":"..."}
 > ⚠️ 下方 `<TOKEN_IN_MEMORY>` 是旧版 AI 内部占位，不是让用户设置变量；本文保存方式也已过时。现行凭据交付与保存流程一律以 README/RULES/SKILL 和 `specs/domain-scale-sop.md` 为准。
 
 ```bash
-python3 audit_company.py --query "英文描述句" --pages 1,500,990,995,1000 --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product "猫粮"
+python3 audit_company.py --query "英文描述句" --pages 1,500,990,995,1000 --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product "猫粮" --match-words "cat food,猫粮"
 ```
 
 - 逐页看"本页"精准度，找到降到 70% 以下的临界页

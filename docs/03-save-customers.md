@@ -1,15 +1,18 @@
 ---
+doc_id: "docs-03-save-customers"
 title: "保存客户（精准客户怎么存）"
 description: "保存就打标签 + 自动去重 + 保存设置推荐值 + 实测教训（API 直调 0 保存，必须走界面——⚠️旧结论已废止，见正文过时横幅）"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-08-21
 author: "AI Agent + 运营方"
 source: "https://www.laifa.xin/zhinan/03-save-customers"
 related: [02-filter-customers, 04-tags-views, 08-workflow-ops]
 tags: [保存, 标签, Playwright, 踩坑]
-status: verified
 audience: 人+AI
 ---
+
 # 03 · 保存客户（精准客户怎么存）
 
 > ⚠️ **过时提示（2026-08-30）**：本篇"直接调 API 会 0 保存、**必须走界面（Playwright）**"的旧结论**已废止**——现行保存 = 纯 API：`selectOption:"front"` + `selectTotal:N` + `selectKeys:[]` + 排除4区（CN/TW/HK/MO) + `contactMaxCount:3`，工具 `tools/save_first_n.py`，验证用 `operation/backend-task-status`（contactSaveCount）。以 `RULES.md`/`specs/api-reference.md` 为准；本篇界面流程描述仅作背景参考。

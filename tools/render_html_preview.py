@@ -10,6 +10,16 @@
   python3 tools/render_html_preview.py --plan plan.json --rounds 1,2,4 --variants 1,3
 输出：默认写到 <plan 同目录>/preview.html，并打印路径。
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import argparse
 import html
 import json

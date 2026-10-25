@@ -1,0 +1,28 @@
+{
+  "state": "S0a",
+  "title": "产品档案确认",
+  "must_read": [
+    "RULES.md 产品档案相关",
+    "specs/product-profile-sop.md（一次回复确认协议）"
+  ],
+  "required_fields": [
+    "①行业定位",
+    "②产品线",
+    "③卖点(结构化)",
+    "④客群",
+    "⑤⑥⑦⑧(可none)"
+  ],
+  "format_rules": {
+    "status": "confirmed 才可推进"
+  },
+  "self_check": [
+    "卖点无未验证数字/认证",
+    "客群来自平台",
+    "确认原话已记录"
+  ],
+  "forbidden": [
+    "AI 自造客群",
+    "用 web 资料替代平台档案"
+  ],
+  "next": "S2"
+}

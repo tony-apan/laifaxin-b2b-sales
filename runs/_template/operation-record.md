@@ -1,10 +1,12 @@
 ---
+doc_id: "runs-template-operation-record"
 title: "「产品」客户开发·流程核查记录"
 description: "完整跑一遍「产品」获客，每步记录（可核查）"
-created: "YYYY-MM-DD"
-updated: "YYYY-MM-DD"
-author: "AI Agent + 用户"
+type: "template"
 status: S0
+updated: "2026-10-23"
+created: "YYYY-MM-DD"
+author: "AI Agent + 用户"
 next_state: S0a_PRODUCT_PROFILE
 operator_key: "${OPERATOR_KEY}"
 product_key: "${PRODUCT_KEY}"

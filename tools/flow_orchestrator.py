@@ -25,6 +25,16 @@
   - 首次运行创建 .local/operators/<operator_key>.md(公司级资料;不含token;旧单文件兼容读取)
   - 测试不激活；异常→ERROR_BLOCKED 退出非0
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import json, subprocess, time, sys, argparse, hashlib, os
 from urllib import request as _urlrequest
 import re as _re
@@ -57,7 +67,7 @@ ap.add_argument("--tmap", default="", help="S9 模板name→id映射JSON路径(g
 ap.add_argument("--seq", default="", help="S9/S10/S12 序列id(实际序列; 缺→S10/S12只记decision_pending)")
 ap.add_argument("--contact-tags", default="", help="S10 联系人标签id(逗号分隔,与contact_add --tags一致; 缺→S10只记decision_pending)")
 ap.add_argument("--task", default="", help="S10 保存任务id(与contact_add --task一致; 缺→S10只记decision_pending)")
-ap.add_argument("--confirm", default="", help="S12：用户确认原话（逐字；须含'激活'字样）。给了就走非交互路径，用户在自己聊天框里说一句即可，不需要开终端")
+ap.add_argument("--confirm", default="", help="S12：用户确认原话（逐字；须含「确认激活」四个字，仅说「激活」不算）。给了就走非交互路径，用户在自己聊天框里说一句即可，不需要开终端")
 ap.add_argument("--compliance-file", default="", help="S12 合规核验JSON(market/list_source/sender_identity/unsubscribe/suppression均pass; 与activate_sequence一致)")
 args = ap.parse_args()
 
@@ -79,7 +89,8 @@ def resume_s12():
     """Validate the completed local run and issue only the S12 approval credential."""
     # ★2026-09-17 用户拍板：不再要求普通用户开终端。
     #   用户在自己聊天框里说一句「确认激活 <序列名>」，主 AI 用 --confirm 原样传入即可。
-    #   仍要求：原话非空且含"激活"（防把含糊应答当授权）；所有本地闸门照旧（S11/档案/合规live/哈希绑定）。
+    #   ★P0-B 静态红队：原话必须非空且含「确认激活」四个字——只说「激活」的含糊原话不得签发；
+    #     否定/犹豫/疑问照旧拒绝。所有本地闸门照旧（S11/档案/合规live/哈希绑定）。
     #   （终端交互路径保留给愿意亲自在终端确认的人；两种入口的校验完全一致。）
     if not args.confirm and not sys.stdin.isatty():
         print("❌ 缺 --confirm <用户原话>：请把用户明确说出『确认激活』的原话传入；无原话不签发凭证")
@@ -113,14 +124,22 @@ def resume_s12():
     if record_meta.get("status") != "S11":
         print(f"❌ record必须严格处于S11/READY_INACTIVE，当前={record_meta.get('status') or '(缺)'}")
         return 4
+    from s11_closure import check_s11_closure
+    closure_issues = check_s11_closure(record_meta, max_age_hours=24)
+    if closure_issues:
+        print("❌ S11 收口证明无效——不能签发 S12 凭证（手写 status:S11 不算真实收口）：")
+        for _i in closure_issues:
+            print(f"   - {_i}")
+        return 4
     mismatches = []
     for key in ("operator_key", "product_key"):
         if record_meta.get(key, "") != profile_meta.get(key, ""):
             mismatches.append(key)
     if record_meta.get("project") and record_meta.get("project") != project:
         mismatches.append("project")
-    if record_meta.get("sequence_id") and record_meta.get("sequence_id") != args.seq:
-        mismatches.append("sequence_id")
+    # ★三审S1-4：sequence_id 缺失也视为不一致（旧实现缺失即短路放行，可签出串台凭证）
+    if record_meta.get("sequence_id", "") != args.seq:
+        mismatches.append("sequence_id(缺失或不一致)")
     if mismatches:
         print("❌ record/profile/参数不一致: " + ", ".join(mismatches))
         return 4
@@ -149,9 +168,14 @@ def resume_s12():
     else:
         answer = input(f"\n❓【确认节点 S12_激活】确认激活序列 {args.seq}? 本命令只签发凭证，不激活: ").strip()
     from approval import confirm_quote_ok, record as record_approval, stable_params_hash
-    if not (confirm_quote_ok(answer) and "激活" in answer):
-        print("✅ 未签发S12可执行凭证；序列仍保持inactive，record仍为S11")
-        return 0
+    # ★P0-B 静态红队：仅说「激活」=含糊原话，必须拒绝；拒绝是失败路径 → exit 2（旧实现 return 0）。
+    if not (confirm_quote_ok(answer) and "确认激活" in answer):
+        print("❌ 未签发S12可执行凭证：原话必须明确含「确认激活」四个字（只说「激活」/含糊应答不算授权）。序列仍保持inactive，record仍为S11。(exit 2)")
+        return 2
+    # ★三审S1-3：resume 与 activate 同一语义——带「但/先别/取消」等保留句不得签出 confirmed 凭证
+    if _re.search(r"(?:但|先别|别急|别激活|先不|不要|取消|暂停|暂不|再说)", answer):
+        print("❌ 原话含保留/否定语义，不能只截取「确认激活」四个字——请给一句干净的正向原话。(exit 2)")
+        return 2
     approval_id = record_approval(project, "S12_激活", "confirm", answer,
                                   stable_params_hash(binding), "confirmed")
     print(f"✅ S12绑定凭证已签发: {approval_id}；record仍为S11，未执行激活")
@@ -240,6 +264,15 @@ def ensure_operator_profile():
     print(f"  ✅ 已初始化 {op.relative_to(KB)} (nickname={args.nickname}; 公司资料待按 operator-profile-sop 渐进补充)")
 
 def api(path, p, t=60):
+# LFX_GATE_WRITE
+    try:
+        from startup_gate import enforce_cli_startup as _lfx_gate
+        _lfx_gate()
+    except ImportError:
+        pass
+    except Exception as _lfx_gate_exc:
+        __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
+        raise SystemExit(2)
     """平台请求：凭据只驻当前进程内存，不创建携带 token 的 curl 子进程 argv。"""
     url = "https://web.laifaxin.com/api/{}".format(path)
     req = _urlrequest.Request(
@@ -267,7 +300,7 @@ def check_login_first():
         r = subprocess.run(
             [sys.executable, str(KB/"tools"/"check_login.py"), "--credentials-stdin"],
             input=credentials_blob, capture_output=True, text=True, timeout=60,
-        )
+        encoding="utf-8", errors="replace")
     except subprocess.TimeoutExpired:
         print("●平台连接前·登录检查: ❌ 超时——稍等重试（这不是 token 问题）。"); sys.exit(1)
     print("●平台连接前·登录检查:")
@@ -534,31 +567,31 @@ while True:
     break
 
 # ---------- S4 AUDIT (只读, 可自由) ----------
-print("●S4 AUDIT_RUNNING: 只读搜客+AI语义审计(50页跳→三页平均→逐页→跌破往前)——见工具 audit_company.py")
+print("●S4 AUDIT_RUNNING: 只读搜客+AI语义审计(100页跳→前后3页→连续5页窗口→跌破往前)——见工具 audit_company.py")
 if args.dry_run: print("  (dry-run 跳过审计)")
 else:
     kw = args.seed
     if kw:
-        print(f"  种子={kw}: ★按 v2 三条客户线(直采/OEM/拓品, threshold-method.md)逐条 AI 判定+判定表留痕; 50页跳→三页平均→逐页→跌破往前; 边界案例做敏感性检查; 未完成不能保存")
+        print(f"  种子={kw}: ★按 v2 三条客户线(直采/OEM/拓品, threshold-method.md)逐条 AI 判定+判定表留痕; 100页跳→前后3页→连续5页窗口→跌破往前; 边界案例做敏感性检查; 未完成不能保存")
 
 # ---------- S5 SAVE_PENDING (B4-5: 解析并回显 N; ★绑定实际N/seed/exclude) ----------
 print("●S5 SAVE_PENDING: 展示 临界N/标签/排除/max/点数 → 确认后保存")
 S5_SCHEMA = '{"project":"...","org_sha256":"...","profile":{...},"keyword":"...","n":N,"company_tag":"...","contact_tag":"...","max":3,"exclude":["CN","HK","MO","TW"],"verify_status":["valid","unkown"]}'
-kind5, ans5 = ask("S5_保存参数", "保存前N条+排除4区+max3? (可写「确认保存 前N=2000」指定数量)")
+kind5, ans5 = ask("S5_保存参数", "保存前 N 家+排除4区+max3? (可写「确认保存 前 2000 家」或「确认保存 前N=2000」指定数量)")
 if kind5 == "modify":
     _record_modify_once("S5_保存参数", ans5, node_params({"seed": args.seed, "exclude": args.exclude}))
     print("  ⚠️ 参数调整后须重新发起本节点确认; 未确认前不得保存")
 else:
     n5 = args.save_n
     if not n5:
-        m5 = _re.search(r'[Nn]=(\d+)', str(ans5)) or _re.search(r'前(\d+)', str(ans5))
+        m5 = _re.search(r'[Nn]\s*=\s*(\d+)', str(ans5)) or _re.search(r'前\s*(\d+)', str(ans5))
         if m5:
             n5 = int(m5.group(1))
     if n5:
         pending_params = node_params({"n": n5, "seed": args.seed, "exclude": args.exclude})
         record("S5_保存参数", "decision_pending", ans5, pending_params)
         print(f"  ⚠️ 已确认保存意向与N={n5}，但向导没有实际 company/contact 标签ID、max与邮箱状态——只记pending，不签发执行凭证")
-        print("     标签确定后按 save_first_n.py docstring 的完整参数JSON用 approval.py grant 铸造")
+        print("     标签确定后按 save_company_cli.py prepare/confirm/execute 的完整参数JSON用 approval.py grant 铸造")
     else:
         record("S5_保存参数", "decision_pending", ans5, node_params({"seed": args.seed, "exclude": args.exclude}))
         print("  ⚠️ 实际N未知(--save-n 未给且原话未指定)——只记 decision_pending, 不签发可执行凭证(绝不伪绑定)")
@@ -566,9 +599,9 @@ else:
         print(f"     参数JSON结构: {S5_SCHEMA}")
 
 # ---------- S6 SAVE_RUNNING ----------
-print("●S6 SAVE_RUNNING: 用 save_first_n.py 保存(等finished)→ 见工具")
+print("●S6 SAVE_RUNNING: 用 save_company_cli.py 保存(等finished)→ 见工具")
 if not args.dry_run:
-    print("  (实际调用 save_first_n.py; N/tags 由确认节点输入; ★须带 S5 的 --approval id)")
+    print("  (实际调用 save_company_cli.py prepare→confirm→execute→status/reconcile; N/tags 由确认节点输入; save_first_n.py 已 DEPRECATED 不得使用; ★须带 S5 的 --approval id)")
 
 # ---------- S7 TEMPLATE_PENDING（向导不掌握全部写入范围参数，永远只记pending；执行前grant） ----------
 print("●S7 TEMPLATE_PENDING: 展示3-8个跨轮模板+理由(草稿)")

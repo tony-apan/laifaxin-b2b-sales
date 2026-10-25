@@ -23,6 +23,16 @@
   - 不创建标签、不调平台、不推进状态（纯本地记录）
   - 客群名禁止含我方产品名（沿用铁律 7：标签=客户群体，不是你的产品）
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import argparse
 import re
 import sys

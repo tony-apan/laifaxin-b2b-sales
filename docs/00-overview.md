@@ -1,15 +1,18 @@
 ---
+doc_id: "docs-00-overview"
 title: "总流程全景（10分钟速通）"
 description: "搜筛存发主线 5 步全景：先找客户→筛掉不准→保存打标签→建跟进计划→看效果跟回信；含决策点与避坑"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-08-21
 author: "AI Agent + 运营方"
 source: "https://www.laifa.xin/zhinan/quick-start-laifaxin-10min"
 related: [01-customer-search, 08-workflow-ops]
 tags: [总览, 流程, 新手入门]
-status: verified
 audience: 人+AI
 ---
+
 # 00 · 总流程全景（10 分钟速通）
 
 > 来源：`https://www.laifa.xin/zhinan/quick-start-laifaxin-10min` + 官方指南

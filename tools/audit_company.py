@@ -9,7 +9,15 @@
 用法：
   python3 audit_company.py --query "..." --pages 500,700,800,900,950,980,990,999,1000 \
       --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product "猫粮"
+  python3 audit_company.py --domains "buyer.example,another.example" \
+      --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --match-words "kayak,raft,充气"
   （TOKEN/ORG_IN_MEMORY 仅为主 AI 内存占位，不是让用户设置变量或执行命令）
+
+★网络/HTTP 错误不再被吞（2026-10-23 修复）：401/403/422 与网络异常一律上抛并 exit 2，
+  5xx 允许重试 ≤2；不再把错误响应当成「无数据」静默给 0% 结论。
+★--domains 走 refine/company-list（keyword=该域名）——扩量不用相似列表接口
+  （api-dictionary 口径），四区 filters 与普通审计一致。
+★匹配率分母恒为该页实际返回条数（total）；旧 loose 把 REJECT 计入分子导致恒 100%，已修正。
 
 判定标准：
   MATCH    = 客户业务是「会采购本产品的买家」
@@ -25,14 +33,26 @@
 ★判定口径以 `specs/threshold-method.md` 为准：正式 S4 收口要求 **AI 语义反思**（"这个买家会不会买"），
 本工具只做**关键词趋势初筛**，临界页必须人工逐条读完整 10 条。
 
-严格模式(mode=strict)：MATCH 才算精准
-宽松模式(mode=loose) ：MATCH+MARGINAL 都算精准
+严格模式(mode=strict)  ：MATCH 才算精准（分母 = 该页实际返回条数）
+中等模式(mode=moderate)：MATCH+MARGINAL 都算精准（默认）
+宽松模式(mode=loose)   ：MATCH+MARGINAL 都算精准；旧实现把 REJECT 也计入分子（恒 100%）已废弃
 """
+
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
+    import sys as _sys
+    for _s in (_sys.stdout, _sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 import argparse
 import json
 import re
 import subprocess
 import sys
+import time
 from collections import Counter
 
 # ============ 判定规则表（可维护，改这里即可） ============
@@ -77,7 +97,41 @@ MARGINAL_WORDS = [
 ]
 
 
-def fetch(page, keyword, token, org, filters=None, page_size=10):
+class AuditHTTPError(RuntimeError):
+    """网络/HTTP 错误：必须向上报错并 exit 2，不得静默当成「无数据」。"""
+
+
+CURL_STATUS_MARKER = "\n__HTTP_STATUS__:"
+
+
+def _curl_json(cmd, what):
+    """执行 curl，返回 (payload, http_status)；网络失败/非 JSON/非对象 → AuditHTTPError。"""
+    try:
+        completed = subprocess.run(cmd, capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise AuditHTTPError(f"{what} 网络请求失败：{exc}")
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or "").strip()[:200]
+        raise AuditHTTPError(f"{what} 网络请求失败（curl exit={completed.returncode}）：{detail}")
+    raw = completed.stdout or ""
+    status = None
+    if CURL_STATUS_MARKER in raw:
+        raw, _, status_text = raw.rpartition(CURL_STATUS_MARKER)
+        try:
+            status = int(status_text.strip())
+        except ValueError:
+            status = None
+    try:
+        payload = json.loads(raw.strip())
+    except ValueError:
+        raise AuditHTTPError(f"{what} 返回非JSON（HTTP {status if status is not None else '未知'}）：{raw.strip()[:200]}")
+    if not isinstance(payload, dict):
+        raise AuditHTTPError(f"{what} 返回结构异常（不是 JSON 对象）")
+    return payload, status
+
+
+def fetch(page, keyword, token, org, filters=None, page_size=10, retries=2):
+    """只读搜客：POST refine/company-list。5xx 重试 ≤2；401/403/422/网络错误直接上抛。"""
     payload = {
         "keyword": keyword,
         "current": page,
@@ -86,18 +140,38 @@ def fetch(page, keyword, token, org, filters=None, page_size=10):
         "logic": "and",
     }
     cmd = [
-        "curl", "-sSL", "-X", "POST",
+        "curl", "-sSL", "-w", CURL_STATUS_MARKER + "%{http_code}", "-X", "POST",
         "https://web.laifaxin.com/api/refine/company-list",
         "-H", "Content-Type: application/json",
         "-H", f"accesstoken: {token}",
-           "-H", f"uid: {org}",
+        "-H", f"uid: {org}",
         "-d", json.dumps(payload),
     ]
-    r = subprocess.run(cmd, capture_output=True, text=True)
-    try:
-        return json.loads(r.stdout).get("data", {})
-    except Exception:
-        return {}
+    last_error = None
+    for attempt in range(retries + 1):
+        try:
+            result, status = _curl_json(cmd, f"第{page}页搜索")
+        except AuditHTTPError as exc:
+            last_error = exc
+            if attempt < retries:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            raise
+        if status is not None and status >= 500:
+            last_error = AuditHTTPError(f"第{page}页搜索 HTTP {status}（服务端错误）：{result.get('message') or ''}")
+            if attempt < retries:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            raise last_error
+        if status is not None and status >= 400:
+            raise AuditHTTPError(f"第{page}页搜索 HTTP {status}：{result.get('message') or 'HTTP 错误'}")
+        if result.get("success") is False:
+            raise AuditHTTPError(f"第{page}页搜索失败：{result.get('message') or '平台返回 success=false'}")
+        data = result.get("data")
+        if not isinstance(data, dict):
+            raise AuditHTTPError(f"第{page}页搜索返回缺 data 对象：{str(result)[:200]}")
+        return data
+    raise last_error or AuditHTTPError(f"第{page}页搜索失败（未知原因）")
 
 
 # 排除词中这些是"杂货/多品类"信号：命中即一票否决（即使命中匹配词），
@@ -114,22 +188,20 @@ SERVE_TO = ["serve", "serving", "supply to", "supply for", "provide to",
             "服务于", "供应给", "提供给"]
 
 
-def fetch_similar(domain, token, org):
-    """调用 domain/similar-list 找相似"""
-    payload = {"domain": domain}
-    cmd = [
-        "curl", "-sSL", "-X", "POST",
-        "https://web.laifaxin.com/api/domain/similar-list",
-        "-H", "Content-Type: application/json",
-        "-H", f"accesstoken: {token}",
-           "-H", f"uid: {org}",
-        "-d", json.dumps(payload),
-    ]
-    r = subprocess.run(cmd, capture_output=True, text=True)
-    try:
-        return json.loads(r.stdout).get("data", {}).get("list", [])
-    except Exception:
-        return []
+def accuracy(stats, total, mode):
+    """匹配率：分母恒为该页/该批实际返回条数（total）。
+
+    旧 loose 用 (MATCH+MARGINAL+REJECT)/total —— 分子含全部桶，结构上恒 100%，已废弃；
+    宽松口径不把 REJECT 算作匹配，分母按实际返回条数（尾页不足 10 条时照实算）。
+    """
+    total = int(total or 0)
+    if total <= 0:
+        return 0.0
+    if mode == "strict":
+        matched = stats["MATCH"]
+    else:  # moderate / loose：MATCH+MARGINAL（宽松口径，不含 REJECT）
+        matched = stats["MATCH"] + stats["MARGINAL"]
+    return matched / total * 100
 
 
 # 额外匹配词（--match-words 支持产品自定义，追加到 STRONG_MATCH）
@@ -170,60 +242,26 @@ def classify(company):
     return "REJECT", "无任何相关描述"
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--query", required=True, help="搜索关键词")
-    ap.add_argument("--pages", required=True, help="页码,逗号分隔,如 1,500,1000")
-    ap.add_argument("--token", required=True)
-    ap.add_argument("--org", required=True)
-    ap.add_argument("--mode", default="moderate", choices=["strict", "moderate", "loose"],
-                    help="匹配标准: strict=只算MATCH(采购方) / moderate=MATCH+MARGINAL(默认,含配件商/制造商) / loose=全算")
-    ap.add_argument("--product", default="", help="产品名（仅用于展示）")
-    ap.add_argument("--exclude", default="CN,TW,HK,MO", help="排除国家码,逗号分隔(★默认4区=RULES铁律0)")
-    ap.add_argument("--domains", default="", help="域名找相似模式: 逗号分隔的种子域名")
-    ap.add_argument("--match-words", default="", help="额外匹配词,逗号分隔(产品自定义)")
-    args = ap.parse_args()
-    # ★断点修复(2026-09-09)：产品词必填——内置词表只服务"宠物食品包装"样例，
-    #   换产品不带词会全页 REJECT=0%，静默误导。此处 fail-fast。
-    if not args.match_words.strip():
-        print("❌ 缺 --match-words <本产品中英词>（品类/材质/形态/角色，逗号分隔）")
-        print("   原因：内置判定词表是「宠物食品包装」样例；换产品不传词会全页判 0% 精准度（真机实测）。")
-        print("   例：--match-words \"raft,rafting,kayak,paddle,inflatable,water sports,漂流,皮筏艇,充气,桨\"")
-        raise SystemExit(2)
-
-    # 设置额外匹配词（产品自定义）
-    global EXTRA_MATCH
-    EXTRA_MATCH = [w.strip().lower() for w in args.match_words.split(",") if w.strip()]
-
-    exclude_set = {c.strip() for c in args.exclude.split(",") if c.strip()}
-    filters = [{"property": "country_code", "operator": "exclude", "value": "", "values": list(exclude_set), "valueType": "select"}] if exclude_set else []
-
-    print(f"# 产品: {args.product or '(未填)'} | 模式: {args.mode} | 排除国家: {args.exclude}")
-    print(f"# 搜索词: {args.query[:80]}...")
-    print(f"# 判定标准: MATCH=会采购本产品 | REJECT=无关 | MARGINAL=沾边\n")
-
-    # ---- 域名找相似模式 ----
+def _run(args, filters):
+    # ---- 域名模式（★2026-10-23：改走 refine/company-list，keyword=域名；不用 similar-list）----
     if args.domains:
         for domain in [d.strip() for d in args.domains.split(",") if d.strip()]:
-            lst = fetch_similar(domain, args.token, args.org)
+            lst = fetch(1, domain, args.token, args.org, filters).get("list", [])
             if not lst:
                 print(f"===== 种子 {domain}: 无数据 =====")
                 continue
             stats = Counter()
-            print(f"===== 种子 {domain} -> 相似客户 (共{len(lst)}条) =====")
+            print(f"===== 种子 {domain}（keyword=域名，四区 filters）共{len(lst)}条 =====")
             for i, c in enumerate(lst, 1):
                 verdict, reason = classify(c)
                 stats[verdict] += 1
+                score = c.get("_score")
+                score_text = f"{score:.2f}" if isinstance(score, (int, float)) else "-"
                 print(f"  {i:2d}. [{verdict:8s}] {c.get('company_name','')[:38]:40s} "
                       f"{(c.get('country_code') or '-'):4s} {(c.get('client_focus') or '-'):4s} "
-                      f"score={c.get('_score'):.2f} | {reason}")
+                      f"score={score_text} | {reason}")
             total = len(lst)
-            if args.mode == "strict":
-                acc = stats["MATCH"] / total * 100
-            elif args.mode == "loose":
-                acc = (stats["MATCH"] + stats["MARGINAL"] + stats["REJECT"]) / total * 100
-            else:
-                acc = (stats["MATCH"] + stats["MARGINAL"]) / total * 100
+            acc = accuracy(stats, total, args.mode)
             print(f"  -> 本批: MATCH={stats['MATCH']} MARGINAL={stats['MARGINAL']} REJECT={stats['REJECT']}"
                   f" | 精准度({args.mode}) = {acc:.0f}%")
             print()
@@ -242,15 +280,57 @@ def main():
             stats[verdict] += 1
             print(f"  {i:2d}. [{verdict:8s}] {c.get('company_name','')[:38]:40s} {(c.get('country_code') or '-'):4s} | {reason}")
         total = len(lst)
-        if args.mode == "strict":
-            acc = stats["MATCH"] / total * 100
-        elif args.mode == "loose":
-            acc = (stats["MATCH"] + stats["MARGINAL"] + stats["REJECT"]) / total * 100
-        else:
-            acc = (stats["MATCH"] + stats["MARGINAL"]) / total * 100
+        acc = accuracy(stats, total, args.mode)
         print(f"  -> 本页: MATCH={stats['MATCH']} MARGINAL={stats['MARGINAL']} REJECT={stats['REJECT']}"
               f" | 精准度({args.mode}) = {acc:.0f}%")
         print()
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--query", default="", help="搜索关键词（--domains 模式下可省略）")
+    ap.add_argument("--pages", default="", help="页码,逗号分隔,如 1,500,1000")
+    ap.add_argument("--token", required=True)
+    ap.add_argument("--org", required=True)
+    ap.add_argument("--mode", default="moderate", choices=["strict", "moderate", "loose"],
+                    help="匹配标准: strict=只算MATCH(采购方) / moderate=MATCH+MARGINAL(默认,含配件商/制造商) / loose=MATCH+MARGINAL(宽松口径，分母=实际返回条数)")
+    ap.add_argument("--product", default="", help="产品名（仅用于展示）")
+    ap.add_argument("--exclude", default="CN,TW,HK,MO", help="排除国家码,逗号分隔(★默认4区=RULES铁律0)")
+    ap.add_argument("--domains", default="", help="域名模式: 逗号分隔的种子域名（作 refine/company-list 的 keyword）")
+    ap.add_argument("--match-words", default="", help="额外匹配词,逗号分隔(产品自定义)")
+    args = ap.parse_args()
+    # ★断点修复(2026-09-09)：产品词必填——内置词表只服务"宠物食品包装"样例，
+    #   换产品不带词会全页 REJECT=0%，静默误导。此处 fail-fast。
+    if not args.match_words.strip():
+        print("❌ 缺 --match-words <本产品中英词>（品类/材质/形态/角色，逗号分隔）")
+        print("   原因：内置判定词表是「宠物食品包装」样例；换产品不传词会全页判 0% 精准度（真机实测）。")
+        print("   例：--match-words \"raft,rafting,kayak,paddle,inflatable,water sports,漂流,皮筏艇,充气,桨\"")
+        raise SystemExit(2)
+    if args.domains and args.query:
+        print("❌ --domains 与 --query 只能二选一（域名作关键词时不要同时给 --query）")
+        raise SystemExit(2)
+    if not args.domains and not args.pages:
+        print("❌ 缺 --pages（页码，逗号分隔；或改用 --domains 域名模式）")
+        raise SystemExit(2)
+
+    # 设置额外匹配词（产品自定义）
+    global EXTRA_MATCH
+    EXTRA_MATCH = [w.strip().lower() for w in args.match_words.split(",") if w.strip()]
+
+    exclude_set = {c.strip() for c in args.exclude.split(",") if c.strip()}
+    filters = [{"property": "country_code", "operator": "exclude", "value": "", "values": list(exclude_set), "valueType": "select"}] if exclude_set else []
+
+    print(f"# 产品: {args.product or '(未填)'} | 模式: {args.mode} | 排除国家: {args.exclude}")
+    print(f"# 搜索词: {(args.query or args.domains)[:80]}...")
+    print(f"# 判定标准: MATCH=会采购本产品 | REJECT=无关 | MARGINAL=沾边\n")
+
+    try:
+        _run(args, filters)
+    except AuditHTTPError as exc:
+        print(f"❌ {exc}")
+        print("   网络/HTTP 错误已终止本次审计：不产出匹配率结论，也不写任何文件。")
+        print("   处置：401/403=钥匙或工作空间失效，需重新一键复制两行；422=参数问题；5xx/超时已重试仍失败则稍后再试。")
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":

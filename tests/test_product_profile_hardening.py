@@ -30,7 +30,7 @@ class ProductProfileHardeningTest(unittest.TestCase):
             cwd=ROOT,
             text=True,
             capture_output=True,
-        )
+        encoding="utf-8", errors="replace")
 
     def test_confirmed_validation_requires_confirm_quote(self):
         result = self.run_cli(

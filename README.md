@@ -1,28 +1,54 @@
+---
+doc_id: "readme"
+title: "来发信：让 AI 帮你找海外买家、写开发信、自动跟进"
+description: "面向人的项目说明：能力范围、安装步骤与阅读顺序，第一次了解本 Skill 时读。"
+type: "readme"
+status: "active"
+updated: "2026-10-25"
+---
+
 # 来发信：让 AI 帮你找海外买家、写开发信、自动跟进
 
-![status](https://img.shields.io/badge/status-active-success) ![version](https://img.shields.io/github/v/release/tony-apan/laifaxin-b2b-sales) ![license](https://img.shields.io/badge/license-GPL--3.0-green) ![python](https://img.shields.io/badge/python-3.9+-blue) ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows%20PowerShell-lightgrey)
+![status](https://img.shields.io/badge/status-active-success) ![version](https://img.shields.io/github/v/release/tony-apan/laifaxin-b2b-sales) ![license](https://img.shields.io/badge/license-GPL--3.0-green)
 
-> **安装完成后，先告诉 AI 你想做什么。** 只有你选择“开始新的获客项目”，才需要提供纯个人昵称和卖什么；卖给谁、卖到哪、自己的官网仍是选填。AI 会帮你提炼信息、推荐客群和市场、检查名单、写开发信并排好跟进；收到询盘后，你再接手报价和成交。
+> **安装完成后，AI 会先问你两样：怎么称呼您、您家主要卖什么产品。** 这两样是开始必须的；卖给谁、卖到哪、自己的官网仍是选填。AI 会帮你提炼信息、推荐买家类型和市场、检查名单、写开发信并排好跟进；收到询盘后，你再接手报价和成交。
 
 本仓库是给 AI 使用的免费操作说明书和工具箱，需要配合 [来发信平台](https://laifa.xin) 使用。它能减少重复劳动，但不保证询盘或订单，也不会未经你确认就激活发信。
 
+> **三句话看懂**：① 把下面那段话原样发给能操作你电脑的 AI；② AI 自己装环境、做自检，然后只问你「昵称 + 产品」；③ 之后您只回编号或确认（连账号时可能要复制两行登录信息，不是密码、不用付钱），最后说「确认激活」才开始发信。**Windows 和 Mac 都支持：Windows 按清单处理 `py`/路径/执行策略差异；不用提前装 Python。全新 Windows 实机尚未验收，证据边界见 [跨平台说明](docs/cross-platform-setup.md)。**
+
+> **🧪 预览分支提示（仅 novice-onboarding 分支）**：本页是下一版预览，GitHub 默认分支 master 还是旧版。
+> 照下面的安装话术会装到旧版；要在本分支上测，让 AI 用：
+> git clone -b novice-onboarding https://github.com/tony-apan/laifaxin-b2b-sales.git
+> 合并到 master 后请删除本段（release 检查项）。
+
 > **还没有来发信账号？** 先去 [官网](https://laifa.xin) 点页面上的「免费注册」（注册免费，不需要先付费）。注册后可以先领取官网标注的新人权益，再回来跑流程。账号和权益的实时口径以官网客服答复为准；本仓库只负责带 AI 跑流程，不代办注册、不替平台承诺权益。
+
+> **关于费用**：仓库免费；平台注册免费。保存客户、发信等操作会消耗平台额度（点数），可能涉及套餐收费——第 ③ 步保存前，AI 会先告诉您大概用多少。
 
 ## 快速入口
 
 | 你现在想做什么 | 从这里进入 |
 |---|---|
 | 🌟🌟 **第一次使用** | [复制一段话给 AI，马上开始](#quickstart) |
+| 🌱 **AI 装好后的第一页** | [新手一页流程 specs/beginner-flow.md](specs/beginner-flow.md)（**给 AI 看，您不用读**；6 步 + 发信开关，约 10 次回话） |
+| 🆕 **已经用过、换了台电脑** | [全新电脑检查清单 docs/fresh-computer-checklist.md](docs/fresh-computer-checklist.md)（AI 照单执行，您不用敲命令） |
+| 🖥 **Windows / Mac 差异** | [通用上手说明 docs/cross-platform-setup.md](docs/cross-platform-setup.md)（**给 AI 的排障表，您不用照着敲**） |
+| 🎬 **老板视角·全流程演示** | [docs/14-novice-walkthrough-demo.md](docs/14-novice-walkthrough-demo.md)（**给 AI 的排练稿，不是给客户的话术**；14 环节逐屏 + 走叉处理） |
+| 🗺️ **给 AI：全流程逐模块逻辑/跳步规则/70% 适用边界** | [specs/step-map.md](specs/step-map.md)（Mermaid 源码 + 12 模块 + 文档索引） |
 | 🗺️ **先看新项目怎么工作** | [一张图看懂获客流程](#how-it-works) |
 | 🎯 **先判断产品是否适合** | [查看适合与不适合的产品](#fit) |
 | 🔄 **已经在使用** | [更新系统](#update) · [换电脑继续](#migrate) |
+| 🆘 **遇到问题/报错** | [先查这里](#troubleshooting)：FAQ、踩坑台账、术语表 |
 
 ---
 
 <a id="quickstart"></a>
 ## 🌟🌟 现在开始：把这段话发给 AI
 
-请使用**能在你的电脑上打开文件、运行命令的 AI 助手**（不是只能聊天的普通 AI），例如 ZCode、Claude Code 或 Codex。把下面整段原样发给它，不需要提前填写产品资料：
+请使用**能操作你电脑的 AI 助手**（不是只能聊天的普通 AI；**只有浏览器、不能跑命令的 AI 装不了，请换 ZCode/Claude Code/Codex，或让有权限的人代跑**；您不用自己敲命令），例如 ZCode、Claude Code 或 Codex。Windows、macOS 都适用，不需要提前装 Python，也不用填产品资料。把下面整段原样发给它：
+
+> 下面这段是给 AI 的；里面的命令由 AI 执行，您不用看懂。
 
 ```text
 请帮我安装并学习这套来发信外贸获客 Skill：
@@ -37,35 +63,49 @@ https://github.com/tony-apan/laifaxin-b2b-sales
    不要假设电脑已经安装 Python、Git、curl 或其他依赖；
    严格按照仓库里的环境准备说明自动安装并复查。
 
-3. 通读 README.md、SKILL.md、RULES.md 和相关 specs，
+3. 先读 specs/beginner-flow.md（新手一页流程），再通读 README.md、SKILL.md、RULES.md 和相关 specs，
    将本仓库的 SKILL.md 作为后续执行入口，学会完整流程、确认节点、
    安全边界、网站资料增强和换机续接规则。不要创建另一份重复规则。
 
-4. 运行仓库自检工具；发现问题先修复并重新检查。
-   未通过自检，不要开始找客户、保存联系人、创建序列或发信。
+4. 运行安装自检（`tools/onboard_check.py`，Windows 用 `py`）；发现问题先修复并重新检查。
+   未通过安装自检不要开始找客户、保存联系人、创建序列或发信；`preflight` 是维护者发布门，安装时不需要跑。
 
-5. 安装和学习完成后，按 output-templates/S0-安装完成汇报.md 用通俗中文告诉我：
+5. 安装和学习完成后，按 output-templates/S0-install-report.md 用通俗中文告诉我：
    - 装好了没有（环境与自检结果）
    - 这套系统能帮我做什么（说人话，不要用内部术语）
    - 哪些操作必须由我确认
    - 有没有可以继续的旧项目（有就说明上次做到哪一步，用大白话）
    不要给我看 S0-S12、文件名、状态码这类内部信息。
 
-6. 最后只问我：“安装完成。你现在想做什么？”
-   不要在安装阶段索取产品、市场、官网、昵称、token 或其他业务资料。
-   等我说明想做什么后，再按 SKILL.md 渐进引导。
+6. 安装汇报卡里已经问了这两样（见 output-templates/S0-install-report.md）——**等用户回，别问第二遍**。
+   拿到昵称和产品后**先登记开工必读**（没登记，保存链、建模板、建序列、加人、激活等所有写操作都会被工具直接拒绝，并给您白话提示）：
+   运行开工登记（Windows 用 `py tools\startup_gate.py ack ...`，macOS/Linux 用 `python3 tools/startup_gate.py ack ...`）：
+   `py tools\startup_gate.py ack --nickname <昵称> --product <产品>`（Windows）
+   `python3 tools/startup_gate.py ack --nickname <昵称> --product <产品>`（macOS/Linux）
+   登记后再进入第 1 步：6 步全景 + 当前第几步 + 接下来 + 等你回什么。
+   买家类型由平台推演（默认 4 个），不说「3 类」。
+   只有检测到旧项目时，才展示 S0-task-menu.md「有旧项目时」的 4 项菜单；
+   新用户不展示菜单、不要求回数字。安装阶段除这两样外，不要再索取市场、
+   卖给谁、官网、token 或其他业务资料。
 ```
 
 **发完就等 AI 安装和学习。** 你不需要先学 Git、Python、token，也不用自己敲命令。
 
-安装完成后，AI 会给你 **4 个选项**（按你的情况自动调整，不会问你用不上的）：
+Windows 和 Mac 流程完全一样；如果 AI 碰到「找不到 python3 / bash」这类系统差异，按 [docs/cross-platform-setup.md](docs/cross-platform-setup.md) 的表处理即可（那是 AI 的事，不是你的）。
 
-- 🚀 开始新的获客项目（第一次用推荐这个）
-- 🎯 先判断我的产品适不适合
+安装完成后，AI 会先问你这 **两样**（都是开始流程必需的）：
+
+- **怎么称呼您**：纯个人昵称（如 Tony / Iris）
+- **您家主要卖什么产品**：一句话（如“不锈钢保温杯”）
+
+问完直接进第 1 步：**6 步全景 + 当前第几步 + 接下来**；买家类型由平台推演（默认 4 个），你回编号选一类。
+
+只有你之前跑过项目时，AI 才会先给你 **4 个选项**（第 1 项是「📂 继续以前的项目」并标出当前进度；新用户不会看到菜单）：
+
+- 📂 继续以前的项目
+- 🚀 开始新的获客项目
 - 🌐 用我的官网、产品页或目录提炼资料
 - 📖 先了解完整流程
-
-如果你之前跑过项目，AI 会把第一项换成「📂 继续以前的项目（并标出当前进度）」——你不用记任何术语。
 
 只有你选好之后，AI 才会询问那件事真正需要的信息，不会一上来让你填长表。
 
@@ -176,22 +216,34 @@ AI 会按顺序了解你的信息：开局只问你的纯个人昵称和卖什�
 | 2️⃣ **一轮验证** | 过往经验按约 1 万联系人估算；12 轮是每个联系人最多 12 次发送尝试，全部未回复且未停发时理论上限约 12 万次，默认排程约 10 个月，实际会因回复、退信、拒收、标签和发送限制减少 |
 | 3️⃣ **看早期信号** | 首轮邮件实际发出后先看送达/退信，再在 48 小时统计有效询盘；自动回复、求职、推销、无关回复、同行套价不计入 |
 
-本项目采用的内部止损线：
+本项目采用的内部判断线：
 
-- **有效询盘 ≥3 个**：说明早期信号合格，可把询盘方网址作为新种子，继续找相似买家并逐步扩量；
-- **有效询盘 <3 个**：先查送达、打开、回复和客群匹配，换客群或切入角度再试一轮；
-- **连续两轮不达标**：停止这个批量项目，避免继续消耗。它只判断首轮早期信号，不能证明产品长期一定没有市场。
+- **有效询盘 ≥3 个**：早期信号合格，可把询盘方网址作为新种子，继续找相似买家并逐步扩量；
+- **有效询盘 1–2 个**：方向成立但样本小，结合预算继续加量观察；
+- **有效询盘 0 个**：先查发送量/客群/周期/难度/钩子/内容，换角度再试一轮；只有**连续两轮都是 0 个**才建议停止这个批量项目。它只判断首轮早期信号，不能证明产品长期一定没有市场。
 
 **有人跑出效果了吗？** 有过：一位用户的反馈是一批约 5,000 封发出后、两天内收到约 7 条询盘（📚 用户反馈，非本仓库实测，也不保证你能得到同样数量）。它更多说明"早期信号能拿到"，**不等于订单**。完整反馈与解读见 [docs/09 真实效果参考](docs/09-mass-outreach-to-precision-follow-up.md)。
 
 </details>
+
+<a id="troubleshooting"></a>
+## 🆘 遇到问题先查这里
+
+执行中报错、卡住或看不懂时，按这个顺序查（AI 也必须先自查，再让用户处理）：
+
+1. **执行/平台问题**（配额、接口返回空、Non-…）→ [wiki/faq.md](wiki/faq.md)
+2. **历史上踩过的坑**（现象 / 根因 / 修法 / 固化位置）→ [specs/problems-and-fixes-2026-10-23.md](specs/problems-and-fixes-2026-10-23.md)
+3. **经验与预防** → [lessons/lessons-learned.md](lessons/lessons-learned.md)
+4. **术语看不懂** → [glossary/glossary.md](glossary/glossary.md)
+5. **装环境 / 换电脑** → [specs/environment-setup.md](specs/environment-setup.md) · [specs/migration-handoff.md](specs/migration-handoff.md)
+6. **以上都查不到** → 在本仓库开 Issue（附报错原文、执行步骤、AI 版本；不要贴 token）。
 
 ## 常见问题
 
 - **会未经我同意就发信吗？** 不会。保存、建序列、添加联系人、激活都有确认闸门；你不明确说“确认激活”，就不会开始发送。
 - **发了就能成单吗？** 不能保证。这套系统负责批量找买家和筛询盘，成单仍依赖背调、报价、样品、谈判和持续跟进。
 - **我需要懂代码吗？** 不需要。把“现在开始”里的话发给能操作电脑的 AI，剩下让它照仓库规则执行。
-- **一定要付费吗？** 仓库免费；来发信平台套餐和点数可能收费。先向平台客服确认当前试用和权益，再决定是否投入。
+- **一定要付费吗？** 仓库免费；平台注册免费，保存客户/发信会消耗平台额度（点数），可能涉及套餐收费。先向平台客服确认当前试用和权益，再决定是否投入。
 - **哪些行业需要额外检查？** 医疗器械、金融、酒类、烟草、儿童产品、受制裁或受管制品类，开始前必须核对目标市场、平台和行业规则。
 
 <details>
@@ -217,7 +269,7 @@ README 只负责带你入门；执行时以 `RULES.md` 和对应 `specs/` 为准
 
 | 项 | 说明 |
 |---|---|
-| 主流程依赖 | Python 3 标准库 + curl + bash；无需安装 Python 第三方包 |
+| 主流程依赖 | Python 3 标准库 + curl + bash；无需安装 Python 第三方包。Windows 还需要 Git Bash（`onboard_check` 用；WSL 的 bash 不算） |
 | macOS / Linux | `bash tools/bootstrap.sh --install`，再运行 `python3 tools/onboard_check.py` |
 | Windows | `powershell -NoProfile -ExecutionPolicy Bypass -File tools/bootstrap.ps1 -Install`；之后优先用脚本返回的 `python_cmd` 自检 |
 | Windows 实机状态 | `bootstrap.ps1` 已通过静态检查，尚未在全新 Windows 实机完整验证；失败时按 `specs/environment-setup.md` 的官方安装路径兜底 |
@@ -306,7 +358,7 @@ README 只负责带你入门；执行时以 `RULES.md` 和对应 `specs/` 为准
 4. 用 bootstrap 返回的 python_cmd 运行 tools/onboard_check.py，列出可续接项目、operation-record 状态和 product-profile 版本/确认状态/更新时间。
 5. 让我选择项目；读取运营方档案和该项目的 operation-record/product-profile/reflection/evidence/verify-*，报告当前节点、已完成、未完成和下一步。
 6. token 不从旧机迁移；在新电脑重新获取，再运行 check_login.py 和 gate_check.sh。
-7. 恢复后立即运行 approval.py demote-migrated --confirm MIGRATION-DEMOTE，把旧 confirmed 凭证降为 backfilled（只审计、不可授权）；未执行的写操作和 S12 在当前对话重新确认。
+7. 恢复后立即运行 approval.py demote-migrated --confirm MIGRATION-DEMOTE，把旧 confirmed 凭证降为 backfilled（只审计、不可授权）；未执行的写操作和 S12 在当前对话重新确认。降级前先确认 .local/approvals.tsv 是「带 BOM 的 UTF-8」：无 BOM 中文账本会被拒绝整文件重写、GBK 账本会报错，均需备份后人工确认转码再重跑；降级完成前不要开始业务。
 8. 只从记录的当前节点继续；禁止重复建档、保存、建模板或序列。记录不一致就进入 ERROR_BLOCKED，只读核对后再处理。
 9. 汇报环境、恢复目录、项目状态、profile 版本/hash、token 复验结果、下一步和仍需我确认的动作。
 ```

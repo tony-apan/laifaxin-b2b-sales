@@ -27,9 +27,10 @@ ARTIFACT_NAMES = (
     "recovery-manifest.json", "verification-manifest.json",
 )
 
-# output-templates/ 只允许「话术卡片」：S<节点>.md / T-*.md / Q*.md / README.md
+# output-templates/ 只允许「话术卡片」：S<节点>.md / T-*.md / Q*.md / README.md / INDEX.md
+# INDEX.md 是目录导航（2026-10-23 目录索引重构新增），不是产物模板。
 import re
-CARD_RE = re.compile(r"^(?:README\.md|S(?:0a|1[0-2]|[0-9])[^/]*\.md|T-[^/]*\.md|Q[0-9][^/]*\.md)$")
+CARD_RE = re.compile(r"^(?:README\.md|INDEX\.md|S(?:0a|1[0-2]|[0-9])[^/]*\.md|T-[^/]*\.md|Q[0-9][^/]*\.md)$")
 
 # 通用层真源目录：根目录 .md 不得与这些目录里的同名文件重复（那必是过期副本）
 CANON_DIRS = ("specs", "lessons", "methodology")
@@ -81,6 +82,10 @@ class NoRootDuplicateOfCanonicalTest(unittest.TestCase):
             if not d.is_dir():
                 continue
             for p in d.rglob("*.md"):
+                # INDEX.md 是每个目录自己的入口（2026-10-23 目录索引重构），
+                # 根 INDEX.md 与子目录 INDEX.md 职责不同，不算过期副本。
+                if p.name == "INDEX.md":
+                    continue
                 if p.name in root_md:
                     dups.setdefault(p.name, []).append(str(p.relative_to(ROOT)))
         self.assertEqual(

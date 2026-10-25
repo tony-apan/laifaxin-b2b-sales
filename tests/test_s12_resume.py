@@ -1,8 +1,12 @@
+import sys
 import datetime
 import hashlib
 import json
 import os
-import pty
+if sys.platform == "win32":
+    pty = None  # POSIX-only; Windows 下类级 skip
+else:
+    import pty
 import select
 import shutil
 import subprocess
@@ -11,11 +15,15 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+import os as _os
+NOW_ISO = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
 
 
 ROOT = Path(__file__).resolve().parents[1]
 FLOW_FILES = (
     "flow_orchestrator.py",
+    "s11_closure.py",
     "approval.py",
     "compliance_validation.py",
     "evidence_validation.py",
@@ -33,6 +41,7 @@ def stable_hash(value):
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
 
+@unittest.skipIf(sys.platform == "win32", "pty/termios 仅 POSIX 可用；Windows 不跑终端交互用例")
 class ResumeS12Test(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -70,6 +79,8 @@ class ResumeS12Test(unittest.TestCase):
             "product_key": "product",
             "project": self.project,
             "sequence_id": seq,
+            **({"s11_finalized_at": NOW_ISO,
+                "s11_manifest_sha256": "a" * 64} if status == "S11" else {}),
             **extra,
         }
         body = "\n".join(f'{key}: "{value}"' for key, value in values.items())
@@ -195,7 +206,7 @@ class ResumeS12Test(unittest.TestCase):
         path = self.repo / ".local" / "approvals.tsv"
         if not path.exists():
             return []
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
         header = lines[0].split("\t")
         return [dict(zip(header, line.split("\t"))) for line in lines[1:]]
 
@@ -258,8 +269,9 @@ class ResumeS12Test(unittest.TestCase):
                 self.assertEqual([], self.approval_rows())
 
     def test_decline_does_not_issue_credential(self):
+        # ★P0-B：拒绝（用户答"否"）同样必须是失败退出码 2
         code, output = self.run_tty("否")
-        self.assertEqual(0, code, output)
+        self.assertEqual(2, code, output)
         self.assertEqual([], self.approval_rows())
 
     def test_explicit_activation_issues_schema_bound_approval_and_keeps_s11(self):
@@ -286,8 +298,16 @@ class ResumeS12Test(unittest.TestCase):
         self.assertIn("status: \"S11\"", self.record.read_text(encoding="utf-8"))
 
     def test_confirm_without_activation_word_does_not_issue_credential(self):
+        # ★P0-B：拒绝=失败路径，必须 exit 2（旧实现打印后 return 0，脚本化调用会被当成功）
         code, output = self.run_tty("确认")
-        self.assertEqual(0, code, output)
+        self.assertEqual(2, code, output)
+        self.assertEqual([], self.approval_rows())
+
+    def test_only_activation_word_without_confirm_is_rejected(self):
+        """★P0-B：只说「激活」不再算授权——必须逐字含「确认激活」四个字。"""
+        code, output = self.run_tty("激活")
+        self.assertEqual(2, code, output)
+        self.assertIn("确认激活", output)
         self.assertEqual([], self.approval_rows())
 
     def test_resume_and_dry_run_are_mutually_exclusive(self):
@@ -307,7 +327,7 @@ class ResumeS12Test(unittest.TestCase):
         result = subprocess.run(
             [sys.executable, str(self.repo / "tools" / "flow_orchestrator.py"), "--org", ORG, "--profile", str(self.profile)],
             text=True, capture_output=True, timeout=10,
-        )
+        encoding="utf-8", errors="replace")
         self.assertEqual(2, result.returncode)
         self.assertIn("--token", result.stderr)
         self.assertIn("--nickname", result.stderr)
@@ -336,7 +356,7 @@ class ResumeS12Test(unittest.TestCase):
                 "--compliance-file", str(self.compliance), "--dry-run",
             ],
             text=True, capture_output=True, timeout=10,
-        )
+        encoding="utf-8", errors="replace")
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertEqual([], self.approval_rows())
         self.assertIn("dry-run 不写凭证", result.stdout)

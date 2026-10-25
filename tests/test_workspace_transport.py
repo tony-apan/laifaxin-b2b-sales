@@ -121,7 +121,7 @@ class ShellAndSeedQualityTest(unittest.TestCase):
 
     def test_seed_discovery_requires_query_en(self):
         """断点#2：S3 必须用客群 query_en 长句搜种子，禁用单关键词（真机实测单词质量差）。"""
-        text = (ROOT / "output-templates" / "S3-种子确认.md").read_text(encoding="utf-8")
+        text = (ROOT / "output-templates" / "S3-seed-confirm.md").read_text(encoding="utf-8")
         self.assertIn("query_en", text, "S3 未要求用 query_en 长句")
         self.assertRegex(text, r"禁用.{0,10}单关键词|禁止用产品词", "S3 未明确禁用单关键词")
         self.assertIn("paddle", text, "S3 应带真机反例（paddle 单词首页质量差）")
@@ -139,7 +139,7 @@ class AuditToolProductWordsTest(unittest.TestCase):
         result = subprocess.run(
             [sys.executable, str(TOOLS / "audit_company.py"),
              "--query", "x", "--pages", "1", "--token", "t", "--org", "o"],
-            capture_output=True, text=True, timeout=30)
+            capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace")
         self.assertEqual(2, result.returncode, "缺 --match-words 应 fail-fast 退出 2")
         self.assertIn("--match-words", result.stdout)
 
@@ -150,7 +150,7 @@ class AuditToolProductWordsTest(unittest.TestCase):
 
     def test_sop_requires_match_words(self):
         """S4 相关 SOP/卡必须写明审计要带本产品词。"""
-        for name in ("specs/threshold-method.md", "output-templates/S4-审计进行中.md"):
+        for name in ("specs/threshold-method.md", "output-templates/S4-audit-running.md"):
             text = (ROOT / name).read_text(encoding="utf-8")
             with self.subTest(file=name):
                 self.assertRegex(text, r"match-words|产品词",

@@ -1,13 +1,15 @@
 ---
+doc_id: "specs-migration-handoff"
 title: "换机续接 SOP（AI 执行·备份/恢复/节点定位）"
-description: "换电脑续接获客项目的完整 AI SOP：旧机只备份 .local/、runs/<运营方>/（排除 _template/INDEX.md）、db/ 中本地未跟踪文件；新机先装同版/最新仓库并按 environment-setup 就绪环境；恢复先解到临时目录、只按白名单复制允许路径（不覆盖新仓规则/_template/db 跟踪索引），再逐项校验（项目/状态/profile 版本/序列 inactive）；token 不迁移新机重取；审批凭证仅作审计，高风险写节点必须新机对话原话重新确认；按 operation-record.md 标准状态定位节点续跑，禁止从 S0 重跑。附可直接复制给 AI 的用户指令块。"
+description: "换电脑续接 SOP：备份/恢复白名单、新机环境就绪、校验 profile 与状态后从断点续跑，禁止从 S0 重跑。"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-09-04
-updated: 2026-09-04
 author: "AI Agent"
 source: "RULES.md 迁移/持久性 + 审批闸门边界 + onboard_check.py 可续接扫描"
 related: [RULES.md, environment-setup.md, ../tools/onboard_check.py, ../runs/_template/operation-record.md]
 tags: [换机, 迁移, 续接, 断点, SOP, AI优先]
-status: verified
 audience: AI优先
 ---
 
@@ -22,6 +24,7 @@ audience: AI优先
 - `.local/`（含审批凭证）与 `runs/<运营方>/` 含账号活动痕迹与运营数据：**只在本机/用户指定移动盘之间复制**；不上传网盘/网站/聊天工具，不打包进任何要发布的东西（README 隐私与脱敏节同款要求）。
 - **token 永不迁移、原始凭据永不落盘**：新机需要连接平台时，用户重新在浏览器一键复制，并把 `accesstoken=` + `orgId=` 两行整段直接粘贴到当前主 AI 聊天框。仓库工具不主动写 `.env`、文件、持久环境变量或工具日志，也不向子代理扩散；聊天服务留存取决于宿主隐私政策。旧机 token 可能已失效。
 - **审批凭证迁移后必须技术降级**：恢复 `.local/approvals.tsv` 后立即执行 `python_cmd tools/approval.py demote-migrated --confirm MIGRATION-DEMOTE`，把所有旧 `confirmed` 改为 `backfilled`；backfilled 只审计、工具不会授权。未执行写节点与S12在新机当前对话重新确认。
+- **降级前先确认账本是「带 BOM 的 UTF-8」**：无 BOM 的中文账本会被拒绝整文件重写（防审计原话写坏）；旧版 Windows 写出的 GBK 账本会直接报错。先备份、人工确认后转成带 BOM 的 UTF-8，再执行上面的降级。**降级没完成前不要开始业务**——旧 `confirmed` 仍可能被授权。
 - 恢复操作只写数据目录（`.local/`、`runs/<运营方>/`、`db/` 中新机未跟踪文件），**不覆盖新装的规则/工具/模板文件**（RULES/SKILL/specs/tools 与 `runs/_template/`、`db/docs.tsv`、`db/tools.tsv` 等以新机仓库版本为准）；恢复一律先解到临时目录、按白名单复制，禁止把备份整包解压覆盖到仓库根。
 
 ## 1. 阶段一：旧机备份（AI 执行）
@@ -30,7 +33,7 @@ audience: AI优先
 
 | 目录 | 内容 | 是否必备 |
 |---|---|---|
-| `.local/`（整目录） | 审批凭证 approvals.tsv、运营方档案（新版 `.local/operators/<operator_key>.md` 多公司各一份；旧版 `operator-profile.md` 兼容）等本地状态 | 必备 |
+| `.local/`（整目录） | 审批凭证 approvals.tsv、运营方档案（新版 `.local/operators/<operator_key>.md` 多公司各一份；旧版 operator-profile 单文件兼容）等本地状态 | 必备 |
 | `runs/<运营方>/`（只备份运营方目录；**排除 `runs/_template/` 与 `runs/INDEX.md` 等仓库自带文件**） | 各产品 operation-record.md / product-profile.md / evidence.json / tmap.json / verify-*；如使用网站增强，还包括项目内 `website-profile/` 候选、批准补丁与影响清单 | 必备 |
 | `db/` 中**本地未跟踪文件**（`db/issues.tsv` 等运行期新增表；`db/docs.tsv`、`db/tools.tsv` 等仓库自带跟踪文件**不带**） | 本地数据表（用于审计与 runs 登记） | 可选（有就带上） |
 
@@ -218,7 +221,7 @@ python3 tools/onboard_check.py     # Windows 用 bootstrap 给出的 python_cmd�
 
 4. 用 bootstrap 输出的 python_cmd 运行 tools/onboard_check.py，把“可续接项目”扫描结果讲给我听。
 
-5. 立即用 python_cmd 运行 `tools/approval.py demote-migrated --confirm MIGRATION-DEMOTE`，把旧机confirmed凭证全部降为backfilled（仅审计）。
+5. 立即用 python_cmd 运行 `tools/approval.py demote-migrated --confirm MIGRATION-DEMOTE`，把旧机confirmed凭证全部降为backfilled（仅审计）。若报「无 BOM 的中文账本」或「不是 UTF-8」，先备份该文件、人工确认后转成带 BOM 的 UTF-8，再重跑；降级没完成前不要开始业务。
 
 6. 逐项校验并汇报：项目目录、operation-record状态、product-profile版本、序列是否inactive。
 

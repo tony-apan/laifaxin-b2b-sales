@@ -1,9 +1,18 @@
+---
+doc_id: "website-profile-readme"
+title: "Website Profile（独立可选模块）"
+description: "目录索引：网站资料增强模块的结构契约与文件分工，开发或启用前读。"
+type: "readme"
+status: "active"
+updated: "2026-10-23"
+---
+
 # Website Profile（独立可选模块）
 
 这个目录只放网站资料增强模块的结构契约。完整执行规则见：
 
 - [网站资料增强 SOP](../specs/website-profile-sop.md)
-- [用户确认话术](../output-templates/S0a-网站资料确认.md)
+- [用户确认话术](../output-templates/S0a-website-profile.md)
 - [CLI 工具](../tools/website_profile.py)
 - [候选模板](../runs/_template/website-profile-candidate.json)
 - [补丁模板](../runs/_template/website-profile-patch.json)

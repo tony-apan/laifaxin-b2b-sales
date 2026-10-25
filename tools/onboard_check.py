@@ -9,10 +9,19 @@
 import sys, subprocess, re
 from pathlib import Path
 KB = Path(__file__).resolve().parent.parent
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出中文/emoji 需显式 UTF-8（与 preflight.py 同一处理）。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 def show(path, maxh=12):
     p=KB/path
     if not p.exists(): print(f"  (缺 {path})"); return
-    lines=p.read_text().split("\n")
+    # ★Windows 的默认编码是 GBK：这里不显式指定会把 UTF-8 文档读崩（UnicodeDecodeError）
+    lines=p.read_text(encoding="utf-8", errors="replace").split("\n")
     print(f"── {path} ──")
     for l in lines[:maxh]:
         if l.strip(): print("  "+l)
@@ -48,9 +57,9 @@ NODE_HINT = {
     "S1": "确认路径 A(有精准网址)/B(标准路径)——自动选择不追问，用户可随时补网址切换",
     "S2": "推演 4 客群(优先读 product-profile.md)并请用户确认 → segments_infer.py 落地",
     "S3": "AI 数据库搜索链三步(预览→id 取域名→域名扩量) → seed_resolve.py，用户确认锚点",
-    "S4": "70% 临界审计(50页跳→三页平均→逐页，AI 语义反思)——审计未完成不能保存",
+    "S4": "抽查名单(100页跳→前后3页→连续5页窗口→跌破往前，AI 语义反思)——审计未完成不能保存",
     "S5": "建标签 tag_add.py → 展示保存参数请用户确认 → save_first_n.py --approval 保存前 N",
-    "S6": "等保存 finished+标签对账 wait_save_done.py → 主动出示数量账(S6-数量账)",
+    "S6": "用 save_company_cli.py status/reconcile 等保存 finished 并标签对账（wait_save_done.py 已禁用）→ 主动出示数量账(S6-数量账)",
     "S7": "模板草稿预览(render_preview.py 渲染后收件人视图)请用户确认后才批量创建",
     "S8": "批量建模板(默认48=12轮×4) + check_template_diff.py 实测差异(≤0.70)，失败回 S7",
     "S9": "resolve_schedule.py 运行时解析时区 → build_sequence.py 建序列(12步/纽约/30000/5/notSentTags)",
@@ -157,7 +166,7 @@ print("   · 渐进索取:每步只问当前必需的一件事;公司名/官网/
 print("   · ★产品资料(卖什么)=必填；卖给谁/卖到哪/自己的官网均选填，缺失时AI先推荐、不阻断、不冒充用户输入")
 print("   · ★自己的网址可走独立website-profile增强：只读公开页→六区候选→用户批准才导入；失败/跳过不影响主线")
 print("   · 落款只用昵称;邮件正文=目标市场语言;标签=语言-行业-角色(客户群体,非产品名)")
-print("★ 安装/学习入口: ①bootstrap准备环境 → ②本脚本自检+扫描旧项目 → ③汇报结果 → ④询问用户想做什么 → ⑤按SKILL路由；不默认进入S0")
+print("★ 安装/学习入口: ①bootstrap准备环境 → ②本脚本自检+扫描旧项目 → ③按 output-templates/S0-install-report.md 白话汇报 → ④新用户按 C1 只问「昵称+产品」、有旧项目才给4项菜单 → ⑤按SKILL路由；不默认进入S0")
 print("")
 print("🔧 环境自检(30秒):")
 # 启动时自动检查新版本（静默失败，绝不阻塞自检）
@@ -251,29 +260,29 @@ if projects:
 else:
     print("\n✅ 安装/学习自检完成；未发现标准可续接项目。")
 
-print("\n🗣 安装完成后只向用户展示这个任务菜单，不索取业务资料:")
+print("\n🗣 安装完成后：先白话汇报（S0-安装完成汇报）；有旧项目才展示菜单，新用户只问两样:")
 print("   ★展示要求(2026-09-10 用户拍板)：菜单必须【逐行 + emoji 突出 + 标注⭐推荐】，")
 print("   且【只列 4 项、按当前状态裁剪】——禁止压成 ①②③ 一行，禁止列出不适用的项。")
 print("   为什么只 4 项：6 项时新用户会看到「继续项目（无）」「刚装完就更新」这类用不上的项，")
 print("   既造成选择困难又显得不专业；菜单只放当前状态下真正可用的动作。")
 print()
 if projects:
-    print("   ▶ 本次检测到旧项目 → 展示【老用户菜单】(推荐继续项目)：")
-    print('   "安装完成。你现在想做什么？"')
+    print("   ▶ 本次检测到旧项目 → 只展示【有旧项目时】菜单（第 1 项为继续）：")
+    print('   "✅ 安装完成，环境自检通过。您现在想做什么？"')
     print("    1. 📂 继续「<项目名>」（当前：<节点>）  ⭐推荐")
     print("    2. 🚀 开始一个新的获客项目")
     print("    3. 🌐 用我的官网、产品页或目录提炼资料")
     print("    4. 📖 先了解完整流程")
+    print('   结尾一句：回复编号即可（如「1」）。')
 else:
-    print("   ▶ 本次未检测到旧项目 → 展示【新用户菜单】(推荐开始新项目)：")
-    print('   "安装完成。你现在想做什么？"')
-    print("    1. 🚀 开始新的获客项目  ⭐推荐")
-    print("    2. 🎯 先判断我的产品适不适合")
-    print("    3. 🌐 用我的官网、产品页或目录提炼资料")
-    print("    4. 📖 先了解完整流程")
-print()
-print("   ★不在菜单里的动作（用户主动提到时才走，不必占菜单位）：")
-print("     · 更新系统 / 换电脑 → 直接命中 SKILL 路由表触发词；刚装完更不该出现在菜单里")
-print("   （结尾一句：回复编号即可，如「1」）")
-print("\n🔴 安装/学习阶段到此停止：不要问产品、市场、官网、昵称或 token，不要默认进入 S0。")
-print("   用户选择具体任务后，再按 SKILL.md 对应路由渐进询问；只有选择新获客项目，才问纯个人昵称+一句话产品。")
+    print("   ▶ 本次未检测到旧项目 → 不展示菜单，按 S0-opening-questions.md C1 只问两样：")
+    print("     ① 怎么称呼您？（个人昵称，Tony / Iris 这种）")
+    print("     ② 您家主要卖什么产品？（一句话）")
+    print("   ★新用户不展示菜单、不要求回数字；安装阶段除这两样外不索取市场/卖给谁/官网/token。")
+    print("   ★拿到昵称+产品后先登记开工必读（startup_gate.py ack），再给 6 步全景（specs/beginner-flow.md 第 1 屏）；不推买家类型、不给菜单。")
+print("\n🔴 安装/学习阶段到此停止：新用户只问「昵称 + 产品」（见 S0-opening-questions.md C1），不再索取市场/官网/token。")
+print("   用户选择具体任务后，再按 SKILL.md 对应路由渐进询问；只有选择『开始新的获客项目』才问纯个人昵称 + 一句话产品。")
+
+# ★环境自检失败 → exit 2（AGENTS「未通过不得开始」的真实门）；成功保持 0。
+if not env_ok:
+    sys.exit(2)

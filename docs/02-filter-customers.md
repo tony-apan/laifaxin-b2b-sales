@@ -1,15 +1,18 @@
 ---
+doc_id: "docs-02-filter-customers"
 title: "筛选客户（不准客户怎么筛）"
-description: "抽样看本页精准度（教程≥80%；★现行默认70%执行线,marketing-rules-2.0 §1）+ 手动/AI评分/组合 3 种筛法 + 排除中国区 + 审计工具"
+description: "筛名单教程：精准度抽检（≥80%/默认70% 线）、3 种筛法、排除中国区与审计工具。"
+type: "guide"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-08-21
 author: "AI Agent + 运营方"
 source: "https://www.laifa.xin/zhinan/02-filter-customers"
 related: [01-customer-search, 03-save-customers]
 tags: [筛选, 精准度, 排除国家, 审计]
-status: verified
 audience: 人+AI
 ---
+
 # 02 · 筛选客户（不准客户怎么筛）
 
 > 来源：`https://www.laifa.xin/zhinan/02-filter-customers` + 实测审计方法
@@ -91,10 +94,10 @@ audience: 人+AI
 
 ```bash
 # 关键词搜审计（提纯搜）
-python3 audit_company.py --query "英文描述句" --pages 1,500,1000 --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product "猫粮"
+python3 audit_company.py --query "英文描述句" --pages 1,500,1000 --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product "猫粮" --match-words "cat food,猫粮"
 
 # 域名找相似审计
-python3 audit_company.py --query "cat food" --pages 1 --domains "<seed-domain>,<seed-domain>" --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product "猫粮"
+python3 audit_company.py --query "cat food" --pages 1 --domains "<seed-domain>,<seed-domain>" --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product "猫粮" --match-words "cat food,猫粮"
 ```
 
 判定标准（写死在规则表里，不主观漂移）：

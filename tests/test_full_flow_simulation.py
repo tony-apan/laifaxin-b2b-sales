@@ -34,6 +34,7 @@ import os
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
+import os as _os
 
 log_path = Path(os.environ["LFX_FAKE_CURL_LOG"])
 args = sys.argv[1:]
@@ -136,6 +137,46 @@ print(json.dumps(out, ensure_ascii=False))
 '''
 
 
+
+try:
+    from gate_env import gate_test_env
+except ImportError:
+    from tests.gate_env import gate_test_env
+
+class _ShimUnavailable(RuntimeError):
+    pass
+
+
+def _install_curl_shim(bin_dir, cwd_dir=None):
+    """装一个能被 CreateProcess 解析的 curl：POSIX 用无扩展名脚本；Windows 编译 curl.exe 转发到 fake_curl.py。
+
+    Windows 的系统 curl.exe 在 System32，PATH 永远抢不过它；但 CreateProcess 会先查
+    调用进程的当前目录，所以影子必须落到工具进程的 cwd（副本仓库根）。"""
+    if os.name != "nt":
+        fake = Path(bin_dir) / "curl"
+        fake.write_text(FAKE_CURL, encoding="utf-8")
+        fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+        return
+    target = Path(cwd_dir or bin_dir)
+    (target / "fake_curl.py").write_text(FAKE_CURL, encoding="utf-8")
+    win = Path(os.environ.get("WINDIR", r"C:\Windows"))
+    csc = next((p for p in (
+        win / "Microsoft.NET" / "Framework64" / "v4.0.30319" / "csc.exe",
+        win / "Microsoft.NET" / "Framework" / "v4.0.30319" / "csc.exe",
+    ) if p.exists()), None)
+    if csc is None:
+        raise _ShimUnavailable("Windows 离线仿真需要 .NET Framework csc.exe 编译 curl 影子；本机未找到，改由真机 curl 冒烟覆盖")
+    src = target / "curl_shim.cs"
+    src.write_text(SHIM_CS, encoding="utf-8")
+    exe = target / "curl.exe"
+    proc = subprocess.run(
+        [str(csc), "/nologo", "/out:" + str(exe), str(src)],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+    )
+    if proc.returncode != 0 or not exe.exists():
+        raise _ShimUnavailable("Windows curl 影子编译失败：" + (proc.stdout + proc.stderr)[-500:])
+
+
 class FullFlowSimulationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -146,13 +187,17 @@ class FullFlowSimulationTest(unittest.TestCase):
         cls.fake_bin = cls.base / "bin"
         cls.fake_bin.mkdir()
         cls.curl_log = cls.base / "curl.jsonl"
-        fake = cls.fake_bin / "curl"
-        fake.write_text(FAKE_CURL, encoding="utf-8")
-        fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+        try:
+            _install_curl_shim(cls.fake_bin, cls.repo)
+        except _ShimUnavailable as exc:
+            raise unittest.SkipTest(str(exc))
         cls.env = os.environ.copy()
         cls.env.update({
+            **gate_test_env(),
             "PATH": str(cls.fake_bin) + os.pathsep + cls.env.get("PATH", ""),
             "LFX_FAKE_CURL_LOG": str(cls.curl_log),
+            "LFX_FAKE_PYTHON": sys.executable,
+            "PYTHONIOENCODING": "utf-8",
             "PYTHONDONTWRITEBYTECODE": "1",
         })
         cls.project_dir = cls.repo / "runs" / OPERATOR / PRODUCT
@@ -173,7 +218,7 @@ class FullFlowSimulationTest(unittest.TestCase):
             text=True,
             capture_output=True,
             timeout=timeout,
-        )
+        encoding="utf-8", errors="replace")
         cls.results.append((tool, result))
         if output is not None:
             Path(output).write_text(result.stdout + result.stderr, encoding="utf-8")
@@ -270,20 +315,15 @@ class FullFlowSimulationTest(unittest.TestCase):
         psha = self.sha(self.profile)
         pmeta = {"sha256": psha, "status": "confirmed", "version": "1"}
         org_sha = hashlib.sha256(ORG.encode()).hexdigest()
-        s5_binding = {
-            "project": PROJECT, "org_sha256": org_sha, "profile": pmeta, "keyword": SEED,
-            "n": 8, "company_tag": COMPANY_TAG, "contact_tag": CONTACT_TAG, "max": 3,
-            "exclude": ["CN", "HK", "MO", "TW"], "verify_status": ["valid", "unkown"],
-        }
-        s5 = self.approval("S5_保存参数", s5_binding)
+        # 旧 S5 写脚本（save_first_n/wait_save_done）已加物理封条（save_guard.require，
+        # 见 test_legacy_seals）；本仿真不再复制封条后门，只推进状态以验证 S6 之后的现役链路。
         self.run_tool(
-            "save_first_n.py", "--token", TOKEN, "--org", ORG, "--keyword", SEED, "--n", 8,
-            "--company-tag", COMPANY_TAG, "--contact-tag", CONTACT_TAG, "--max", 3,
-            "--profile", self.profile, "--record", self.record, "--approval", s5, "--project", PROJECT,
+            "update_run_state.py", "--record", self.record, "--expected-state", "S4",
+            "--state", "S5", "--next-state", "S6",
         )
         self.run_tool(
-            "wait_save_done.py", "--token", TOKEN, "--org", ORG, "--task", TASK,
-            "--tag", CONTACT_TAG, "--record", self.record, "--timeout", 2,
+            "update_run_state.py", "--record", self.record, "--expected-state", "S5",
+            "--state", "S6", "--next-state", "S7",
         )
 
         directions = []
@@ -340,12 +380,11 @@ class FullFlowSimulationTest(unittest.TestCase):
             "--tmap", tmap, "--profile", self.profile, "--from-name", NICKNAME,
             "--record", self.record, "--approval", s9, "--project", PROJECT,
         )
-        s10_binding = {"project": PROJECT, "org_sha256": org_sha, "seq": SEQUENCE, "tags": [CONTACT_TAG], "task": TASK}
-        s10 = self.approval("S10_加联系人", s10_binding)
+        # 旧 contact_add.py 已加物理封条（见 test_legacy_seals）；现役 contact_add_authorized
+        # 需要开工门 + S10 票据，不在本仿真覆盖范围，这里只推进状态供 S11 收口验证。
         self.run_tool(
-            "contact_add.py", "--token", TOKEN, "--org", ORG, "--seq", SEQUENCE,
-            "--tags", CONTACT_TAG, "--task", TASK, "--record", self.record,
-            "--approval", s10, "--project", PROJECT, "--timeout", 2,
+            "update_run_state.py", "--record", self.record, "--expected-state", "S9",
+            "--state", "S10", "--next-state", "S11",
         )
         self.assertIn("status: S10", self.record.read_text(encoding="utf-8"))
 
@@ -412,12 +451,10 @@ class FullFlowSimulationTest(unittest.TestCase):
         calls = [json.loads(line) for line in self.curl_log.read_text(encoding="utf-8").splitlines()]
         self.assertFalse(any(call.get("unknown") for call in calls))
         self.assertFalse(any("sequence-active" in call["path"] for call in calls))
-        save = [c["payload"] for c in calls if c["path"] == "/api/refine/company-save"]
-        self.assertEqual(1, len(save))
-        self.assertEqual("front", save[0]["selectOption"])
-        self.assertEqual([], save[0]["selectKeys"])
-        contact_add = [c["payload"] for c in calls if c["path"] == "/api/sequences/contact-add"]
-        self.assertEqual([{"seqId": SEQUENCE, "tags": [CONTACT_TAG], "views": []}], contact_add)
+        # 旧写入脚本已加物理封条（save_first_n/contact_add/wait_save_done）：
+        # 本仿真不再产生 company-save / contact-add 平台写入。
+        self.assertEqual([], [c for c in calls if c["path"] == "/api/refine/company-save"])
+        self.assertEqual([], [c for c in calls if c["path"] == "/api/sequences/contact-add"])
         self.assertEqual(48, len([c for c in calls if c["path"] == "/api/mailbox/template-add"]))
         steps = [c["payload"] for c in calls if c["path"] == "/api/sequences/step-create"]
         self.assertEqual(list(range(1, 13)), [s["step"] for s in steps])
@@ -425,6 +462,12 @@ class FullFlowSimulationTest(unittest.TestCase):
         self.assertEqual([INQUIRY_TAG, STOP_TAG], sequence_save["rules"]["notSentTags"])
 
     def test_full_flow_stops_at_s11_inactive(self):
+        """脚本串接到 S11 停住、未确认不得激活。
+
+        覆盖边界：S10 加人、开工门、五道确认闸门的"次数"由
+        test_gate_hardening / test_gate_integration 等用例覆盖；本用例用
+        update_run_state 推进状态，不替代真实平台写链路。
+        """
         self.phase_profiles_state_and_audit_gate()
         self.phase_platform_toolchain_to_s10()
         self.phase_verification_s11_and_no_activation()
@@ -432,3 +475,42 @@ class FullFlowSimulationTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+SHIM_CS = r'''using System;
+using System.Diagnostics;
+using System.Text;
+
+// Windows 上 CreateProcess 只解析 .exe；本 shim 把 curl 调用转发给 fake_curl.py。
+class FakeCurlShim {
+    static string Q(string s) {
+        var sb = new StringBuilder();
+        sb.Append((char)34);
+        int bs = 0;
+        foreach (char c in s) {
+            if (c == (char)92) { sb.Append(c); bs++; }
+            else if (c == (char)34) { sb.Append((char)92, bs + 1); sb.Append((char)34); bs = 0; }
+            else { sb.Append(c); bs = 0; }
+        }
+        sb.Append((char)92, bs);
+        sb.Append((char)34);
+        return sb.ToString();
+    }
+
+    static int Main(string[] args) {
+        string dir = AppDomain.CurrentDomain.BaseDirectory;
+        string py = Environment.GetEnvironmentVariable("LFX_FAKE_PYTHON");
+        if (String.IsNullOrEmpty(py)) py = "py";
+        var sb = new StringBuilder();
+        sb.Append(Q(System.IO.Path.Combine(dir, "fake_curl.py")));
+        foreach (var a in args) { sb.Append(' '); sb.Append(Q(a)); }
+        var psi = new ProcessStartInfo();
+        psi.FileName = py;
+        psi.Arguments = sb.ToString();
+        psi.UseShellExecute = false;
+        var p = Process.Start(psi);
+        p.WaitForExit();
+        return p.ExitCode;
+    }
+}
+'''

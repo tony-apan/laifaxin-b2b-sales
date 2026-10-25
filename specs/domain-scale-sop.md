@@ -1,13 +1,15 @@
 ---
+doc_id: "specs-domain-scale-sop"
 title: "域名近似规模化保存 SOP"
 description: "一个网址搜上万相似客户 → 审计70%临界 → 保存前N条(selectTotal，不收集id) → 配额管理；纯API不用浏览器"
+type: "spec"
+status: "active"
+updated: "2026-10-23"
 created: 2026-08-21
-updated: 2026-09-03
 author: "AI Agent + 运营方"
 source: "实战验证（2026-08-21 电动自行车）"
 related: [specs/api-reference, specs/operations-sop, lessons/lessons-learned]
 tags: [SOP, 规模化, 域名搜索, 配额, selectKeys]
-status: verified
 audience: 人+AI
 ---
 
