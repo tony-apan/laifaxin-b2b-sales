@@ -456,6 +456,12 @@ class FullFlowSimulationTest(unittest.TestCase):
         self.assertEqual([INQUIRY_TAG, STOP_TAG], sequence_save["rules"]["notSentTags"])
 
     def test_full_flow_stops_at_s11_inactive(self):
+        """脚本串接到 S11 停住、未确认不得激活。
+
+        覆盖边界：S10 加人、开工门、五道确认闸门的"次数"由
+        test_gate_hardening / test_gate_integration 等用例覆盖；本用例用
+        update_run_state 推进状态，不替代真实平台写链路。
+        """
         self.phase_profiles_state_and_audit_gate()
         self.phase_platform_toolchain_to_s10()
         self.phase_verification_s11_and_no_activation()
