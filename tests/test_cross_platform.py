@@ -14,6 +14,67 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
+_WIN_CURL_SHIM_CS = r"""
+using System;
+using System.Diagnostics;
+using System.Text;
+
+class FakeCurlShim {
+    static string Q(string s) {
+        var sb = new StringBuilder();
+        sb.Append((char)34);
+        int bs = 0;
+        foreach (char c in s) {
+            if (c == (char)92) { sb.Append(c); bs++; }
+            else if (c == (char)34) { sb.Append((char)92, bs + 1); sb.Append((char)34); bs = 0; }
+            else { sb.Append(c); bs = 0; }
+        }
+        sb.Append((char)92, bs);
+        sb.Append((char)34);
+        return sb.ToString();
+    }
+    static int Main(string[] args) {
+        string dir = AppDomain.CurrentDomain.BaseDirectory;
+        string py = Environment.GetEnvironmentVariable("LFX_FAKE_PYTHON");
+        if (String.IsNullOrEmpty(py)) py = "py";
+        var sb = new StringBuilder();
+        sb.Append(Q(System.IO.Path.Combine(dir, "fake_curl.py")));
+        foreach (var a in args) { sb.Append(' '); sb.Append(Q(a)); }
+        var psi = new ProcessStartInfo();
+        psi.FileName = py;
+        psi.Arguments = sb.ToString();
+        psi.UseShellExecute = false;
+        var p = Process.Start(psi);
+        p.WaitForExit();
+        return p.ExitCode;
+    }
+}
+"""
+
+
+def _install_fake_curl(bin_dir, payload):
+    """装假 curl：POSIX 用 shell 壳；Windows 编译 curl.exe（CreateProcess 先查当前目录）。"""
+    bin_dir = Path(bin_dir)
+    fake_py = bin_dir / "fake_curl.py"
+    fake_py.write_text("import sys\nsys.stdout.write(%r)\n" % payload, encoding="utf-8")
+    if os.name != "nt":
+        curl = bin_dir / "curl"
+        curl.write_text('#!/bin/sh\nexec "%s" "%s" "$@"\n' % (sys.executable, fake_py), encoding="utf-8")
+        curl.chmod(0o755)
+        return
+    win = Path(os.environ.get("WINDIR", r"C:\\Windows"))
+    csc = next((q for q in (
+        win / "Microsoft.NET" / "Framework64" / "v4.0.30319" / "csc.exe",
+        win / "Microsoft.NET" / "Framework" / "v4.0.30319" / "csc.exe",
+    ) if q.exists()), None)
+    if csc is None:
+        raise unittest.SkipTest("Windows 需要 .NET Framework csc.exe 编译 curl 影子")
+    src = bin_dir / "curl_shim.cs"
+    src.write_text(_WIN_CURL_SHIM_CS, encoding="utf-8")
+    exe = bin_dir / "curl.exe"
+    subprocess.run([str(csc), "/nologo", "/out:" + str(exe), str(src)],
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, check=True)
+
 class CrossPlatformTest(unittest.TestCase):
 
     def _skip_gate_sh_on_windows(self):
@@ -386,19 +447,12 @@ class CrossPlatformTest(unittest.TestCase):
                 mod.APPROVALS = original
         self.assertTrue(raw.startswith(b"\xef\xbb\xbf" + before))
 
-    @unittest.skipUnless(os.name == "posix", "需要可执行 shell 脚本充当 curl")
     def test_version_check_decodes_github_json_as_utf8(self):
         """GitHub 返回 UTF-8 JSON：父进程若按 ANSI/ASCII 解码，会在 reader 线程抛 UnicodeDecodeError（Windows 实踩）。"""
         with tempfile.TemporaryDirectory() as td:
             bin_dir = Path(td) / "bin"
             bin_dir.mkdir()
-            fake = bin_dir / "curl"
-            if os.name == "nt":
-                raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
-            fake.write_text(
-                "#!/bin/sh\nprintf '%s' '{\"tag_name\":\"v9.9.9\",\"body\":\"中文发行说明\"}'\n",
-                encoding="utf-8")
-            fake.chmod(0o755)
+            _install_fake_curl(bin_dir, '{"tag_name":"v9.9.9","body":"中文发行说明"}')
             script = (
                 "import importlib.util, tempfile\n"
                 "from pathlib import Path\n"
@@ -410,26 +464,20 @@ class CrossPlatformTest(unittest.TestCase):
             env = dict(os.environ)
             env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
             env.update({"PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0",
-                        "LC_ALL": "C", "PYTHONIOENCODING": "utf-8"})
+                        "LC_ALL": "C", "PYTHONIOENCODING": "utf-8",
+                        "LFX_FAKE_PYTHON": sys.executable})
             proc = subprocess.run([sys.executable, "-c", script], capture_output=True,
                                   text=True, encoding="utf-8", errors="replace",
-                                  env=env, timeout=120)
+                                  env=env, cwd=str(bin_dir), timeout=120)
         self.assertNotIn("Traceback", proc.stderr, proc.stderr[-800:])
         self.assertIn("REMOTE=9.9.9", proc.stdout)
 
-    @unittest.skipUnless(os.name == "posix", "需要可执行 shell 脚本充当 curl")
     def test_workspace_guard_decodes_probe_as_utf8(self):
         """平台返回 UTF-8 JSON：父进程若按 ANSI/ASCII 解码，会在 reader 线程抛 UnicodeDecodeError（同 version_check）。"""
         with tempfile.TemporaryDirectory() as td:
             bin_dir = Path(td) / "bin"
             bin_dir.mkdir()
-            fake = bin_dir / "curl"
-            if os.name == "nt":
-                raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
-            fake.write_text(
-                "#!/bin/sh\nprintf '%s' '{\"isOrg\": true, \"note\": \"中文工作空间\"}'\n",
-                encoding="utf-8")
-            fake.chmod(0o755)
+            _install_fake_curl(bin_dir, '{"isOrg": true, "note": "中文工作空间"}')
             script = (
                 "import importlib.util, sys\n"
                 f"sys.path.insert(0, r'{ROOT / 'tools'}')\n"
@@ -440,10 +488,11 @@ class CrossPlatformTest(unittest.TestCase):
             env = dict(os.environ)
             env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
             env.update({"PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0",
-                        "LC_ALL": "C", "PYTHONIOENCODING": "utf-8"})
+                        "LC_ALL": "C", "PYTHONIOENCODING": "utf-8",
+                        "LFX_FAKE_PYTHON": sys.executable})
             proc = subprocess.run([sys.executable, "-c", script], capture_output=True,
                                   text=True, encoding="utf-8", errors="replace",
-                                  env=env, timeout=120)
+                                  env=env, cwd=str(bin_dir), timeout=120)
         self.assertNotIn("Traceback", proc.stderr, proc.stderr[-800:])
         self.assertIn("'isOrg': True", proc.stdout)
         self.assertIn("中文工作空间", proc.stdout)
