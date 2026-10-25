@@ -63,7 +63,9 @@ def _probe(token, org, timeout=40):
            "-H", f"uid: {org}",
            "-d", "{}"]
     try:
-        completed = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        # 平台返回 UTF-8；Windows 上按 GBK 解码会在 subprocess reader 子线程抛 UnicodeDecodeError（except 捕不到）。
+        completed = subprocess.run(cmd, capture_output=True, text=True,
+                                   encoding="utf-8", errors="replace", timeout=timeout)
     except (OSError, subprocess.SubprocessError):
         return None
     try:

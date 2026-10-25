@@ -40,7 +40,7 @@ updated: "2026-10-25"
 - `.gitattributes` 固定行尾：脚本/文档用 LF，`.ps1` 用 CRLF，Windows 检出后 bash 脚本不会因 `\r` 报错。
 - Windows 控制台若中文/emoji 乱码：跑 `py -X utf8 -c "print('中文 emoji ✅')"`；PowerShell 用 `$env:PYTHONUTF8='1'`、Git Bash 用 `export PYTHONUTF8=1`（`set` 在 PowerShell/Git Bash 都不是环境变量）。
 - 路径一律用仓库相对路径（`tools\...` 或 `tools/...`），不要手写 `C:\Users\...`、`/Users/...` 这类本机绝对路径。
-- 脚本读写文件一律显式 `encoding="utf-8"`（存量脚本逐步补齐）：简体中文 Windows 默认 GBK/cp936，其他语言是对应 ANSI 代码页（cp1252/cp932…）。裸 `read_text()`/`open()` 可能报 `UnicodeDecodeError`（`'gbk'`/`'charmap'`/`'cp932'` 等），也可能只是乱码——处置相同：先确认代码版本，**不要靠切 PYTHONUTF8 或转码文件掩盖**。实测发生在安装门 `onboard_check`。
+- 脚本读写文件、抓子进程输出都显式指定 UTF-8（存量脚本逐步补齐）：简体中文 Windows 默认 GBK/cp936，其他语言是对应 ANSI 代码页（cp1252/cp932…）。裸 `read_text()`/`open()` 可能报 `UnicodeDecodeError`（`'gbk'`/`'charmap'`/`'cp932'` 等），也可能只是乱码——处置相同：先确认代码版本，**不要靠切 PYTHONUTF8 或转码文件掩盖**。`subprocess` 调 `curl` 等（`text=True`/`capture_output`）同样要传 `encoding="utf-8", errors="replace"`：这类解码异常发生在 subprocess 的 reader 子线程，外层 `except` 捕不到，只会冒出 Traceback。实测发生在安装门 `onboard_check`、版本检查与工作空间探测。
 - `gate_check.sh` 调 python 子进程时统一 `PYTHONIOENCODING=utf-8`，否则「原始输出」明细在 Windows 上会变乱码。
 - 审批账本 `.local/approvals.tsv` 是例外：只接受 UTF-8 或「带 BOM 的 UTF-8」。旧版 Windows 写出的 GBK 账本会**明确报错且不会被自动改写**（避免审计原话被永久写坏）；无 BOM 的中文账本可以读取，但会被拒绝整文件重写。换机恢复时请先备份、人工确认，转成**带 BOM 的 UTF-8**，再执行 `approval.py demote-migrated`（迁移流程必做步骤，见 `specs/migration-handoff.md`）。
 

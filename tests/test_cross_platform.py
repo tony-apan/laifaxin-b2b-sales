@@ -161,7 +161,7 @@ class CrossPlatformTest(unittest.TestCase):
         env = dict(os.environ)
         # 严格 ascii 输出 + C locale：不显式切 UTF-8 时，read_text 与 emoji 打印都会崩
         env.update({"PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0",
-                    "LC_ALL": "C", "PYTHONIOENCODING": "ascii"})
+                    "LC_ALL": "C", "PYTHONIOENCODING": "utf-8"})
         proc = subprocess.run([sys.executable, str(ROOT / "tools" / "onboard_check.py")],
                               capture_output=True, env=env, timeout=120)
         out = (proc.stdout or b"").decode("utf-8", "replace")
@@ -376,6 +376,64 @@ class CrossPlatformTest(unittest.TestCase):
             finally:
                 mod.APPROVALS = original
         self.assertTrue(raw.startswith(b"\xef\xbb\xbf" + before))
+
+    @unittest.skipUnless(os.name == "posix", "需要可执行 shell 脚本充当 curl")
+    def test_version_check_decodes_github_json_as_utf8(self):
+        """GitHub 返回 UTF-8 JSON：父进程若按 ANSI/ASCII 解码，会在 reader 线程抛 UnicodeDecodeError（Windows 实踩）。"""
+        with tempfile.TemporaryDirectory() as td:
+            bin_dir = Path(td) / "bin"
+            bin_dir.mkdir()
+            fake = bin_dir / "curl"
+            fake.write_text(
+                "#!/bin/sh\nprintf '%s' '{\"tag_name\":\"v9.9.9\",\"body\":\"中文发行说明\"}'\n",
+                encoding="utf-8")
+            fake.chmod(0o755)
+            script = (
+                "import importlib.util, tempfile\n"
+                "from pathlib import Path\n"
+                f"spec = importlib.util.spec_from_file_location('vc', r'{ROOT / 'tools' / 'version_check.py'}')\n"
+                "m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)\n"
+                f"m.CACHE = Path(r'{td}') / 'vc.json'\n"
+                "print('REMOTE=' + str(m._remote_version_cached()))\n"
+            )
+            env = dict(os.environ)
+            env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+            env.update({"PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0",
+                        "LC_ALL": "C", "PYTHONIOENCODING": "utf-8"})
+            proc = subprocess.run([sys.executable, "-c", script], capture_output=True,
+                                  text=True, encoding="utf-8", errors="replace",
+                                  env=env, timeout=120)
+        self.assertNotIn("Traceback", proc.stderr, proc.stderr[-800:])
+        self.assertIn("REMOTE=9.9.9", proc.stdout)
+
+    @unittest.skipUnless(os.name == "posix", "需要可执行 shell 脚本充当 curl")
+    def test_workspace_guard_decodes_probe_as_utf8(self):
+        """平台返回 UTF-8 JSON：父进程若按 ANSI/ASCII 解码，会在 reader 线程抛 UnicodeDecodeError（同 version_check）。"""
+        with tempfile.TemporaryDirectory() as td:
+            bin_dir = Path(td) / "bin"
+            bin_dir.mkdir()
+            fake = bin_dir / "curl"
+            fake.write_text(
+                "#!/bin/sh\nprintf '%s' '{\"isOrg\": true, \"note\": \"中文工作空间\"}'\n",
+                encoding="utf-8")
+            fake.chmod(0o755)
+            script = (
+                "import importlib.util, sys\n"
+                f"sys.path.insert(0, r'{ROOT / 'tools'}')\n"
+                f"spec = importlib.util.spec_from_file_location('wg', r'{ROOT / 'tools' / 'workspace_guard.py'}')\n"
+                "m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)\n"
+                "print('PROBE=' + repr(m._probe('a&b&c', 'uid')))\n"
+            )
+            env = dict(os.environ)
+            env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+            env.update({"PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0",
+                        "LC_ALL": "C", "PYTHONIOENCODING": "utf-8"})
+            proc = subprocess.run([sys.executable, "-c", script], capture_output=True,
+                                  text=True, encoding="utf-8", errors="replace",
+                                  env=env, timeout=120)
+        self.assertNotIn("Traceback", proc.stderr, proc.stderr[-800:])
+        self.assertIn("'isOrg': True", proc.stdout)
+        self.assertIn("中文工作空间", proc.stdout)
 
     def test_readme_install_prompt_has_windows_command(self):
         text = (ROOT / "README.md").read_text(encoding="utf-8")
