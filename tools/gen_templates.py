@@ -925,7 +925,7 @@ if args.out:
     # 连同 project_key/org_sha256(哈希非明文)/档案路径(相对KB)+hash+status/plan 哈希 供 build_sequence 逐项校验
     tmap_sha = hashlib.sha256(out_p.read_bytes()).hexdigest()
     try:
-        profile_rel = str(PROFILE_PATH.resolve().relative_to(KB.resolve()))
+        profile_rel = PROFILE_PATH.resolve().relative_to(KB.resolve()).as_posix()
     except ValueError:
         profile_rel = str(PROFILE_PATH)
     meta = {"tmap_sha256": tmap_sha, "project_key": args.project,

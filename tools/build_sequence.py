@@ -99,10 +99,11 @@ _org_sha = hashlib.sha256(str(args.org).encode("utf-8")).hexdigest()
 if tmeta.get("org_sha256") != _org_sha:
     _meta_fail("tmap meta.org_sha256 与 --org 不一致——禁止跨账号/租户复用模板映射")
 try:
-    _prof_rel = str(profile_path.resolve().relative_to(KB.resolve()))
+    _prof_rel = profile_path.resolve().relative_to(KB.resolve()).as_posix()
 except ValueError:
     _prof_rel = str(profile_path)
-if tmeta.get("profile_path_rel") != _prof_rel:
+_meta_prof = str(tmeta.get("profile_path_rel") or "").replace("\\", "/")
+if _meta_prof != _prof_rel:
     _meta_fail(f"tmap meta.profile_path_rel={tmeta.get('profile_path_rel')!r} 与当前档案 {_prof_rel!r} 不一致——禁止跨档案建序列")
 if tmeta.get("profile_sha256") != profile_sha or tmeta.get("profile_status") != profile_status:
     print("❌ tmap 对应的产品档案版本/hash 已变化——重新生成模板计划与模板，禁止跨档案建序列"); sys.exit(1)
