@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import pathlib
 import subprocess
 import sys
@@ -48,9 +49,15 @@ class GateHardeningTest(unittest.TestCase):
 
     def test_ticket_verify_requires_startup_ack(self):
         env = _clean_env()
-        env["PYTHONPATH"] = str(TOOLS)
-        code = "import auth_guard; auth_guard.verify('missing-ticket', {'a': 1})"
-        r = subprocess.run([sys.executable, "-c", code], cwd=str(REPO),
-                           capture_output=True, text=True, env=env, timeout=60, encoding="utf-8", errors="replace")
+        # 复制一份干净仓库再验：不依赖本机真实 .local/gate（本机做过验收 ack 会假通过）
+        with tempfile.TemporaryDirectory(prefix="lfx-gate-ticket-") as tmp:
+            repo = pathlib.Path(tmp) / "repo"
+            shutil.copytree(REPO, repo, ignore=shutil.ignore_patterns(
+                ".git", ".local", "__pycache__", "runs"))
+            env["PYTHONPATH"] = str(repo / "tools")
+            code = "import auth_guard; auth_guard.verify('missing-ticket', {'a': 1})"
+            r = subprocess.run([sys.executable, "-c", code], cwd=str(repo),
+                               capture_output=True, text=True, env=env, timeout=60,
+                               encoding="utf-8", errors="replace")
         self.assertNotEqual(0, r.returncode, r.stdout + r.stderr)
         self.assertIn("开工必读", r.stdout + r.stderr)
