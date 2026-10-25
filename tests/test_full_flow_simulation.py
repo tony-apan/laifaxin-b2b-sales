@@ -142,14 +142,18 @@ class _ShimUnavailable(RuntimeError):
     pass
 
 
-def _install_curl_shim(bin_dir):
-    """装一个能被 CreateProcess 解析的 curl：POSIX 用无扩展名脚本；Windows 编译 curl.exe 转发到 fake_curl.py。"""
+def _install_curl_shim(bin_dir, cwd_dir=None):
+    """装一个能被 CreateProcess 解析的 curl：POSIX 用无扩展名脚本；Windows 编译 curl.exe 转发到 fake_curl.py。
+
+    Windows 的系统 curl.exe 在 System32，PATH 永远抢不过它；但 CreateProcess 会先查
+    调用进程的当前目录，所以影子必须落到工具进程的 cwd（副本仓库根）。"""
     if os.name != "nt":
         fake = Path(bin_dir) / "curl"
         fake.write_text(FAKE_CURL, encoding="utf-8")
         fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
         return
-    (Path(bin_dir) / "fake_curl.py").write_text(FAKE_CURL, encoding="utf-8")
+    target = Path(cwd_dir or bin_dir)
+    (target / "fake_curl.py").write_text(FAKE_CURL, encoding="utf-8")
     win = Path(os.environ.get("WINDIR", r"C:\Windows"))
     csc = next((p for p in (
         win / "Microsoft.NET" / "Framework64" / "v4.0.30319" / "csc.exe",
@@ -158,7 +162,7 @@ def _install_curl_shim(bin_dir):
     if csc is None:
         raise _ShimUnavailable("Windows 离线仿真需要 .NET Framework csc.exe 编译 curl 影子；本机未找到，改由真机 curl 冒烟覆盖")
     src = Path(__file__).with_name("fake_curl_shim.cs")
-    exe = Path(bin_dir) / "curl.exe"
+    exe = target / "curl.exe"
     proc = subprocess.run(
         [str(csc), "/nologo", "/out:" + str(exe), str(src)],
         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
@@ -178,7 +182,7 @@ class FullFlowSimulationTest(unittest.TestCase):
         cls.fake_bin.mkdir()
         cls.curl_log = cls.base / "curl.jsonl"
         try:
-            _install_curl_shim(cls.fake_bin)
+            _install_curl_shim(cls.fake_bin, cls.repo)
         except _ShimUnavailable as exc:
             raise unittest.SkipTest(str(exc))
         cls.env = os.environ.copy()
