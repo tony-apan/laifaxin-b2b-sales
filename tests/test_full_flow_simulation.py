@@ -35,7 +35,6 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 import os as _os
-_os.environ.setdefault("LFX_GATE_TEST_MODE", "1")
 
 log_path = Path(os.environ["LFX_FAKE_CURL_LOG"])
 args = sys.argv[1:]

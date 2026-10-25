@@ -18,7 +18,6 @@ sys.path.insert(0, str(TOOLS))
 from compliance_validation import validate_compliance
 from evidence_validation import NON_LIVE_EVIDENCE_MARKERS, find_non_live_marker
 import os as _os
-_os.environ.setdefault("LFX_GATE_TEST_MODE", "1")
 
 
 PROJECT = "operator/product"
@@ -31,6 +30,12 @@ def stable_hash(value):
     canonical = json.dumps(value, sort_keys=True, ensure_ascii=True, separators=(",", ":"), default=str)
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
+
+
+try:
+    from gate_env import gate_test_env
+except ImportError:
+    from tests.gate_env import gate_test_env
 
 class ComplianceValidationTest(unittest.TestCase):
     def setUp(self):
@@ -257,6 +262,7 @@ class ActivateLocalGateOrderTest(unittest.TestCase):
         if self.curl_log.exists():
             self.curl_log.unlink()
         env = os.environ.copy()
+        env.update(gate_test_env())
         env["PATH"] = str(self.bin_dir) + os.pathsep + env.get("PATH", "")
         env["CURL_LOG"] = str(self.curl_log)
         env.update(env_overrides or {})

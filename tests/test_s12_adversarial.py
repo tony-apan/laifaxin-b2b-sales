@@ -38,7 +38,6 @@ from datetime import datetime, timedelta, timezone
 NOW_ISO = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 from pathlib import Path
 import os as _os
-_os.environ.setdefault("LFX_GATE_TEST_MODE", "1")
 
 ROOT = Path(__file__).resolve().parents[1]
 SEQ = "a" * 24
@@ -557,6 +556,7 @@ class ManualActivationSyncTest(unittest.TestCase):
     def test_sync_requires_record(self):
         self.fake_platform("active")
         env = os.environ.copy()
+        env.update(gate_test_env())
         env["PATH"] = str(self.bin) + os.pathsep + env.get("PATH", "")
         r = subprocess.run(
             [sys.executable, str(self.repo / "tools" / "activate_sequence.py"),

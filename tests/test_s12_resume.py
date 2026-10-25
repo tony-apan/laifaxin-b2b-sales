@@ -16,7 +16,6 @@ import time
 import unittest
 from pathlib import Path
 import os as _os
-_os.environ.setdefault("LFX_GATE_TEST_MODE", "1")
 NOW_ISO = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
 

@@ -189,8 +189,6 @@ def _is_test_mode():
     """测试隔离：进程内 unittest，或带一次性票据的显式测试模式。"""
     import os as _os
     import sys as _sys
-    if "unittest" in _sys.modules:
-        return True
     if _os.environ.get("LFX_GATE_TEST_MODE") != "1":
         return False
     return _test_mode_ticket_ok()

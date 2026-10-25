@@ -71,8 +71,6 @@ def _test_mode_ticket_ok():
 
 def _test_mode_allowed():
     """进程内 unittest 放行；跨进程必须带一次性票据（防真实 shell 残留 env 静默放行）。"""
-    if "unittest" in sys.modules:
-        return True
     if os.environ.get("LFX_GATE_TEST_MODE") != "1":
         return False
     return _test_mode_ticket_ok()
