@@ -120,6 +120,8 @@ class OnboardCheckExitCodeTest(unittest.TestCase):
             p = Path(bin_dir) / name
             p.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
             p.chmod(0o755)
+            if os.name == "nt":
+                (Path(bin_dir) / (name + ".cmd")).write_text("@exit /b 0\r\n", encoding="utf-8")
 
     def test_env_ok_exits_zero(self):
         with tempfile.TemporaryDirectory() as tmp:

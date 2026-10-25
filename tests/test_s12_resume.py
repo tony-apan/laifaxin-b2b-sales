@@ -1,12 +1,12 @@
 import sys
-import unittest
-if sys.platform == "win32":
-    raise unittest.SkipTest("pty/termios 仅 POSIX 可用；Windows 不跑终端交互用例")
 import datetime
 import hashlib
 import json
 import os
-import pty
+if sys.platform == "win32":
+    pty = None  # POSIX-only; Windows 下类级 skip
+else:
+    import pty
 import select
 import shutil
 import subprocess
@@ -42,6 +42,7 @@ def stable_hash(value):
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
 
+@unittest.skipIf(sys.platform == "win32", "pty/termios 仅 POSIX 可用；Windows 不跑终端交互用例")
 class ResumeS12Test(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
