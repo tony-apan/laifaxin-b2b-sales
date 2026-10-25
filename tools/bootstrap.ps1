@@ -100,10 +100,16 @@ function Find-GitExe() {
 }
 
 function Find-BashExe() {
+  # ★Windows 自带 C:\Windows\System32\bash.exe 是 WSL 存根（没装发行版时直接失败），
+  #   不能把它当成 Git Bash；优先 Git for Windows，并且只返回真正能跑 grep/awk 的 bash。
+  $candidates = @()
+  foreach ($p in @("$env:ProgramFiles\Git\bin\bash.exe", "${env:ProgramFiles(x86)}\Git\bin\bash.exe", "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe")) {
+    if ($p -and (Test-Path $p)) { $candidates += $p }
+  }
   $c = Find-Cmd 'bash.exe'
-  if ($c) { return $c }
-  foreach ($p in @("$env:ProgramFiles\Git\bin\bash.exe", "${env:ProgramFiles(x86)}\Git\bin\bash.exe")) {
-    if (Test-Path $p) { return $p }
+  if ($c -and ($c -notmatch '\\Windows\\System32\\bash\.exe$')) { $candidates += $c }
+  foreach ($p in $candidates) {
+    if (Test-GrepAwk $p) { return $p }
   }
   return $null
 }

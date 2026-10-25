@@ -6,7 +6,7 @@
   tools/bootstrap.sh（macOS/Linux/Git Bash/WSL）或 tools/bootstrap.ps1（Windows PowerShell），SOP 见 specs/environment-setup.md）
 新增：扫描 runs/*/*/operation-record.md 输出"可续接项目"表（解析 frontmatter 状态定位节点，禁止从 S0 重跑；换机 SOP 见 specs/migration-handoff.md）。
 """
-import sys, subprocess, re
+import sys, subprocess, re, os
 from pathlib import Path
 KB = Path(__file__).resolve().parent.parent
 def _utf8_stdout():
@@ -198,15 +198,61 @@ def detect_python_cmd():
             pass
         cands.append(w)
     return cands[0] if cands else None
+
+def _bash_candidates():
+    """Windows 的 C:\\Windows\\System32\\bash.exe 是 WSL 存根（无发行版时直接失败），
+    不能只信 shutil.which；优先 Git for Windows 的 bash，并用 grep/awk 实测。"""
+    seen = set()
+    cands = []
+    def add(p):
+        if not p:
+            return
+        key = str(p).lower()
+        if key in seen:
+            return
+        seen.add(key)
+        cands.append(str(p))
+    if os.name == "nt":
+        for env_name, subdir in (("ProgramFiles", "Git"), ("ProgramFiles(x86)", "Git"),
+                                 ("LOCALAPPDATA", "Programs/Git")):
+            root = os.environ.get(env_name)
+            if root:
+                add(Path(root) / subdir.replace("/", os.sep) / "bin" / "bash.exe")
+    add(shutil.which("bash"))
+    return cands
+
+def _bash_supports_grep_awk(exe):
+    """Git Bash 里自带 grep/awk；WSL 存根或坏 profile 会失败，必须实测。"""
+    try:
+        p = subprocess.run(
+            [exe, "-lc", "command -v grep >/dev/null 2>&1 && command -v awk >/dev/null 2>&1"],
+            capture_output=True, timeout=10)
+        return p.returncode == 0
+    except Exception:
+        return False
+
+def detect_bash_cmd():
+    for exe in _bash_candidates():
+        if _bash_supports_grep_awk(exe):
+            return exe
+    return None
+
 python_cmd = detect_python_cmd()
+bash_cmd = detect_bash_cmd()
 print(f"  {'✅' if python_cmd else '❌'} Python 3 实际命令: {python_cmd or '未找到'}")
 env_ok = bool(python_cmd)
 print("   (说明: 本脚本≠安装器——它只能在 Python 已可运行后检查;全新电脑无 Python 时,由 AI 先跑零 Python 前提的")
 print("    环境引导: Windows PowerShell→tools/bootstrap.ps1(-CheckOnly/-Install); macOS/Linux/Git Bash/WSL→tools/bootstrap.sh(--check-only/--install); SOP=specs/environment-setup.md)")
 for tool, tip in [("curl", "Mac/Linux 自带; Windows 由Git for Windows/系统提供"), ("bash", "Mac/Linux 自带; Windows 需Git Bash/WSL"), ("grep", "gate_check依赖;Git Bash自带"), ("awk", "gate_check依赖;Git Bash自带")]:
-    found = shutil.which(tool) is not None
+    if tool == "bash":
+        found = bool(bash_cmd)
+    elif tool in ("grep", "awk"):
+        found = bool(bash_cmd)  # 已在该 bash 内实测过 grep/awk
+    else:
+        found = shutil.which(tool) is not None
     env_ok = env_ok and found
-    print("  {} {}: {}".format("✅" if found else "❌", tool, "已安装" if found else "未找到——" + tip))
+    label = f"（{bash_cmd}）" if tool in ("bash", "grep", "awk") and bash_cmd else ""
+    print("  {} {}: {}{}".format("✅" if found else "❌", tool, "已安装" if found else "未找到——" + tip, label))
 if python_cmd is None:
     print("  ❗ 未找到 python。本脚本自己就是 Python 脚本,不能自举安装——先让 AI 跑环境引导(命令可复制):")
     print("     ★【以下内容仅供 AI 内部执行，禁止直接转述给用户】环境问题由 AI 处理，"

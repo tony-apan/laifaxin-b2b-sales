@@ -239,6 +239,23 @@ class CrossPlatformTest(unittest.TestCase):
         self.assertNotIn("Traceback", out)
         self.assertIn("🛰", out, "输出必须显式切 UTF-8（否则 GBK/ascii 控制台下 emoji 会崩）")
 
+    def test_bootstrap_ps1_prefers_git_bash_over_wsl_stub(self):
+        """Windows 的 C:\\Windows\\System32\\bash.exe 是 WSL 存根：
+        bootstrap 必须先探测 Git for Windows，并且只返回能跑 grep/awk 的 bash。"""
+        text = (ROOT / "tools" / "bootstrap.ps1").read_text(encoding="utf-8")
+        fn = text[text.index("function Find-BashExe"):text.index("function Test-GrepAwk")]
+        self.assertLess(fn.index("Git\\bin\\bash.exe"), fn.index("Find-Cmd 'bash.exe'"),
+                        "Git Bash 必须排在 PATH 的 bash.exe 前面（System32 是 WSL 存根）")
+        self.assertIn("Test-GrepAwk $p", fn, "候选 bash 必须实测 grep/awk 后才能返回")
+
+    def test_onboard_check_prefers_git_bash_over_wsl_stub(self):
+        """安装门与 bootstrap 同一规则：Git 路径优先，且用 grep/awk 实测。"""
+        text = (ROOT / "tools" / "onboard_check.py").read_text(encoding="utf-8")
+        fn = text[text.index("def _bash_candidates"):text.index("def _bash_supports_grep_awk")]
+        self.assertLess(fn.index("ProgramFiles"), fn.index('add(shutil.which("bash"))'),
+                        "Git for Windows 路径必须排在 shutil.which('bash') 前面")
+        self.assertIn("command -v grep", text, "必须实测 grep/awk，不能只看 which")
+
     def test_check_login_stdout_is_forced_utf8(self):
         """gate_check 会把 check_login 的原始输出转给 AI；Windows 管道默认 GBK 会变乱码，
         所以脚本必须自己切 UTF-8。这里把默认输出编码压成 ascii 来验证。"""
