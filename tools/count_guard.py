@@ -185,6 +185,9 @@ def _ledger(plan: Dict[str, Any], unit: Decimal) -> Dict[str, Any]:
     b_plan = _as_decimal(ledger.get("b_plan"), "budget_ledger.b_plan")
     spent = _as_decimal(ledger.get("spent_all"), "budget_ledger.spent_all")
     left = _as_decimal(ledger.get("budget_left"), "budget_ledger.budget_left")
+    risk_ack = ledger.get("risk_ack")
+    if not isinstance(risk_ack, bool):
+        _fail("E_LEDGER_INVALID", "budget_ledger.risk_ack 必须是 bool，实际 %r" % (risk_ack,))
     upper = _as_decimal(ledger.get("per_company_upper"), "budget_ledger.per_company_upper")
     batch_upper = _as_decimal(ledger.get("batch_points_upper"),
                               "budget_ledger.batch_points_upper")
@@ -202,7 +205,7 @@ def _ledger(plan: Dict[str, Any], unit: Decimal) -> Dict[str, Any]:
         _fail("E_LEDGER_UPPER_TOO_LOW",
               "e*p=%s > 台账 per_company_upper=%s，预算分母偏小，不能算数量"
               % (unit, upper))
-    if confirmed > n_cons and not bool(ledger.get("risk_ack")):
+    if confirmed > n_cons and not risk_ack:
         _fail("E_LEDGER_QUANTITY_EXCEEDS_CONS",
               "confirm_n=%d > n_cons=%d，且没有 risk_ack" % (confirmed, n_cons))
     if confirmed > n_est:
@@ -213,7 +216,7 @@ def _ledger(plan: Dict[str, Any], unit: Decimal) -> Dict[str, Any]:
               "confirm_n=%d × 单价 %s > 台账批上界 %s" % (confirmed, unit, batch_upper))
     return {
         "confirm_n": confirmed, "n_cons": n_cons, "n_est": n_est,
-        "risk_ack": bool(ledger.get("risk_ack")),
+        "risk_ack": risk_ack,
         "b_plan": b_plan, "spent_all": spent, "budget_left": left,
         "per_company_upper": upper, "batch_points_upper": batch_upper,
         "org_hash": str(ledger.get("org_hash")),
@@ -246,6 +249,7 @@ def verify_ledger_file(root: Any, plan: Dict[str, Any]) -> None:
         "batch_points_upper": str(ledger.get("batch_points_upper")),
         "exec_quote_ref": str(ledger.get("exec_quote_ref") or ""),
         "round_id": str(ledger.get("round_id") or ""),
+        "risk_ack": ledger.get("risk_ack"),
     }
     for row in rows:
         if row.get("kind") != "plan" or row.get("state") != "ready":
@@ -262,7 +266,8 @@ def verify_ledger_file(root: Any, plan: Dict[str, Any]) -> None:
                 and payload.get("n_est") == wanted["n_est"]
                 and str(payload.get("batch_points_upper")) == wanted["batch_points_upper"]
                 and str(payload.get("round_id") or "") == wanted["round_id"]
-                and str(payload.get("exec_quote_ref") or "") == wanted["exec_quote_ref"]):
+                and str(payload.get("exec_quote_ref") or "") == wanted["exec_quote_ref"]
+                and payload.get("risk_ack") is wanted["risk_ack"]):
             return
     _fail("E_LEDGER_ROW_NOT_FOUND",
           "budget_ledger 在 .local/budget-ledger.jsonl 中找不到同内容 ready 行")

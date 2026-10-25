@@ -72,12 +72,13 @@ class S10PrecheckTest(unittest.TestCase):
         self.record = self.project_dir / "operation-record.md"
         self.write_record("S9")
         self.plan = self.project_dir / "s5-plan-final.json"
-        plan = {"project": PROJECT, "plan_id": "plan-test", "revision": 1,
+        wire = {"contactTags": TAGS, "companyTags": ["tag-company"],
+                "selectTotal": 5}
+        plan = {"kind": "save_plan", "project": PROJECT, "plan_id": "plan-test", "revision": 1,
                 "status": "confirmed", "selectTotal": 5,
-                "wire_payload_sha256": "0" * 64, "dependency_sha256": "0" * 64,
-                "count_hash": "a" * 64,
-                "wire_payload": {"contactTags": TAGS, "companyTags": ["tag-company"],
-                                  "selectTotal": 5}}
+                "wire_payload_sha256": save_plan.rule_check.canonical_hash(wire),
+                "dependency_sha256": "0" * 64, "count_hash": "a" * 64,
+                "wire_payload": wire}
         plan["binding_sha256"] = save_plan.binding_hash(plan)
         self.plan.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
         self.bin = self.tmp / "bin"
@@ -203,12 +204,26 @@ class S10PrecheckTest(unittest.TestCase):
         self.assertNotIn("sequences/contact-add", self.calls(),
                          "dry-run 不得写平台")
 
+    def test_tampered_wire_hash_blocks_before_write(self):
+        self.install_curl(total=5)
+        plan = json.loads(self.plan.read_text(encoding="utf-8"))
+        plan["wire_payload"]["contactTags"] = ["tag-other"]
+        self.plan.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+        ticket = self.mint_ticket()
+        r = self.run_add("--auth-ticket", str(ticket))
+        out = r.stdout + r.stderr
+        self.assertEqual(2, r.returncode, out)
+        self.assertIn("wire_payload_sha256", out)
+        self.assertNotIn("sequences/contact-add", self.calls())
+
     def test_plan_tag_mismatch_blocks_before_write(self):
         self.install_curl(total=5)
+        bad_wire = {"contactTags": ["tag-other"], "companyTags": ["tag-company"],
+                    "selectTotal": 5}
         self.plan.write_text(json.dumps({
-            "project": PROJECT, "selectTotal": 5, "count_hash": "a" * 64,
-            "wire_payload": {"contactTags": ["tag-other"], "companyTags": ["tag-company"],
-                              "selectTotal": 5}}, ensure_ascii=False), encoding="utf-8")
+            "kind": "save_plan", "project": PROJECT, "selectTotal": 5,
+            "wire_payload_sha256": save_plan.rule_check.canonical_hash(bad_wire),
+            "wire_payload": bad_wire}, ensure_ascii=False), encoding="utf-8")
         ticket = self.mint_ticket()
         r = self.run_add("--auth-ticket", str(ticket))
         out = r.stdout + r.stderr

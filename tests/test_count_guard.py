@@ -26,7 +26,7 @@ def evidence(threshold=450, pool=9999, returned=10, mode="strict"):
 def ledger(n=4444):
     return {"status": "ready", "org_hash": "org-demo", "round_id": "round-demo",
             "exec_quote_ref": "确认保存",
-            "confirm_n": n, "n_cons": n, "n_est": n,
+            "confirm_n": n, "n_cons": n, "n_est": n, "risk_ack": False,
             "b_plan": "10000", "spent_all": "0", "budget_left": "10000",
             "per_company_upper": "2.25", "batch_points_upper": "10000"}
 
@@ -174,6 +174,30 @@ class CountGuardTest(unittest.TestCase):
         d = count_guard.derive(evidence(), p, mode="calibrated")
         self.assertEqual(4444, d["select_total"])
 
+    def test_risk_ack_string_is_rejected(self):
+        p = plan()
+        p["budget_ledger"]["risk_ack"] = "false"
+        with self.assertRaises(count_guard.CountError) as cm:
+            count_guard.derive(evidence(), p, mode="calibrated")
+        self.assertEqual("E_LEDGER_INVALID", cm.exception.code)
+
+    def test_verify_ledger_file_rejects_forged_risk_ack(self):
+        import save_budget
+        p = plan()
+        p["project"] = "p/demo"
+        real = ledger(2)
+        real.update({"n_cons": 1, "n_est": 2, "risk_ack": False,
+                     "batch_points_upper": "100", "status": "ready",
+                     "org_hash": "org-demo"})
+        p["budget_ledger"] = dict(real)
+        p["budget_ledger"]["risk_ack"] = True
+        row = {"kind": "plan", "state": "ready", "project": "p/demo",
+               "org_hash": "org-demo", "payload": real}
+        with mock.patch.object(save_budget, "read_ledger", return_value=[row]):
+            with self.assertRaises(count_guard.CountError) as cm:
+                count_guard.verify_ledger_file(Path("/tmp"), p)
+        self.assertEqual("E_LEDGER_ROW_NOT_FOUND", cm.exception.code)
+
     def test_ledger_upper_below_plan_cost_is_rejected(self):
         p = plan()
         p["budget_ledger"]["per_company_upper"] = "1.0"
@@ -235,7 +259,7 @@ class PrepareIntegrationTest(unittest.TestCase):
                          "n_est": 4444, "batch_points_upper": "10000",
                          "spent_all": "0", "budget_left": "10000",
                          "per_company_upper": "2.25", "round_id": "round-demo",
-                         "exec_quote_ref": "确认保存"})
+                         "exec_quote_ref": "确认保存", "risk_ack": False})
             with mock.patch.object(save_plan, "validate_offline_tags"), \
                  mock.patch("segment_registry.validate_source"), \
                  mock.patch.object(save_plan, "build_dependencies", return_value={}):

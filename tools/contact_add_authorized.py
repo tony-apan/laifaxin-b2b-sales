@@ -91,11 +91,19 @@ if len(tags) != 1:
 plan_doc = None
 if args.plan:
     try:
-        plan_doc = json.loads(Path(args.plan).read_text(encoding="utf-8"))
+        import save_plan as _planlib
+        plan_doc = _planlib.load_plan(args.plan)
     except (OSError, ValueError) as exc:
         print(f"❌ S10 计划文件读不了: {args.plan}（{exc}）——不写平台"); sys.exit(2)
     wire = plan_doc.get("wire_payload") if isinstance(plan_doc, dict) else None
     wire = wire if isinstance(wire, dict) else {}
+    try:
+        import rule_check as _rule_check
+        expected_wire_hash = _rule_check.canonical_hash(wire)
+    except Exception as exc:
+        print(f"❌ S10 计划 wire 哈希无法重算: {exc}——不写平台"); sys.exit(2)
+    if plan_doc.get("wire_payload_sha256") != expected_wire_hash:
+        print("❌ S10 计划 wire_payload_sha256 与 wire_payload 内容不一致——旧计划/手改标签，不写平台"); sys.exit(2)
     if plan_doc.get("project") != args.project:
         print(f"❌ S10 计划项目不一致: plan={plan_doc.get('project')!r} CLI={args.project!r}——不写平台"); sys.exit(2)
     if wire.get("contactTags") != tags:
@@ -322,8 +330,8 @@ tag_detail = "、".join(f"{tg}（{tag_names.get(tg) or '未命名'}）={n} 人" 
 print(f"   本客群标签: {tag_detail}")
 print(f"   本客群标签下人数: {estimated_add} 人")
 print(f"   预计加人量: {estimated_add} 人（只加本客群标签内的联系人，不混其他客群）")
-print("   去重说明: 平台按联系人去重——已在库里/重复的联系人不会重复加入，实际 add 可能少于预计量；"
-      "以平台返回 add 为准，加完按「保存新增=标签人数=add」对账。")
+print("   去重说明: 本批按标签全量加入；若平台去重导致 add 少于标签人数，" 
+      "脚本会 fail-closed 并提示人工核对，不会静默推进。")
 print(f"   序列: {seq_item.get('name')}（status=inactive，未激活，加人不会发信）")
 gots = dict(precheck_counts)  # 写后对账复用同一份预检人数（不再重复查一遍）
 

@@ -74,12 +74,13 @@ class ContactAddTicketGateTest(unittest.TestCase):
         self.record = self.project_dir / "operation-record.md"
         self.write_record("S9")
         self.plan = self.project_dir / "s5-plan-final.json"
-        plan = {"project": PROJECT, "plan_id": "plan-test", "revision": 1,
+        wire = {"contactTags": TAGS, "companyTags": ["tag-company"],
+                "selectTotal": 5}
+        plan = {"kind": "save_plan", "project": PROJECT, "plan_id": "plan-test", "revision": 1,
                 "status": "confirmed", "selectTotal": 5,
-                "wire_payload_sha256": "0" * 64, "dependency_sha256": "0" * 64,
-                "count_hash": "a" * 64,
-                "wire_payload": {"contactTags": TAGS, "companyTags": ["tag-company"],
-                                  "selectTotal": 5}}
+                "wire_payload_sha256": save_plan.rule_check.canonical_hash(wire),
+                "dependency_sha256": "0" * 64, "count_hash": "a" * 64,
+                "wire_payload": wire}
         plan["binding_sha256"] = save_plan.binding_hash(plan)
         self.plan.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
         self.bin = self.tmp / "bin"
