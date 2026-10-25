@@ -625,6 +625,8 @@ class FailureReportingDisciplineTest(unittest.TestCase):
     def test_gate_check_empty_stdin_is_not_failure(self):
         """★实测复现：空 stdin（=AI 没接到钥匙）不得计入『不通过』。"""
         import subprocess, sys
+        if sys.platform == "win32":
+            self.skipTest("gate_check.sh 需要 Git Bash；Windows 主路径用 .py 门禁，.sh 由真机复核")
         result = subprocess.run(
             ["bash", str(ROOT / "tools" / "gate_check.sh"), "--credentials-stdin"],
             input="", text=True, capture_output=True, cwd=ROOT, timeout=60,
