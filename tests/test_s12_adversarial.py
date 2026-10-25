@@ -109,6 +109,36 @@ def _iso(dt=None):
     return (dt or datetime.now(timezone.utc)).isoformat()
 
 
+def _install_curl(bin_dir, cwd_dir, body):
+    """POSIX 用 sh 壳；Windows 编译 curl.exe 到工具 cwd（CreateProcess 先查当前目录）。"""
+    bin_dir = Path(bin_dir)
+    cwd_dir = Path(cwd_dir)
+    fake_py = cwd_dir / "fake_curl.py"
+    fake_py.write_text(body, encoding="utf-8")
+    if os.name != "nt":
+        curl = bin_dir / "curl"
+        curl.write_text('#!/bin/sh\nexec "%s" "%s" "$@"\n' % (sys.executable, fake_py), encoding="utf-8")
+        curl.chmod(0o755)
+        return
+    try:
+        from test_cross_platform import _WIN_CURL_SHIM_CS
+    except ImportError:
+        from tests.test_cross_platform import _WIN_CURL_SHIM_CS
+    win = Path(os.environ.get("WINDIR", r"C:\Windows"))
+    csc = next((q for q in (
+        win / "Microsoft.NET" / "Framework64" / "v4.0.30319" / "csc.exe",
+        win / "Microsoft.NET" / "Framework" / "v4.0.30319" / "csc.exe",
+    ) if q.exists()), None)
+    if csc is None:
+        raise unittest.SkipTest("Windows 需要 .NET Framework csc.exe 编译 curl 影子")
+    src = cwd_dir / "curl_shim.cs"
+    src.write_text(_WIN_CURL_SHIM_CS, encoding="utf-8")
+    exe = cwd_dir / "curl.exe"
+    subprocess.run([str(csc), "/nologo", "/out:" + str(exe), str(src)],
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, check=True)
+
+
+
 class S12AdversarialTest(unittest.TestCase):
     """在隔离副本里真跑工具，逐一尝试绕过激活闸门。"""
 
@@ -288,21 +318,16 @@ class S12AdversarialTest(unittest.TestCase):
         bin_dir = self.tmp / "bin-offline"
         bin_dir.mkdir(exist_ok=True)
         log = self.tmp / "activate-curl.log"
-        fake = bin_dir / "curl"
-        if os.name == "nt":
-            raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
-        fake.write_text(
-            "#!/usr/bin/env python3\n"
+        _install_curl(bin_dir, self.repo,
             "import os, sys\n"
             "with open(os.environ['ACT_LOG'], 'a', encoding='utf-8') as f:\n"
             "    f.write(' '.join(sys.argv[1:]) + '\\n')\n"
-            "print('{\"success\": true}')\n",
-            encoding="utf-8")
-        fake.chmod(0o755)
+            "print('{\"success\": true}')\n")
         env = os.environ.copy()
         env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
         env["ACT_LOG"] = str(log)
         env["LFX_GATE_TEST_MODE"] = "1"
+        env["LFX_FAKE_PYTHON"] = sys.executable
         r = subprocess.run(
             [sys.executable, str(self.repo / "tools" / "activate_sequence.py"),
              "--token", "fake", "--org", ORG, "--seq", SEQ,
@@ -455,15 +480,12 @@ class ManualActivationSyncTest(unittest.TestCase):
         log_code = ""
         if log is not None:
             log_code = 'with open(' + repr(str(log)) + ', "a") as fh:\n    fh.write(path + "\\n")'
-        fake = self.bin / "curl"
-        if os.name == "nt":
-            raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
-        fake.write_text(_fake_platform_script(status, log_code), encoding="utf-8")
-        fake.chmod(0o755)
+        _install_curl(self.bin, self.repo, _fake_platform_script(status, log_code))
 
     def sync(self, confirm="我已在网页激活 皮筏艇找客户", seq=None, record=None, extra=()):
         env = os.environ.copy()
         env["PATH"] = str(self.bin) + os.pathsep + env.get("PATH", "")
+        env["LFX_FAKE_PYTHON"] = sys.executable
         return subprocess.run(
             [sys.executable, str(self.repo / "tools" / "activate_sequence.py"),
              "--token", "fake", "--org", ORG, "--seq", seq or SEQ, "--sync-manual",
