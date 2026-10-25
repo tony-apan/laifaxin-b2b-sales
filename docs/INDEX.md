@@ -4,7 +4,7 @@ title: "docs 索引"
 description: "目录索引：来发信功能与实操教程的阅读顺序，按当前任务挑文档时读。"
 type: "index"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-25"
 ---
 
 # docs 索引
@@ -26,7 +26,7 @@ updated: "2026-10-23"
 | [11-replay-script.md](11-replay-script.md) | 从头演练脚本 | 做全流程演练或彩排时 |
 | [12-conversation-postmortem.md](12-conversation-postmortem.md) | 对话复盘：全部问题提炼与铁律 | 复盘错误、提炼执行铁律时 |
 | [13-rule-ensure-read.md](13-rule-ensure-read.md) | 设计：如何确保 AI 先读规则再执行 | 修改规则加载与门禁机制时 |
-| [14-novice-walkthrough-demo.md](14-novice-walkthrough-demo.md) | 新手全流程逐环节模拟演示（含逻辑说明） | 要知道每步用户看到什么、为什么这样设计时 |
+| [14-novice-walkthrough-demo.md](14-novice-walkthrough-demo.md) | 新手全流程逐环节模拟演示（含逻辑说明；AI 内部排练稿，不是客户话术） | 要知道每步用户看到什么、为什么这样设计时 |
 | [delivery-notes-2026-10-23.md](delivery-notes-2026-10-23.md) | 本轮交付清单与测试证据 | 复盘本轮改动、核对交付证据时 |
 | [fresh-computer-checklist.md](fresh-computer-checklist.md) | 全新电脑首次安装逐步自检清单（AI 执行） | 换新电脑、第一次安装、排查环境时 |
 | [cross-platform-setup.md](cross-platform-setup.md) | Windows/macOS 通用上手与报错对表 | 换电脑、装环境、遇到平台差异报错时 |

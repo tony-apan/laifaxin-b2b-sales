@@ -4,9 +4,9 @@ title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载�
 description: "技能入口：触发路由、前置、状态机判据、铁律与文件地图；细节指向 RULES 与 specs，禁止跳步。"
 type: "entry"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-25"
 name: laifaxin-b2b-sales
-version: 0.5.44
+version: 0.6.0
 created: 2026-08-30
 author: "独立审查 agent（对抗判定后落地）"
 related: [RULES.md, INDEX.md, methodology/decision-trees.md]

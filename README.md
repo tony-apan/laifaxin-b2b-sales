@@ -4,7 +4,7 @@ title: "来发信：让 AI 帮你找海外买家、写开发信、自动跟进"
 description: "面向人的项目说明：能力范围、安装步骤与阅读顺序，第一次了解本 Skill 时读。"
 type: "readme"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-25"
 ---
 
 # 来发信：让 AI 帮你找海外买家、写开发信、自动跟进
@@ -16,6 +16,11 @@ updated: "2026-10-23"
 本仓库是给 AI 使用的免费操作说明书和工具箱，需要配合 [来发信平台](https://laifa.xin) 使用。它能减少重复劳动，但不保证询盘或订单，也不会未经你确认就激活发信。
 
 > **三句话看懂**：① 把下面那段话原样发给能操作你电脑的 AI；② AI 自己装环境、做自检，然后只问你「昵称 + 产品」；③ 之后您只回编号或确认（连账号时可能要复制两行登录信息，不是密码、不用付钱），最后说「确认激活」才开始发信。**Windows 和 Mac 都支持：Windows 按清单处理 `py`/路径/执行策略差异；不用提前装 Python。全新 Windows 实机尚未验收，证据边界见 [跨平台说明](docs/cross-platform-setup.md)。**
+
+> **🧪 预览分支提示（仅 novice-onboarding 分支）**：本页是下一版预览，GitHub 默认分支 master 还是旧版。
+> 照下面的安装话术会装到旧版；要在本分支上测，让 AI 用：
+> git clone -b novice-onboarding https://github.com/tony-apan/laifaxin-b2b-sales.git
+> 合并到 master 后请删除本段（release 检查项）。
 
 > **还没有来发信账号？** 先去 [官网](https://laifa.xin) 点页面上的「免费注册」（注册免费，不需要先付费）。注册后可以先领取官网标注的新人权益，再回来跑流程。账号和权益的实时口径以官网客服答复为准；本仓库只负责带 AI 跑流程，不代办注册、不替平台承诺权益。
 
@@ -29,6 +34,7 @@ updated: "2026-10-23"
 | 🌱 **AI 装好后的第一页** | [新手一页流程 specs/beginner-flow.md](specs/beginner-flow.md)（**给 AI 看，您不用读**；6 步 + 发信开关，约 10 次回话） |
 | 🆕 **已经用过、换了台电脑** | [全新电脑检查清单 docs/fresh-computer-checklist.md](docs/fresh-computer-checklist.md)（AI 照单执行，您不用敲命令） |
 | 🖥 **Windows / Mac 差异** | [通用上手说明 docs/cross-platform-setup.md](docs/cross-platform-setup.md)（**给 AI 的排障表，您不用照着敲**） |
+| 🎬 **老板视角·全流程演示** | [docs/14-novice-walkthrough-demo.md](docs/14-novice-walkthrough-demo.md)（**给 AI 的排练稿，不是给客户的话术**；14 环节逐屏 + 走叉处理） |
 | 🗺️ **给 AI：全流程逐模块逻辑/跳步规则/70% 适用边界** | [specs/step-map.md](specs/step-map.md)（Mermaid 源码 + 12 模块 + 文档索引） |
 | 🗺️ **先看新项目怎么工作** | [一张图看懂获客流程](#how-it-works) |
 | 🎯 **先判断产品是否适合** | [查看适合与不适合的产品](#fit) |

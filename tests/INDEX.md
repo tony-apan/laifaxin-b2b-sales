@@ -4,7 +4,7 @@ title: "tests 索引"
 description: "目录索引：测试用例分组、运行方式与文档回归测试入口，跑回归前读。"
 type: "index"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-25"
 ---
 
 # tests 索引
@@ -50,6 +50,7 @@ updated: "2026-10-23"
 | test_novice_flow_contract.py | 新手流程契约测试（specs/novice-flow-contract.md v1.0）。 | 改新手契约/回复次数后 |
 | test_product_profile_hardening.py | 产品档案硬约束：字段校验/版本/hash/回落 | 改产品档案校验/回落后 |
 | test_registration_facts.py | 注册/开通事实口径测试（2026-09-09 对抗审查）。 | 改注册/开通事实口径后 |
+| test_release_consistency.py | 发布一致性：SKILL 版本 = CHANGELOG 最新条目；README/总索引挂演示稿；模板改名有映射记录。 | 发版、改版本号或新手入口后 |
 | test_render_html_preview.py | HTML 预览渲染测试：加粗标记不泄漏、CTA 段独立标注、变量替换正确。 | 改 HTML 预览渲染后 |
 | test_repo_layout.py | 仓库目录布局纪律测试（防「影子副本」回退）。 | 改仓库目录布局后 |
 | test_repo_references.py | 仓库自洽性：文档引用的工具/模板必须真实存在（2026-10-23 新手实测暴露）。 | 改文档引用/模板位置后 |

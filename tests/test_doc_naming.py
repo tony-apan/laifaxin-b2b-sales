@@ -139,6 +139,9 @@ class DocNamingTest(unittest.TestCase):
     def test_old_chinese_names_gone(self):
         hits = {}
         for path in _text_files():
+            if path.name == "CHANGELOG.md":
+                # CHANGELOG 是历史记录：允许保留「旧名→新名」迁移映射，不算仍在引用旧文件。
+                continue
             try:
                 text = path.read_text(encoding="utf-8", errors="ignore")
             except OSError:

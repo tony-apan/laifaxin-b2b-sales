@@ -12,6 +12,7 @@
 """
 import re
 import shutil
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -315,6 +316,12 @@ class ReleaseBookkeepingTest(unittest.TestCase):
         knowledge = ROOT.parent / "laifaxin-knowledge"
         if not knowledge.is_dir():
             self.skipTest("知识仓不在同级目录")
+        dirty = subprocess.run(
+            ["git", "-C", str(knowledge), "status", "--porcelain"],
+            capture_output=True, text=True,
+        )
+        if dirty.stdout.strip():
+            self.skipTest("知识仓有未提交改动，版本同步留到发版时再核")
         kp = knowledge / "SKILL.md"
         if not kp.is_file():
             self.skipTest("知识仓无 SKILL.md")

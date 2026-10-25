@@ -4,12 +4,44 @@ title: "Changelog"
 description: "公开库版本记录：按版本列出功能、修复与文档变更，排查版本差异或发布前查。"
 type: "record"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-25"
 ---
 
 # Changelog
 
 本公开库版本记录。语义化版本：新功能/工具批次 → minor（v0.x.0）；修复/文档 → patch（v0.2.x）。
+
+## [v0.6.0] - 2026-10-25
+
+**新手线收口：装完只问两样、6 步走完、换电脑能自检（含话术/机器门/跨平台）。**
+
+- **首屏与话术**：新用户装完直接问「怎么称呼您 + 一句话产品」，不再出任务菜单/数字；确认点统一回数字；保存只认「确认保存 + 家数」；S12 激活两条路（「确认激活 <计划名>」/「我已在网页激活 <计划名>」）并三态回读；对用户可见话术去黑话（客群/序列/硬门/审批凭证等）。
+- **新手文档**：新增 `docs/14-novice-walkthrough-demo.md`（14 环节逐屏演示 + 走叉处理）、`docs/fresh-computer-checklist.md`（全新电脑自检）、`docs/cross-platform-setup.md`（Windows/macOS 差异）；`specs/step-map.md` 补 Mermaid 总览与逐模块逻辑；README 快速入口新增演示稿。
+- **机器门**：开工前 6 份必读 sha256 登记（`startup_gate`）、执行卡校验、16 个写脚本入口统一拦截；新增跨平台 `tools/preflight.py`；pre-commit/pre-push 钩子统一跑 `tools/preflight.sh`。
+- **模板命名**：`output-templates/` 中文文件名统一为英文（内容不变；索引/README/文档已同步）。映射：
+
+| 旧文件名 | 新文件名 |
+|---|---|
+| `S0-产品知识档案.md` | `S0-product-profile.md` |
+| `S0-任务菜单.md` | `S0-task-menu.md` |
+| `S0-安装完成汇报.md` | `S0-install-report.md` |
+| `S0-画像方案.md` | `S0-fit-plan.md` |
+| `S2-客群确认.md` | `S2-segment-confirm.md` |
+| `S3-种子确认.md` | `S3-seed-confirm.md` |
+| `S4-审计进行中.md` | `S4-audit-running.md` |
+| `S5-保存确认.md` | `S5-save-confirm.md` |
+| `S6-数量账.md` | `S6-count-report.md` |
+| `S7-模板确认.md` | `S7-template-confirm.md` |
+| `S8-模板构建中.md` | `S8-template-building.md` |
+| `S9-序列确认.md` | `S9-sequence-confirm.md` |
+| `S10-加联系人确认.md` | `S10-contacts-confirm.md` |
+| `S11-完成汇报.md` | `S11-completion-report.md` |
+| `S12-激活确认.md` | `S12-activation-confirm.md` |
+
+- **测试**：381 条增至 647 条；修复 4 个测试把 S11 收口时间写死为 2026-10-23 的时间炸弹（超过 24h 窗口后任何电脑都会失败），改为运行时生成。
+- **CI**：新增 `.github/workflows/preflight.yml`（ubuntu bash/python 双入口 + Windows smoke，Windows 暂为证据用、不阻断）。
+- **回答纪律**：SKILL/AGENTS 增加「涉及规则/数字/话术前先读文档并给出来源，不凭记忆作答」。
+- **边界**：Windows 全新实机尚未验收；平台投递能力（SPF/DKIM/DMARC、域名/IP、预热）由平台负责，不承诺询盘或订单。
 
 ## [v0.5.44] - 2026-09-23
 
