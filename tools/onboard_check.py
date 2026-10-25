@@ -9,10 +9,19 @@
 import sys, subprocess, re
 from pathlib import Path
 KB = Path(__file__).resolve().parent.parent
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：输出中文/emoji 需显式 UTF-8（与 preflight.py 同一处理）。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+_utf8_stdout()
 def show(path, maxh=12):
     p=KB/path
     if not p.exists(): print(f"  (缺 {path})"); return
-    lines=p.read_text().split("\n")
+    # ★Windows 的默认编码是 GBK：这里不显式指定会把 UTF-8 文档读崩（UnicodeDecodeError）
+    lines=p.read_text(encoding="utf-8", errors="replace").split("\n")
     print(f"── {path} ──")
     for l in lines[:maxh]:
         if l.strip(): print("  "+l)

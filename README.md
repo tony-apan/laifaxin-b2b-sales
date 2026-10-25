@@ -358,7 +358,7 @@ README 只负责带你入门；执行时以 `RULES.md` 和对应 `specs/` 为准
 4. 用 bootstrap 返回的 python_cmd 运行 tools/onboard_check.py，列出可续接项目、operation-record 状态和 product-profile 版本/确认状态/更新时间。
 5. 让我选择项目；读取运营方档案和该项目的 operation-record/product-profile/reflection/evidence/verify-*，报告当前节点、已完成、未完成和下一步。
 6. token 不从旧机迁移；在新电脑重新获取，再运行 check_login.py 和 gate_check.sh。
-7. 恢复后立即运行 approval.py demote-migrated --confirm MIGRATION-DEMOTE，把旧 confirmed 凭证降为 backfilled（只审计、不可授权）；未执行的写操作和 S12 在当前对话重新确认。
+7. 恢复后立即运行 approval.py demote-migrated --confirm MIGRATION-DEMOTE，把旧 confirmed 凭证降为 backfilled（只审计、不可授权）；未执行的写操作和 S12 在当前对话重新确认。降级前先确认 .local/approvals.tsv 是「带 BOM 的 UTF-8」：无 BOM 中文账本会被拒绝整文件重写、GBK 账本会报错，均需备份后人工确认转码再重跑；降级完成前不要开始业务。
 8. 只从记录的当前节点继续；禁止重复建档、保存、建模板或序列。记录不一致就进入 ERROR_BLOCKED，只读核对后再处理。
 9. 汇报环境、恢复目录、项目状态、profile 版本/hash、token 复验结果、下一步和仍需我确认的动作。
 ```

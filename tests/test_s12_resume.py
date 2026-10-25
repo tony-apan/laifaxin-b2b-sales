@@ -202,7 +202,7 @@ class ResumeS12Test(unittest.TestCase):
         path = self.repo / ".local" / "approvals.tsv"
         if not path.exists():
             return []
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
         header = lines[0].split("\t")
         return [dict(zip(header, line.split("\t"))) for line in lines[1:]]
 

@@ -50,6 +50,8 @@ if [ -z "$PY" ]; then
   echo "═══════════════════════════════════════════════════════════"
   exit 1
 fi
+# ★子进程输出编码：Windows 下 python 写管道默认 GBK，本脚本把原始输出转给 AI 看，必须统一 UTF-8
+export PYTHONIOENCODING=utf-8
 PASS=0; FAIL=0; PENDING=0
 # BLOCK 取最高优先级的"卡在哪"（1=最需要用户动手），用于生成最后一节白话
 BLOCK=""; BLOCK_RANK=99

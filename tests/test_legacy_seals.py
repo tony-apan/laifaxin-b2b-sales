@@ -41,7 +41,8 @@ def run_tool(script, *args, env_extra=None, timeout=120):
         env.update(env_extra)
     return subprocess.run(
         [sys.executable, str(TOOLS / script), *[str(a) for a in args]],
-        cwd=str(ROOT), capture_output=True, text=True, env=env, timeout=timeout)
+        cwd=str(ROOT), capture_output=True, text=True,
+        encoding="utf-8", errors="replace", env=env, timeout=timeout)
 
 
 class LegacyScriptSealTest(unittest.TestCase):

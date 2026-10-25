@@ -31,10 +31,48 @@ VALID_STATUS = ("confirmed", "backfilled")  # 历史读取兼容; backfilled 只
 COLUMNS = ["id","project_id","state","decision","user_quote","memo","time","status"]
 
 
-def _rows():
+BOM = b"\xef\xbb\xbf"
+
+
+def _read_approvals_text(require_marked=False):
+    """读 approvals.tsv。
+
+    带 BOM → UTF-8；无 BOM → 按 UTF-8 严格解码（解不开就是旧 GBK，明确报错，不猜）。
+    无 BOM 的中文存在「旧 GBK 字节恰好是合法 UTF-8」的二义性：读出来仅用于显示可以，
+    但任何“重写整文件”的动作（demote-migrated / 追加前升级）必须 require_marked=True 拒绝二义性文件，
+    避免把错读的结果永久写回磁盘。
+    """
+    data = APPROVALS.read_bytes()
+    if not data:
+        return ""
+    if data.startswith(BOM):
+        try:
+            return data[len(BOM):].decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValueError(
+                f"审批账本带 UTF-8 BOM，但正文不是合法 UTF-8：{APPROVALS}。"
+                "为避免把审批原话永久写坏，本工具不改写该文件；请先备份，人工确认后修复编码再重跑。"
+            ) from exc
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError(
+            f"审批账本不是 UTF-8：{APPROVALS}（很可能是旧版 Windows 按 GBK 写出）。"
+            "为避免把审批原话永久写坏，本工具不自动猜编码；请先备份，人工确认后手动转成 UTF-8。"
+        ) from exc
+    if require_marked and not text.isascii():
+        raise ValueError(
+            f"审批账本是无 BOM 的中文文件：{APPROVALS}（UTF-8 与旧 GBK 存在二义性，部分 GBK 字节也是合法 UTF-8）。"
+            "为避免迁移时把审批原话永久写坏，本操作拒绝自动重写；请先备份，人工确认后手动转成「带 BOM 的 UTF-8」。"
+        )
+    return text
+
+
+def _rows(require_marked=False):
     if not APPROVALS.exists():
         return []
-    lines = [l.rstrip("\n").split("\t") for l in APPROVALS.read_text().splitlines() if l.strip()]
+    lines = [l.rstrip("\n").split("\t")
+             for l in _read_approvals_text(require_marked=require_marked).splitlines() if l.strip()]
     if not lines:
         return []
     header = lines[0]
@@ -140,7 +178,11 @@ def require_approval(approval_id, project, states, what="", expected_hash=None):
     if not approval_id:
         print(f"❌ 缺审批凭证 --approval <id>（{what}）。写操作必须先经确认节点或专门审批命令(tools/approval.py grant)铸造, 凭证见 .local/approvals.tsv(审批闸门(工具级))。")
         raise SystemExit(1)
-    r = find_approval(approval_id, project, states, expected_hash=expected_hash)
+    try:
+        r = find_approval(approval_id, project, states, expected_hash=expected_hash)
+    except ValueError as exc:
+        print(f"❌ 审批账本不可用：{exc}")
+        raise SystemExit(1) from exc
     if not r:
         print(f"❌ 审批凭证无效/状态不符/参数绑定不匹配: approval={approval_id} project={project} states={list(states)}。拒绝写操作(审批闸门(工具级))。")
         cands = [x for x in _rows() if x.get("id") == approval_id]
@@ -168,7 +210,11 @@ def record(project, state, decision, quote, params_hash, status="confirmed"):
     ★decision="modify" 强制 status="modified"(不可授权); 其余非 confirm 的 decision 建议显式传 pending 等不可授权状态。"""
     if decision == "modify":
         status = "modified"  # ★修改记录不可授权
-    _rows()
+    try:
+        _rows()
+    except ValueError as exc:
+        print(f"❌ 审批账本不可用：{exc}")
+        raise SystemExit(1) from exc
     project, state = _tsv_cell(project, 200), _tsv_cell(state, 100)
     decision, quote = _tsv_cell(decision, 100), _tsv_cell(quote)
     params_hash, status = _tsv_cell(params_hash, 200), _tsv_cell(status, 50)
@@ -177,9 +223,17 @@ def record(project, state, decision, quote, params_hash, status="confirmed"):
     line = f"{aid}\t{project}\t{state}\t{decision}\t{quote}\t{params_hash}\t{t}\t{status}\n"
     # ★ISS-51: 首次创建文件须写表头（否则首行数据被当 header，闸门全失效）
     if not APPROVALS.exists() or APPROVALS.stat().st_size == 0:
-        with open(APPROVALS, "w") as f:
+        with open(APPROVALS, "w", encoding="utf-8-sig", newline="\n") as f:
             f.write("\t".join(COLUMNS) + "\n")
-    with open(APPROVALS, "a") as f:
+    elif not APPROVALS.read_bytes().startswith(BOM):
+        # 旧账本若为纯 ASCII 才补 BOM（内容原样保留）；无 BOM 的中文有二义性，保持原样、只追加，
+        # 任何整文件重写（demote-migrated）会被 require_marked 拒绝，避免永久写坏。
+        if _read_approvals_text().isascii():
+            # 读-改-写用临时文件 + 原子替换，避免中途崩溃/并发追加截断整本账
+            tmp = APPROVALS.with_suffix(".tsv.bomtmp")
+            tmp.write_bytes(BOM + APPROVALS.read_bytes())
+            os.replace(tmp, APPROVALS)
+    with open(APPROVALS, "a", encoding="utf-8", newline="\n") as f:
         f.write(line)
     return aid
 
@@ -238,7 +292,7 @@ def _load_params(args):
     return obj
 
 
-def main(argv=None):
+def _main(argv=None):
     import argparse
     ap = argparse.ArgumentParser(prog="approval.py", description="审批凭证铸造/查询(专门审批命令): 对应写工具执行前按实际参数铸造绑定凭证; 工具端会按本次实际参数重算哈希比对, 不信本命令之外传入的哈希")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -261,13 +315,14 @@ def main(argv=None):
     if args.cmd == "demote-migrated":
         if args.confirm != "MIGRATION-DEMOTE":
             print("❌ 须 --confirm MIGRATION-DEMOTE"); raise SystemExit(2)
-        rows = _rows()
+        rows = _rows(require_marked=True)
         changed = 0
         for row in rows:
             if row.get("status") == "confirmed": row["status"] = "backfilled"; changed += 1
         APPROVALS.parent.mkdir(parents=True, exist_ok=True)
         tmp = APPROVALS.with_suffix(".tsv.tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
+        # 保持 BOM 标记：否则重写后的中文文件变成“无 BOM 二义性”，下次 demote 会被拒绝
+        with open(tmp, "w", encoding="utf-8-sig", newline="\n") as f:
             f.write("\t".join(COLUMNS) + "\n")
             for row in rows: f.write("\t".join(_tsv_cell(row.get(c, "")) for c in COLUMNS) + "\n")
         tmp.replace(APPROVALS)
@@ -304,6 +359,15 @@ def main(argv=None):
     print(f"   → 工具执行须带: --approval {aid} --project {args.project} (且工具实际参数与本JSON逐字段一致)")
     if status != "confirmed":
         print("   ⚠️ status=modified——本凭证不可授权任何写操作, 仅作修改意见留痕")
+
+
+def main(argv=None):
+    """CLI 入口：账本编码不可确认时给一句白话退出，不甩 traceback（fail-closed）。"""
+    try:
+        return _main(argv)
+    except ValueError as exc:
+        print(f"❌ 审批账本不可用：{exc}")
+        raise SystemExit(1) from exc
 
 
 if __name__ == "__main__":

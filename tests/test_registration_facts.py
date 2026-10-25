@@ -236,7 +236,8 @@ class PlainStepMappingTest(unittest.TestCase):
             repo = Path(tmp) / "repo"
             shutil.copytree(ROOT, repo, ignore=shutil.ignore_patterns(".git", "__pycache__", ".local", "runs"))
             out = subprocess.run([sys.executable, "-c", script], cwd=str(repo),
-                                 capture_output=True, text=True, timeout=120)
+                                 capture_output=True, text=True,
+                                 encoding="utf-8", errors="replace", timeout=120)
         self.assertEqual(0, out.returncode, out.stderr[-400:])
         lines = dict(l.split(" => ", 1) for l in out.stdout.strip().splitlines() if " => " in l)
         # ★语义断言：白话必须真的描述那个阶段（防 fallback 兜底通过）

@@ -40,6 +40,9 @@ updated: "2026-10-25"
 - `.gitattributes` 固定行尾：脚本/文档用 LF，`.ps1` 用 CRLF，Windows 检出后 bash 脚本不会因 `\r` 报错。
 - Windows 控制台若中文/emoji 乱码：跑 `py -X utf8 -c "print('中文 emoji ✅')"`；PowerShell 用 `$env:PYTHONUTF8='1'`、Git Bash 用 `export PYTHONUTF8=1`（`set` 在 PowerShell/Git Bash 都不是环境变量）。
 - 路径一律用仓库相对路径（`tools\...` 或 `tools/...`），不要手写 `C:\Users\...`、`/Users/...` 这类本机绝对路径。
+- 脚本读写文件一律显式 `encoding="utf-8"`（存量脚本逐步补齐）：简体中文 Windows 默认 GBK/cp936，其他语言是对应 ANSI 代码页（cp1252/cp932…）。裸 `read_text()`/`open()` 可能报 `UnicodeDecodeError`（`'gbk'`/`'charmap'`/`'cp932'` 等），也可能只是乱码——处置相同：先确认代码版本，**不要靠切 PYTHONUTF8 或转码文件掩盖**。实测发生在安装门 `onboard_check`。
+- `gate_check.sh` 调 python 子进程时统一 `PYTHONIOENCODING=utf-8`，否则「原始输出」明细在 Windows 上会变乱码。
+- 审批账本 `.local/approvals.tsv` 是例外：只接受 UTF-8 或「带 BOM 的 UTF-8」。旧版 Windows 写出的 GBK 账本会**明确报错且不会被自动改写**（避免审计原话被永久写坏）；无 BOM 的中文账本可以读取，但会被拒绝整文件重写。换机恢复时请先备份、人工确认，转成**带 BOM 的 UTF-8**，再执行 `approval.py demote-migrated`（迁移流程必做步骤，见 `specs/migration-handoff.md`）。
 
 ## 5. 常见报错对表
 
@@ -49,6 +52,7 @@ updated: "2026-10-25"
 | `python3` 存在却报「Python was not found」/ 退出码 49 | 微软商店占位符：改用 `py`；仓库脚本会自动跳过占位符 | 一般不出现 |
 | 找不到 `bash` | `preflight` 用 `py tools/preflight.py`（会走 Python 兜底）；但 `onboard_check` 会 exit 2——先装 Git for Windows 的 Git Bash（WSL 的 bash 不算） | 系统自带 bash，直接跑 |
 | 中文/emoji 乱码 | 用 `py -X utf8 ...`，或 PowerShell `$env:PYTHONUTF8='1'` / Git Bash `export PYTHONUTF8=1` | 一般无需处理 |
+| 审批账本报「不是 UTF-8」/ 无 BOM 中文账本被拒绝重写 | 旧版 Windows 按 GBK 写出，或转码时没带 BOM | 备份 `.local/approvals.tsv` → 人工确认 → 转成「带 BOM 的 UTF-8」→ 再跑迁移命令 |
 | 钩子 `Permission denied` | Git Bash 里 `chmod +x .githooks/*` | `chmod +x .githooks/*` |
 | 脚本报 `\r` 相关错误 | `git config core.autocrlf false` 后重新检出 | 一般不会出现 |
 

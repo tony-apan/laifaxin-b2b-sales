@@ -15,6 +15,16 @@ from urllib import error, request
 from credential_input import Invalid, parse_credentials
 
 
+def _utf8_stdout():
+    """Windows 控制台/管道默认 GBK：中文会乱码或抛 UnicodeEncodeError。
+    gate_check.sh 会把本脚本输出原样捕获给 AI 看，必须显式 UTF-8（同 preflight.py）。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
 GUIDE_URL = "https://www.laifa.xin/share/ai/laifaxin-ai-account-connection"
 TOKEN_SHAPE = re.compile(r"[^\s&]+&[^\s&]+&[^\s&]+")
 DEFAULT_FAIL_FILE = Path(__file__).resolve().parent.parent / ".local" / "token-fail.json"
@@ -166,6 +176,7 @@ def _record_failure(token, fail_file, now):
 
 def main(argv=None, *, stdin=None, request=request_once, sleep=time.sleep,
          fail_file=DEFAULT_FAIL_FILE, now=None):
+    _utf8_stdout()
     args = _parser().parse_args(argv)
     stdin = stdin or sys.stdin
     now = now or (lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))

@@ -43,11 +43,13 @@ updated: "2026-10-25"
 
 | # | 动作 | Windows | macOS | 通过信号 |
 |---|---|---|---|---|
-| 9 | 拉取仓库 | `git clone https://github.com/tony-apan/laifaxin-b2b-sales.git`（目录名用英文） | 同左 | 看到 `README.md`、`SKILL.md`、`tools/` |
+| 9 | 拉取仓库 | `git clone -b novice-onboarding https://github.com/tony-apan/laifaxin-b2b-sales.git`（目录名用英文；该分支不存在时改用默认分支，并确认含 2026-10-25 修复） | 同左 | 看到 `README.md`、`SKILL.md`、`tools/` |
 | 10 | 安装自检 | `py tools/onboard_check.py` | `python3 tools/onboard_check.py` | **退出码 0** 才算通过；⚠️「安装/学习自检完成」在缺依赖时也会打印，不能只看这句话。需要 Python（`py`/`python3` 任一可运行）+ curl + bash + grep + awk |
 | 11 | 提交钩子（可选） | Git Bash 里 `bash tools/install_hooks.sh` | `bash tools/install_hooks.sh` | 之后 commit/push 前自动自检 |
 
 > **维护者交付前（不属安装流程）**：`py tools/preflight.py` 末行 `PREFLIGHT PASS`、退出码 0。这是发布门，安装时不跑、不对用户提；Windows 上失败按已知欠账单独记录。
+>
+> 分支说明（维护者）：master 目前仍是旧版，预览分支才含 2026-10-25 修复；合并 master 后把安装步骤里的 `-b novice-onboarding` 去掉并删掉本条。
 
 ## 4. 进入业务流程（AI 按 SKILL.md 路由）
 
@@ -70,7 +72,8 @@ updated: "2026-10-25"
 | `python3` 不是内部命令 | Windows 没有 python3 别名 | 改用 `py`，或装 Python 时勾 Add to PATH |
 | `python3` 存在却报「Python was not found」/ 退出码 49 | Windows 应用商店占位符 | 改用 `py`；仓库脚本会自动跳过占位符 |
 | `bash` 找不到 | Windows 没装 Git Bash | 先装 Git Bash 再重跑 `onboard_check`（`preflight` 是维护者发布门，不能修安装门）；钩子暂不装 |
-| 中文/emoji 乱码 | 控制台编码不是 UTF-8 | PowerShell `$env:PYTHONUTF8='1'` 或 Git Bash `export PYTHONUTF8=1` 后重跑 |
+| `UnicodeDecodeError: 'gbk' codec can't decode`（其他语言 Windows 也可能报 `'charmap'`、`'cp932'` 等） | 旧版脚本按系统 ANSI 代码页读 UTF-8 中文文档（已修，需含修复的版本） | 更新到**当前分支**的最新提交（必要时按 README 重新 clone）；**别用「中文/emoji 乱码」一行的 PYTHONUTF8 或转码文件掩盖**；仍报错=当前分支不含修复（master 旧版没有此修复），按第 9 步重新 clone/切到含修复分支，仍失败再按缺陷上报作者 |
+| 中文/emoji 乱码 | 控制台编码不是 UTF-8（只影响显示，与上一行的解码错误是两回事） | PowerShell `$env:PYTHONUTF8='1'` 或 Git Bash `export PYTHONUTF8=1` 后重跑 |
 | `Permission denied`（钩子） | 脚本无执行位 | Git Bash 里 `chmod +x .githooks/*` |
 | `onboard_check` 打印「自检完成」但退出码 2 / 缺 curl、bash、grep、awk | 环境依赖没齐 | 装 Git Bash（自带 grep/awk/curl）或对应工具后重跑；**不能跳过**（AGENTS 硬门：未通过不得开始），确实装不上就先停下问作者 |
 | 自检较慢 | `onboard_check` 正常 30 秒内；超过 2 分钟多半卡在版本检查 | 播报「正在自检，约 1 分钟，您不用操作」 |

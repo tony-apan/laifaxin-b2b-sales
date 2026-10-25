@@ -1238,7 +1238,8 @@ class BothValuesRequiredTest(unittest.TestCase):
                              ("orgId=123456\n", "第二行")):
             r = subprocess.run(
                 [sys.executable, str(ROOT / "tools" / "check_login.py"), "--credentials-stdin"],
-                input=blob, text=True, capture_output=True, timeout=60)
+                input=blob, text=True, encoding="utf-8", errors="replace",
+                capture_output=True, timeout=60)
             with self.subTest(blob=blob.strip()):
                 self.assertEqual(2, r.returncode, "缺一半必须拒绝")
                 self.assertIn(expect, r.stderr, f"须用位置说法指明缺的是{expect}")
