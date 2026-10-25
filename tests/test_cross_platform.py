@@ -603,5 +603,31 @@ class CrossPlatformTest(unittest.TestCase):
         self.assertIn("python3 tools/startup_gate.py", text)
 
 
+    @unittest.skipUnless(sys.platform == "win32", "Windows 专属：Git Bash 下 gate_check.sh 真机行为")
+    def test_gate_check_sh_runs_under_git_bash_on_windows(self):
+        """Windows 上 gate_check.sh 经 Git Bash 跑：空钥匙=还差一步、格式错=让用户重新复制；零 Traceback。"""
+        git_bash = next((p for p in (
+            Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe",
+            Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Git" / "bin" / "bash.exe",
+        ) if p.exists()), None)
+        if git_bash is None:
+            self.skipTest("本机未安装 Git Bash")
+
+        def run(stdin):
+            return subprocess.run(
+                [str(git_bash), str(ROOT / "tools" / "gate_check.sh"), "--credentials-stdin"],
+                input=stdin, cwd=str(ROOT), capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=180)
+
+        empty = run("")
+        self.assertNotIn("Traceback", empty.stdout + empty.stderr)
+        self.assertEqual(1, empty.returncode, empty.stdout[-800:])
+        self.assertIn("还差一步", empty.stdout)
+        bad = run("accesstoken=x\norgId=y\n")
+        self.assertNotIn("Traceback", bad.stdout + bad.stderr)
+        self.assertEqual(1, bad.returncode, bad.stdout[-800:])
+        self.assertIn("重新复制", bad.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
