@@ -17,6 +17,12 @@ def _clean_env():
             if not k.startswith("LFX_GATE_") and not k.startswith("STEP_GATE_")}
 
 
+
+try:
+    from gate_env import gate_test_env
+except ImportError:
+    from tests.gate_env import gate_test_env
+
 class GateHardeningTest(unittest.TestCase):
     def test_symlink_ledger_is_rejected(self):
         tmp = tempfile.mkdtemp(prefix="lfx-gate-link-")
@@ -25,7 +31,7 @@ class GateHardeningTest(unittest.TestCase):
         link = pathlib.Path(tmp) / "link.jsonl"
         link.symlink_to(target)
         env = _clean_env()
-        env.update({"LFX_GATE_TEST_MODE": "1", "LFX_GATE_LEDGER": str(link)})
+        env.update({**gate_test_env(), "LFX_GATE_LEDGER": str(link)})
         r = subprocess.run([sys.executable, str(TOOLS / "startup_gate.py"), "status"],
                            cwd=str(REPO), capture_output=True, text=True, env=env, timeout=60, encoding="utf-8", errors="replace")
         self.assertNotEqual(0, r.returncode, r.stdout + r.stderr)
@@ -35,7 +41,7 @@ class GateHardeningTest(unittest.TestCase):
         tmp = tempfile.mkdtemp(prefix="lfx-gate-sess-")
         ledger = pathlib.Path(tmp) / "startup.jsonl"
         base = _clean_env()
-        base.update({"LFX_GATE_TEST_MODE": "1", "LFX_GATE_LEDGER": str(ledger)})
+        base.update({**gate_test_env(), "LFX_GATE_LEDGER": str(ledger)})
         ack_env = dict(base); ack_env["DSH_SESSION_ID"] = "sess-A"
         ack = subprocess.run([sys.executable, str(TOOLS / "startup_gate.py"), "ack",
                               "--nickname", "阿杰", "--product", "保温杯"],
@@ -61,3 +67,17 @@ class GateHardeningTest(unittest.TestCase):
                                encoding="utf-8", errors="replace")
         self.assertNotEqual(0, r.returncode, r.stdout + r.stderr)
         self.assertIn("开工必读", r.stdout + r.stderr)
+
+    def test_bare_test_mode_env_is_rejected(self):
+        """裸 LFX_GATE_TEST_MODE=1（无票据）不得放行；带一次性票据才放行。"""
+        env = _clean_env()
+        env["LFX_GATE_TEST_MODE"] = "1"
+        env["PYTHONPATH"] = str(TOOLS)
+        code = "import startup_gate; print('ALLOWED' if startup_gate._test_mode_allowed() else 'DENIED')"
+        r = subprocess.run([sys.executable, "-c", code], cwd=str(REPO), capture_output=True,
+                           text=True, env=env, timeout=60, encoding="utf-8", errors="replace")
+        self.assertIn("DENIED", r.stdout, r.stdout + r.stderr)
+        env.update(gate_test_env())
+        r2 = subprocess.run([sys.executable, "-c", code], cwd=str(REPO), capture_output=True,
+                            text=True, env=env, timeout=60, encoding="utf-8", errors="replace")
+        self.assertIn("ALLOWED", r2.stdout, r2.stdout + r2.stderr)

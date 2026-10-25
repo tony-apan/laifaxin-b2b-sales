@@ -56,6 +56,12 @@ else:
 '''
 
 
+
+try:
+    from gate_env import gate_test_env
+except ImportError:
+    from tests.gate_env import gate_test_env
+
 class FolderTemplateCountedTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -68,7 +74,7 @@ class FolderTemplateCountedTest(unittest.TestCase):
         fake.write_text(FAKE_CURL, encoding="utf-8")
         fake.chmod(0o755)
         self.env = os.environ.copy()
-        self.env["LFX_GATE_TEST_MODE"] = "1"
+        self.env.update(gate_test_env())
         self.env["PATH"] = str(self.bin) + os.pathsep + self.env.get("PATH", "")
         self.env["CURL_LOG"] = str(self.log)
 

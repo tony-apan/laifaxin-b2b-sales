@@ -1,6 +1,8 @@
-"""测试包：让测试进程与它启动的子进程都带测试标记，避免误触生产开工门。"""
+"""测试包：让测试进程与它启动的子进程都带一次性测试票据，避免误触生产开工门。"""
 
 import os
 
-os.environ.setdefault("LFX_GATE_TEST_MODE", "1")
+from .gate_env import gate_test_env
+
+os.environ.update(gate_test_env())
 os.environ.setdefault("STEP_GATE_TEST_MODE", "1")

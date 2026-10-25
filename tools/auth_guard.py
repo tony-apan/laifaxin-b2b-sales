@@ -357,13 +357,40 @@ def _fields_have_object(fields: Any) -> bool:
     return False
 
 
+def _test_mode_ticket_ok():
+    """一次性票据校验：票据文件存在、10 分钟内、内容与 nonce 一致。"""
+    ticket = os.environ.get("LFX_GATE_TEST_TICKET") or ""
+    nonce = os.environ.get("LFX_GATE_TEST_NONCE") or ""
+    if not ticket or not nonce:
+        return False
+    try:
+        p = Path(ticket)
+        if not p.is_file():
+            return False
+        import time as _time
+        if _time.time() - p.stat().st_mtime > 600:
+            return False
+        return p.read_text(encoding="utf-8").strip() == nonce
+    except OSError:
+        return False
+
+
+def _test_mode_allowed():
+    """进程内 unittest 放行；跨进程必须带一次性票据（防真实 shell 残留 env 静默放行）。"""
+    if "unittest" in sys.modules:
+        return True
+    if os.environ.get("LFX_GATE_TEST_MODE") != "1":
+        return False
+    return _test_mode_ticket_ok()
+
+
 def _require_startup_ack() -> None:
     """开工必读门（L1）：未登记开工必读就拒绝铸票，任何写操作都过不去。
 
     放在授权中枢而不是每个脚本里：save/template/sequence/contact-add/activate
     都要先拿到票据，统一在这里拦一次。测试模式与 unittest 进程内放行（不改生产行为）。
     """
-    if os.environ.get("LFX_GATE_TEST_MODE") == "1" or "unittest" in sys.modules:
+    if _test_mode_allowed():
         return
     try:
         from startup_gate import require_ack

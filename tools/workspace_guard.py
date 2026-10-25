@@ -165,11 +165,35 @@ def fingerprint(observed):
     return hashlib.sha256(basis.encode("utf-8")).hexdigest()
 
 
+def _test_mode_ticket_ok():
+    """一次性票据校验：票据文件存在、10 分钟内、内容与 nonce 一致。"""
+    import os as _os
+    import time as _time
+    from pathlib import Path as _Path
+    ticket = _os.environ.get("LFX_GATE_TEST_TICKET") or ""
+    nonce = _os.environ.get("LFX_GATE_TEST_NONCE") or ""
+    if not ticket or not nonce:
+        return False
+    try:
+        p = _Path(ticket)
+        if not p.is_file():
+            return False
+        if _time.time() - p.stat().st_mtime > 600:
+            return False
+        return p.read_text(encoding="utf-8").strip() == nonce
+    except OSError:
+        return False
+
+
 def _is_test_mode():
-    """测试隔离：仅 unittest 或显式 LFX_GATE_TEST_MODE=1 时放行未校验空间。"""
+    """测试隔离：进程内 unittest，或带一次性票据的显式测试模式。"""
     import os as _os
     import sys as _sys
-    return _os.environ.get("LFX_GATE_TEST_MODE") == "1" or "unittest" in _sys.modules
+    if "unittest" in _sys.modules:
+        return True
+    if _os.environ.get("LFX_GATE_TEST_MODE") != "1":
+        return False
+    return _test_mode_ticket_ok()
 
 
 def preflight(token, org, dry_run=False, what="", require_verified=False):

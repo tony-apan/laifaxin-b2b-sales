@@ -222,6 +222,12 @@ def _install_curl(bin_dir, cwd_dir, body):
     subprocess.run([str(csc), "/nologo", "/out:" + str(exe), str(src)],
                    capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, check=True)
 
+
+try:
+    from gate_env import gate_test_env
+except ImportError:
+    from tests.gate_env import gate_test_env
+
 class _RepoCase(unittest.TestCase):
     """隔离仓库副本 + 假 curl + 项目夹具。"""
 
@@ -246,7 +252,7 @@ class _RepoCase(unittest.TestCase):
         self.env = os.environ.copy()
         self.env.update({
             "PATH": str(self.bin) + os.pathsep + self.env.get("PATH", ""),
-            "LFX_GATE_TEST_MODE": "1",
+            **gate_test_env(),
             "LFX_FAKE_CURL_LOG": str(self.log),
             "LFX_FAKE_CURL_CONFIG": str(self.config),
             "PYTHONDONTWRITEBYTECODE": "1",

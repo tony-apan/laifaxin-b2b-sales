@@ -55,6 +55,12 @@ print(json.dumps(responses.get(path, {"success": False, "message": "unexpected "
 '''
 
 
+
+try:
+    from gate_env import gate_test_env
+except ImportError:
+    from tests.gate_env import gate_test_env
+
 class ContactAddTicketGateTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="s10ticket-"))
@@ -74,7 +80,7 @@ class ContactAddTicketGateTest(unittest.TestCase):
         fake.write_text(FAKE_CURL % {"seq": SEQ}, encoding="utf-8")
         fake.chmod(0o755)
         self.env = os.environ.copy()
-        self.env["LFX_GATE_TEST_MODE"] = "1"
+        self.env.update(gate_test_env())
         self.env["PATH"] = str(self.bin) + os.pathsep + self.env.get("PATH", "")
         self.env["CURL_LOG"] = str(self.log)
         self.approval = self.mint_approval()

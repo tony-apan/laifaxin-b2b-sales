@@ -17,7 +17,7 @@ def make_env(tmp: Path):
         p.write_text("原文 " + rel, encoding="utf-8")
     env = dict(os.environ)
     env.update({
-        "LFX_GATE_TEST_MODE": "1",
+        **gate_test_env(),
         "LFX_GATE_LEDGER": str(tmp / "ledger" / "startup.jsonl"),
         "LFX_GATE_DOCS_DIR": str(docs),
     })
@@ -28,6 +28,12 @@ def run(args, env):
     return subprocess.run([sys.executable, str(GATE)] + args,
                           capture_output=True, text=True, env=env, cwd=str(ROOT), encoding="utf-8", errors="replace")
 
+
+
+try:
+    from gate_env import gate_test_env
+except ImportError:
+    from tests.gate_env import gate_test_env
 
 class StartupGateTest(unittest.TestCase):
     def test_check_without_ack_blocks(self):
@@ -103,7 +109,7 @@ class StartupGateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             env, _, _ = make_env(Path(d))
             old = dict(os.environ)
-            os.environ.update({k: env[k] for k in ("LFX_GATE_TEST_MODE", "LFX_GATE_LEDGER", "LFX_GATE_DOCS_DIR")})
+            os.environ.update({k: env[k] for k in ("LFX_GATE_TEST_MODE", "LFX_GATE_TEST_TICKET", "LFX_GATE_TEST_NONCE", "LFX_GATE_LEDGER", "LFX_GATE_DOCS_DIR")})
             try:
                 if str(TOOLS) not in sys.path:
                     sys.path.insert(0, str(TOOLS))

@@ -18,6 +18,12 @@ ROOT = Path(__file__).resolve().parents[1]
 PROJECT = "tony/demo"
 
 
+
+try:
+    from gate_env import gate_test_env
+except ImportError:
+    from tests.gate_env import gate_test_env
+
 class S7NumericConfirmTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="s7num-"))
@@ -25,7 +31,7 @@ class S7NumericConfirmTest(unittest.TestCase):
         shutil.copytree(ROOT, self.repo, ignore=shutil.ignore_patterns(
             ".git", ".local", "runs", "__pycache__", ".pytest_cache"))
         self.env = __import__("os").environ.copy()
-        self.env["LFX_GATE_TEST_MODE"] = "1"
+        self.env.update(gate_test_env())
         self.env["PYTHONDONTWRITEBYTECODE"] = "1"
 
     def tearDown(self):

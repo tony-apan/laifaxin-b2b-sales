@@ -51,6 +51,34 @@ ENV_TEST = "LFX_GATE_TEST_MODE"
 ENV_LEDGER = "LFX_GATE_LEDGER"
 ENV_DOCS_DIR = "LFX_GATE_DOCS_DIR"
 
+def _test_mode_ticket_ok():
+    """一次性票据校验：票据文件存在、10 分钟内、内容与 nonce 一致。"""
+    ticket = os.environ.get("LFX_GATE_TEST_TICKET") or ""
+    nonce = os.environ.get("LFX_GATE_TEST_NONCE") or ""
+    if not ticket or not nonce:
+        return False
+    try:
+        p = Path(ticket)
+        if not p.is_file():
+            return False
+        import time as _time
+        if _time.time() - p.stat().st_mtime > 600:
+            return False
+        return p.read_text(encoding="utf-8").strip() == nonce
+    except OSError:
+        return False
+
+
+def _test_mode_allowed():
+    """进程内 unittest 放行；跨进程必须带一次性票据（防真实 shell 残留 env 静默放行）。"""
+    if "unittest" in sys.modules:
+        return True
+    if os.environ.get("LFX_GATE_TEST_MODE") != "1":
+        return False
+    return _test_mode_ticket_ok()
+
+
+
 MANDATORY: List[tuple] = [
     ("SKILL.md", "入口路由与铁律"),
     ("RULES.md", "唯一真源：强制流程与确认闸门"),
@@ -214,7 +242,7 @@ def enforce_cli_startup() -> None:
     unittest 进程与 LFX_GATE_TEST_MODE=1 放行（只用于测试隔离）。
     生产命令不会带 unittest，因此该门在生产必过。
     """
-    if os.environ.get("LFX_GATE_TEST_MODE") == "1" or "unittest" in sys.modules:
+    if _test_mode_allowed():
         return
     check()
 

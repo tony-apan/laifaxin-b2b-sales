@@ -105,6 +105,12 @@ def _install_fake_curl(bin_dir, cwd_dir):
     subprocess.run([str(csc), "/nologo", "/out:" + str(exe), str(src)],
                    capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, check=True)
 
+
+try:
+    from gate_env import gate_test_env
+except ImportError:
+    from tests.gate_env import gate_test_env
+
 class ActivationStructureGateTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -118,7 +124,7 @@ class ActivationStructureGateTest(unittest.TestCase):
         env = dict(os.environ)
         env.update({
             "PATH": str(self.bin) + os.pathsep + env.get("PATH", ""),
-            "LFX_GATE_TEST_MODE": "1",
+            **gate_test_env(),
             "LFX_FAKE_MODE": mode,
             "LFX_FAKE_CURL_LOG": str(self.log),
             "PYTHONIOENCODING": "utf-8",
