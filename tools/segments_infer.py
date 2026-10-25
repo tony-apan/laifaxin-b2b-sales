@@ -35,6 +35,7 @@ ap.add_argument("--record", default="", help="项目operation-record；客群生
 ap.add_argument("--approval", default="", help="S2 绑定profile+pid+rounds的审批凭证")
 ap.add_argument("--project", required=True, help="稳定项目键=<operator_key>/<product_key>")
 ap.add_argument("--dry-run", action="store_true")
+ap.add_argument("--all", action="store_true", help="维护者排查：打印平台全部候选（默认只打印前4，避免用户被20类淹没）")
 args = ap.parse_args()
 if args.from_session:
     from session_store import load_ready
@@ -117,9 +118,12 @@ for i in range(args.rounds):
 
 segs = api("profile/inference-segment-list", {"product_id": pid}).get("data", [])
 segs = segs if isinstance(segs, list) else segs.get("list", [])
-print(f"\n✅ 共 {len(segs)} 客群：")
-for s in segs:
+shown = segs if args.all else segs[:4]
+print(f"\n✅ 平台返回 {len(segs)} 类；默认只展示前 {len(shown)} 类：")
+for s in shown:
     print(f"  - {s.get('segment_name')} | query_en: {str(s.get('query_en'))[:60]} | total:{s.get('query_total')}")
+if not args.all and len(segs) > len(shown):
+    print(f"  …另有 {len(segs)-len(shown)} 类未展示（对用户只列这 {len(shown)} 类；需要排查用 --all）")
 if not segs:
     print("❌ 客群结果为空，不推进状态；稍后重试或检查档案")
     sys.exit(1)

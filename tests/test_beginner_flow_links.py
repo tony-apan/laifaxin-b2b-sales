@@ -39,6 +39,12 @@ class BeginnerFlowLinkTest(unittest.TestCase):
         self.assertIn('beginner-flow', read('specs/operations-sop.md'),
                       'operations-sop.md 未引用新手页')
 
+    def test_s2_display_is_capped_at_four(self):
+        """S2 平台可能返回 20 类；对新手只展示前 4 类，其余折叠。"""
+        t = FLOW.read_text(encoding="utf-8")
+        self.assertIn("也只对用户列 4 个", t)
+        self.assertIn("S2 候选只展示 4 类", read("AGENTS.md"))
+
     def test_flow_has_no_jargon(self):
         t = FLOW.read_text(encoding='utf-8').lower()
         for word in BANNED:
