@@ -138,6 +138,12 @@ print(json.dumps(out, ensure_ascii=False))
 '''
 
 
+
+try:
+    from gate_env import gate_test_env
+except ImportError:
+    from tests.gate_env import gate_test_env
+
 class _ShimUnavailable(RuntimeError):
     pass
 
@@ -188,6 +194,7 @@ class FullFlowSimulationTest(unittest.TestCase):
             raise unittest.SkipTest(str(exc))
         cls.env = os.environ.copy()
         cls.env.update({
+            **gate_test_env(),
             "PATH": str(cls.fake_bin) + os.pathsep + cls.env.get("PATH", ""),
             "LFX_FAKE_CURL_LOG": str(cls.curl_log),
             "LFX_FAKE_PYTHON": sys.executable,

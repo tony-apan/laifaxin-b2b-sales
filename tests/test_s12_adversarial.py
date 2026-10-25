@@ -139,6 +139,12 @@ def _install_curl(bin_dir, cwd_dir, body):
 
 
 
+
+try:
+    from gate_env import gate_test_env
+except ImportError:
+    from tests.gate_env import gate_test_env
+
 class S12AdversarialTest(unittest.TestCase):
     """在隔离副本里真跑工具，逐一尝试绕过激活闸门。"""
 
@@ -326,7 +332,7 @@ class S12AdversarialTest(unittest.TestCase):
         env = os.environ.copy()
         env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
         env["ACT_LOG"] = str(log)
-        env["LFX_GATE_TEST_MODE"] = "1"
+        env.update(gate_test_env())
         env["LFX_FAKE_PYTHON"] = sys.executable
         r = subprocess.run(
             [sys.executable, str(self.repo / "tools" / "activate_sequence.py"),
@@ -484,6 +490,7 @@ class ManualActivationSyncTest(unittest.TestCase):
 
     def sync(self, confirm="我已在网页激活 皮筏艇找客户", seq=None, record=None, extra=()):
         env = os.environ.copy()
+        env.update(gate_test_env())
         env["PATH"] = str(self.bin) + os.pathsep + env.get("PATH", "")
         env["LFX_FAKE_PYTHON"] = sys.executable
         return subprocess.run(
