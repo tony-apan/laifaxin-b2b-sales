@@ -138,6 +138,35 @@ print(json.dumps(out, ensure_ascii=False))
 '''
 
 
+class _ShimUnavailable(RuntimeError):
+    pass
+
+
+def _install_curl_shim(bin_dir):
+    """装一个能被 CreateProcess 解析的 curl：POSIX 用无扩展名脚本；Windows 编译 curl.exe 转发到 fake_curl.py。"""
+    if os.name != "nt":
+        fake = Path(bin_dir) / "curl"
+        fake.write_text(FAKE_CURL, encoding="utf-8")
+        fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+        return
+    (Path(bin_dir) / "fake_curl.py").write_text(FAKE_CURL, encoding="utf-8")
+    win = Path(os.environ.get("WINDIR", r"C:\Windows"))
+    csc = next((p for p in (
+        win / "Microsoft.NET" / "Framework64" / "v4.0.30319" / "csc.exe",
+        win / "Microsoft.NET" / "Framework" / "v4.0.30319" / "csc.exe",
+    ) if p.exists()), None)
+    if csc is None:
+        raise _ShimUnavailable("Windows 离线仿真需要 .NET Framework csc.exe 编译 curl 影子；本机未找到，改由真机 curl 冒烟覆盖")
+    src = Path(__file__).with_name("fake_curl_shim.cs")
+    exe = Path(bin_dir) / "curl.exe"
+    proc = subprocess.run(
+        [str(csc), "/nologo", "/out:" + str(exe), str(src)],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+    )
+    if proc.returncode != 0 or not exe.exists():
+        raise _ShimUnavailable("Windows curl 影子编译失败：" + (proc.stdout + proc.stderr)[-500:])
+
+
 class FullFlowSimulationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -148,15 +177,16 @@ class FullFlowSimulationTest(unittest.TestCase):
         cls.fake_bin = cls.base / "bin"
         cls.fake_bin.mkdir()
         cls.curl_log = cls.base / "curl.jsonl"
-        fake = cls.fake_bin / "curl"
-        if os.name == "nt":
-            raise unittest.SkipTest("Windows 无扩展名 fake curl（离线平台仿真仅 POSIX）；Windows 用真机 smoke 覆盖")
-        fake.write_text(FAKE_CURL, encoding="utf-8")
-        fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+        try:
+            _install_curl_shim(cls.fake_bin)
+        except _ShimUnavailable as exc:
+            raise unittest.SkipTest(str(exc))
         cls.env = os.environ.copy()
         cls.env.update({
             "PATH": str(cls.fake_bin) + os.pathsep + cls.env.get("PATH", ""),
             "LFX_FAKE_CURL_LOG": str(cls.curl_log),
+            "LFX_FAKE_PYTHON": sys.executable,
+            "PYTHONIOENCODING": "utf-8",
             "PYTHONDONTWRITEBYTECODE": "1",
         })
         cls.project_dir = cls.repo / "runs" / OPERATOR / PRODUCT
