@@ -42,6 +42,7 @@ if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
 import auth_guard  # noqa: E402
+import count_guard  # noqa: E402
 import render_guard  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -88,6 +89,12 @@ def save_company_v2(*, payload: Any, http: Any, plan: Any = None,
     except planlib.PlanError as exc:
         return _reject("plan", exc.code, exc.reason)
     try:
+        count_guard.validate_plan(plan)
+        if plan.get("budget_ledger") is not None:
+            count_guard.verify_ledger_file(auth_root, plan)
+    except count_guard.CountError as exc:
+        return _reject("count", exc.code, exc.reason)
+    try:
         checked = rule_check.check_save(payload, plan,
                                         dependencies=current_dependencies)
     except rule_check.RuleCheckError as exc:
@@ -115,17 +122,20 @@ def save_company_v2(*, payload: Any, http: Any, plan: Any = None,
     effective_task = render_result["task_id"]
 
     scope = plan.get("query_scope") or {}
-    scope_key = scope.get("query_scope_key") if isinstance(scope, dict) else None
-    if not scope_key:
-        canonical = rule_check.canonical_scope(
-            workspace_ref=str(plan.get("project", "")),
-            product_id=str(plan.get("platform_product_id", "")),
-            generation_id=str(plan.get("generation_id", "")),
-            selection_id=str(plan.get("selection_id", "")),
-            keyword=str(payload.get("keyword", "")),
-            filters=payload.get("filters", []), logic=payload.get("logic", "and"),
-            sort=payload.get("selectSort", {}))
-        scope_key = rule_check.scope_key(canonical)
+    stored_key = scope.get("query_scope_key") if isinstance(scope, dict) else None
+    # 不信任 plan 自报 key：每次从实际 wire + 来源重算；排序/过滤变化必须换锁。
+    canonical = rule_check.canonical_scope(
+        workspace_ref=str(plan.get("project", "")),
+        product_id=str(plan.get("platform_product_id", "")),
+        generation_id=str(plan.get("generation_id", "")),
+        selection_id=str(plan.get("selection_id", "")),
+        keyword=str(payload.get("keyword", "")),
+        filters=payload.get("filters", []), logic=payload.get("logic", "and"),
+        sort=payload.get("selectSort", {}))
+    scope_key = rule_check.scope_key(canonical)
+    if stored_key and stored_key != scope_key:
+        return _reject("scope", "E_SCOPE_KEY_MISMATCH",
+                       "plan.query_scope_key 与实际 wire 重算值不一致，拒绝复用旧锁")
     try:
         reserved = planlib.reserve_scope(
             auth_root, query_scope_key=scope_key,

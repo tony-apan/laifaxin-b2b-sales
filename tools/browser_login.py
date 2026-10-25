@@ -730,11 +730,12 @@ def verify(root, token, org, *, classify_transient=False):
     credentials = 'accesstoken=' + token + '\norgId=' + org + '\n'
     for tool, flags in [('check_login.py', []), ('workspace_guard.py', ['--require-verified'])]:
         try:
-            result = subprocess.run([sys.executable, str(root / 'tools' / tool), '--credentials-stdin', '--gate-mode'] + flags, input=credentials, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=str(root), timeout=180, encoding="utf-8", errors="replace")
+            env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
+            result = subprocess.run([sys.executable, str(root / 'tools' / tool), '--credentials-stdin', '--gate-mode'] + flags, input=credentials, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=str(root), timeout=180, encoding="utf-8", errors="replace", env=env)
         except (OSError, subprocess.SubprocessError):
             raise Failure(23, 'verify')
         if isinstance(result.stderr, str) and 'Traceback' in result.stderr:
-            raise Failure(23, 'verify', 'E_TOOL_CRASH')
+            raise Failure(23, 'verify', 'E_TOOL_CRASH', tool=tool, child_code=result.returncode)
         code = result.returncode
         if not code:
             continue
@@ -744,7 +745,7 @@ def verify(root, token, org, *, classify_transient=False):
             raise Failure(24 if code == 2 else 12 if code in (1, 3) else 23, 'verify')
         if classify_transient and code == 3:
             raise Failure(23, 'verify', 'E_VERIFY_TRANSIENT')
-        raise Failure({1: 15, 2: 24, 3: 12, 4: 25, 5: 25}.get(code, 23), 'verify')
+        raise Failure({1: 15, 2: 24, 3: 12, 4: 25, 5: 25}.get(code, 23), 'verify', tool=tool, child_code=code)
 
 
 # Compatibility exports; persistence and strict reads live in session_store.
@@ -884,6 +885,13 @@ def execute(argv):
                                       deadline=deadline,
                                       owner=owner if args.no_launch else None,
                                       entry_host=entry_host)
+            pre_saved = False
+            if args.save_session and getattr(choice, 'host_source', 'entry') != 'fallback':
+                try:
+                    save_session(ROOT, choice[0], choice[1], str(choice[2]))
+                    pre_saved = True
+                except (OSError, Failure, SessionError):
+                    pass
             admitted = admit_credentials(ROOT, choice,
                                           accept_fallback=args.accept_fallback_host)
             host, token, org = admitted['host'], admitted['token'], admitted['org']
@@ -893,7 +901,8 @@ def execute(argv):
                       'entry_host': admitted['entry_host']}
             if args.save_session:
                 try:
-                    save_session(ROOT, host, token, org)
+                    if not pre_saved:
+                        save_session(ROOT, host, token, org)
                     result['session_saved'] = True
                 except (OSError, Failure, SessionError):
                     # 绝不回显凭证：只报保存成败。

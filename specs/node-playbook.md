@@ -142,7 +142,7 @@ audience: 人+AI
 - **判据（来源）**：`../RULES.md` S10「保存finished、标签联系人>0、序列inactive、人数对账且用户确认后才contact-add」；`../RULES.md` 核心铁律⑥（等 finished+标签联系人>0，否则 add 0）；L-01：`views` 必须传**空数组 `[]`**（传 `["all"]` 会把全部 139 万联系人加入）。
 - **通过条件**：`wait_save_done.py` 双校验通过（finished + 标签联系人>0）+ 序列 inactive + 人数对账一致 + 用户确认。
 - **API**：`POST /api/sequences/contact-add {"seqId":<id>,"tags":[<联系人标签id>],"views":[]}`——见 `specs/api-reference.md` 接口表（★views 必须 `[]`）；`POST /api/sequences/contact-list`——见 `specs/api-reference.md` 接口表；`POST /api/contacts/contacts/show`（标签人数）——见 `specs/api-reference.md` 接口表。
-- **脚本**：`contact_add_authorized.py --seq <id> --tags <联系人标签id> --task <保存任务id> --record runs/<operator_key>/<product_key>/operation-record.md --approval <绑定S10凭证> --project <operator_key>/<product_key>`；工具查询失败/active序列 fail-closed、views固定[]、add对账成功后推进S10。
+- **脚本**：`contact_add_authorized.py --seq <id> --tags <联系人标签id> --task <保存任务id> --plan <S5 confirmed plan 路径> --record runs/<operator_key>/<product_key>/operation-record.md --approval <绑定S10凭证> --project <operator_key>/<product_key>`；工具查询失败/active序列 fail-closed、views固定[]、add对账成功后推进S10。
 - **产出记录**：`.local/approvals.tsv`（S10_加联系人行）；`operation-record.md` 记 add 人数；`evidence.json`（contacts_total）。
 
 ### S11 READY_INACTIVE（终检 + 待确认）

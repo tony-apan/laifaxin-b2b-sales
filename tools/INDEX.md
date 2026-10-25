@@ -4,7 +4,7 @@ title: "tools 索引"
 description: "目录索引：tools 下脚本与说明的导航，找现役工具或确认用途时读。"
 type: "index"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-25"
 ---
 
 # tools 索引
@@ -37,6 +37,7 @@ updated: "2026-10-23"
 | compliance_validation.py | live-only;五项72h真实source/detail;模拟离线桩占位fail-closed;flow/activate共用 | 第 7 关激活/合规证据校验 |
 | contact_add.py | 时序守卫(finished+标签>0)+contact-add views:[]铁律+add数核对;--approval S10闸门;--dry-run | 第 6 步加人前 |
 | contact_add_authorized.py | ★S10 加联系人入序列（一条龙缺口#2）：时序守卫(保存finished+标签>0) → contact-add(views:[]铁律) → 核对 add 数 | 第 6 步加联系人入序列前 |
+| count_guard.py | S5 保存数量推导闸门：只认 S4 收口证据 + 预算上界；50/手工缩量/末页/预算超限全拒。 | 第 3 步保存数量推导前 |
 | credential_input.py | 严格解析聊天框两行凭据;LF/CRLF/CR;缺org/重复/控制符/超限fail-closed | 连平台贴凭据后 / 凭据解析失败时 |
 | delete_all_products.py | product-list+product-delete id | 清空测试产品（危险，显式确认） |
 | evidence_validation.py | S4/S11/S12共用simulation/mock/stub/离线网络桩占位识别 | S4/S11/S12 证据模式识别 |
@@ -79,6 +80,7 @@ updated: "2026-10-23"
 | startup_gate.py | 开工必读闸门 L1（机器强制）：没登记就先读文档，写操作一律拒绝。 | 开工前登记必读 / 写操作被拒时 |
 | step_gate.py | 执行卡闸门（L2 加载留痕 / L3 写操作前拒绝）。 | 执行卡加载与写操作前 |
 | tag_add.py | contacts/tags-add建标签+同名查重复用+铁律7中文提醒;--list免审批;--approval S2/S5闸门 | 第 3 步建标签 / 查重 |
+| tag_check.py | 只读检查联系人标签存量；>0 默认拒绝，防复用共享标签把全库老联系人带进 S10。 | 保存前 / 加人前核对标签是否新 |
 | tmap_grid.py | tmap 网格解析（★单一真源）：从 gen_templates 产出的 name→id 映射，解析"12 轮 × N 变体"并分组。 | 第 5 步解析 12 轮×N 变体分组 |
 | update_run_state.py | 安全更新operation-record并按合法转换图/恢复证据防跳步 | 推进状态 / 换机续接 |
 | usage_record.py | 把「用途 + 推演来源」写进 operation-record，保证换会话/重跑可复现（v3 K6）。 | 写运行记录 / 换会话续接 |

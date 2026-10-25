@@ -165,7 +165,9 @@ def _read_secure_json(path: Path, missing_code: str = "E_AUTH_NO_TICKET") -> Dic
         st = os.fstat(fd)
         if not stat.S_ISREG(st.st_mode):
             raise _Denied("E_AUTH_BAD_TICKET", "票据不是普通文件")
-        if stat.S_IMODE(st.st_mode) != 0o600:
+        # Windows 不提供 POSIX 0600 语义：os.stat 的 mode 恒为 0666/0444。
+        # 票据只落在 .local/auth（用户目录）且由本工具生成；Windows 侧以路径+ACL 为边界。
+        if os.name != "nt" and stat.S_IMODE(st.st_mode) != 0o600:
             raise _Denied("E_AUTH_BAD_TICKET", "票据权限必须是 0600")
         raw = b""
         while True:

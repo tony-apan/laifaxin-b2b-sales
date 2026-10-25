@@ -48,7 +48,7 @@ audience: AI优先（人可参考）
 | `rebuild_templates.py` | 重建模板+序列步骤（原型，顺序见 L-43） | ✅ 先建新→改引用→再删旧 |
 | `render_preview.py` | 模板渲染预览（收件人视图，非源码） | ✅ |
 | `build_sequence.py` | S9 建序列一条龙（tz/notSentTags 运行时解析+12步） | ✅ --approval 硬闸门 |
-| `contact_add_authorized.py` | S10 加联系人**现役通道**（S10 审批 + auth_guard 票据 + 时序守卫 + views:[] 铁律） | ✅ 旧 contact_add.py 仅流程核对 |
+| `contact_add_authorized.py` | S10 加联系人**现役通道**（S10 审批 + auth_guard 票据 + 时序守卫 + tags/数量绑 S5 plan + views:[] 铁律） | ✅ 旧 contact_add.py 仅流程核对 |
 | `version_check.py` | 版本/更新检查（只读） | ✅ 不写平台 |
 | `browser_login.py` | 本机真实 Chrome/Edge 登录取参（隔离 profile、可 `--probe-only/--save-session/--forget`；标准库实现） | ✅ 只读登录页，不写平台 |
 | `session_store.py` | 本机会话凭据存储（0700 目录 / 0600 文件；`--forget` 清除；非安全边界） | ✅ 仅本机 |

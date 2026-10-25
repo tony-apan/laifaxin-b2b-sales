@@ -303,6 +303,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     exe.add_argument("--request", required=True)
     exe.add_argument("--token", default="")
     exe.add_argument("--org", default="")
+    exe.add_argument("--from-session", action="store_true", help="从本机会话读取凭据（免 argv 明文）")
     args = parser.parse_args(argv)
     root = Path(args.root)
     try:
@@ -319,6 +320,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return 0
         request = json.loads(Path(args.request).read_text(encoding="utf-8"))
         validated = validate_prepared(root, request)
+        if args.from_session:
+            from session_store import load_ready
+            _host, args.token, args.org = load_ready(root)
         if not args.token or not args.org:
             print("DENY E_CREDENTIAL: execute 需要 --token/--org", file=sys.stderr)
             return 2

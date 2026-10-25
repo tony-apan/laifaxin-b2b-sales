@@ -4,7 +4,7 @@ title: "全流程问题对照与对抗审查（2026-10-23 · 户外帐篷首跑�
 description: "2026-10-23 户外帐篷首跑踩坑台账：现象、根因与固化位置，排障先查本表。"
 type: "record"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-25"
 ---
 
 # 全流程问题对照与对抗审查（2026-10-23 · 户外帐篷首跑）
@@ -176,3 +176,47 @@ updated: "2026-10-23"
 - 补入 `runtime/cards/` 9 张执行卡（S0a/S2/S3/S4/S5/S7/S9/S10/S12，来源同机知识库仓），保存链 `step_gate.require_card("S5")` 在全新 checkout 可加载；新增 `tests/test_runtime_cards.py` 锁「卡存在 + schema + S5 可加载」。
 - 本机环境现状（供后续真机）：`LFX_TOKEN/LFX_ORG` 未设置、无 session 文件、9222/9211 无 CDP 端口；因此真机登录需用户在本机弹出的浏览器窗口里登录一次（`browser_login.py --save-session` 可保存到 0600 本机会话文件）。
 - 本机可跑性验证：`python3 tools/onboard_check.py` → exit 0；`python3 tools/browser_login.py --help` 正常；`python3 -m unittest tests.test_runtime_cards` → OK。
+
+---
+
+## 31. Windows 真机首跑追加（2026-10-26 · nuc）
+
+| # | 现象 | 根因 | 当时处理 | 状态 |
+|---|---|---|---|---|
+| 31.1 | `bootstrap -CheckOnly` 报 bash/grep/awk 缺失；`onboard_check` exit 2 | `C:\Windows\System32\bash.exe` 是 WSL 存根，抢在 Git Bash 前；Git `bin` 不在 PATH | 安装门优先 Git 路径、实测 grep/awk、排除 System32；`-Install` 把 Git `bin` 注册到 PATH | ✅ 已修，Windows 641 tests OK；待双审 |
+| 31.2 | 扫码后自动取参 `code 23 / E_SUBPROCESS`，页面其实已登录 | `session_store.py` 用了 POSIX-only 的 `os.O_DIRECTORY` / `dir_fd`，Windows 一保存就抛异常 | 加 Windows 专用保存/读取/删除分支；真实凭据 `SAVED=1 VERIFIED=1` | ✅ 已修并真机验证；待补回归+双审 |
+| 31.3 | `workspace_guard` 在 Windows 管道里 Traceback | 文件里有 `_utf8_stdout()`，但 `main()` 没调用；子进程 stdout/stderr 是 GBK 管道 | `main()` 首行调用；`browser_login` 给子进程加 `PYTHONIOENCODING=utf-8`/`PYTHONUTF8=1` | ✅ 已修；待补回归+双审 |
+| 31.4 | `browser_login --timeout 300` 直接报 `code 20 E_ARGUMENT` | 实现上限 180，帮助/文档未说明 | 改用 170 跑通；需在帮助与文档写清上限，或放宽并加测试 | ⏳ 待改 |
+| 31.5 | 超时后 `.browser-lock-*` 残留，`--resume` 报 `E_STALE_LOCK`；`--clean --force` 也未清掉 | 锁只看文件存在，未判 owner 是否存活；clean 路径未覆盖该锁 | 本轮手工删锁绕开；需改为“owner 死则自动清理”并加回归 | ⏳ 待修 |
+| 31.6 | 校验失败后专用 profile 被删，token 丢失，只能重新扫码 | 成功取参后先 verify，失败才 save；失败清理 profile | 改为 entry 来源取参后**先落会话再校验**；fallback 仍等用户确认 | ✅ 已改；待验证失败场景回归 |
+| 31.7 | 通过 SSH 启动的 Chrome 落在服务会话，用户桌面看不到 | 测试通道是 SSH，不是桌面 agent；用 `schtasks /IT` 才落到用户 RDP 会话 | 本轮用计划任务在会话 2 启动；产品化需一个受支持的桌面启动方式 | ⏳ 待产品化 |
+
+### 31.1 对抗审查待办（未完成，不得宣称已交付）
+
+- P0：`session_store` Windows 分支、`workspace_guard` UTF-8、`browser_login` 先存后验，三处需两名非作者独立审查 + Windows 真机回归；本轮只有单路实测，尚无第二轮 PASS。
+- P0：补 Windows 回归：真实 `save_session→load_ready`、无 `O_DIRECTORY` 环境、校验失败仍保留会话、无 bash 仍 fail-closed。
+- P1：`browser_login` 超时上限 180 的文档/帮助同步；stale lock owner 判活与自动清理；`--clean --force` 覆盖 guard 锁。
+- P1：专用 profile 的登录态跨进程复用（本轮已验证同一 profile 重启后仍可读到 token）；需补安全边界与清理策略。
+- 发布边界：以上改动只在本地工作区/本地分支，未提交发布、未合并 master、未推送远程；双审与回归完成前不得对外宣称“Windows 新手全流程已通过”。
+
+### 31.2 2026-10-26 续测追加
+
+- **31.8 `check_login.py --credentials-stdin` 在 PowerShell 管道下仍报「内容不完整」**：`browser_login --from-session` 已能返回 `code=0, workspace=verified`，但标准输入通道不可用；疑似 PowerShell 管道编码/换行导致两行凭据解析失败。影响：用户按文档走 stdin 会卡住。待修：统一 UTF-8 无 BOM、显式换行，并加 Windows 回归。
+- **31.9 `segments_infer.py` 只收 `--token`**：自动续跑必须把 token 放 argv，违反「不进 argv」；已加 `--from-session`，实测 `--dry-run` 匹配到平台推理档案 `6aa14c1750046d51036e58d1`，exit 0。待补：真实 S2 回归、帮助/文档同步、双审。
+- **31.10 产品档案草稿**：已建 runs/tony/raft/product-profile.md（本地运行档案，不入库；status=draft，8 字段待补）；真实 S2 被 `profile_gate` 拒绝（draft 不允许写），需用户给产品事实或明确走 declined 通用口径。
+
+## 32. 对照历史要求与建议的回归审计（2026-10-26 · 皮筏艇）
+
+| # | 现象 | 根因 | 当时处理 | 状态 |
+|---|---|---|---|---|
+| 32.1 | 只看前 100 页就判「临界页=100」，实际 150/200/300 页仍 90/80/70% | 阈值规范只写「100 页一跳」，没有要求首个跌破后做远端复测；执行时把单页低谷当边界 | 补测 150/200/300/350/400/450/500；真实持续跌破在 450；规范新增 3.2「跌破不是边界：先做远端复测」 | ✅ 实测已纠正；待双审 |
+| 32.2 | 保存 50 家只新增 6 个联系人；联系人标签 `zcknehp` 下已有 11,410 人，若直接加人会拉进全库老联系人 | 复用平台已有同名标签，保存前没有校验标签是否为空/是否本项目新建 | 本轮停止 S10 加人；新增独立标签校验工具（`tools/tag_check.py`），保存前必须查公司/联系人标签计数；>0 默认拒绝 | ⏳ 工具已加；save 流程强制接线待做 |
+| 32.3 | Windows 上 freshly prepared plan 立即报「draft 已过期」 | `expires_at` 是 UTC Z，`confirm_plan` 用 `time.mktime` 按本地时区解析；UTC+8 下凭空老 8 小时 | 改 `calendar.timegm` 解析；实测同一计划在 Windows 可 confirm | ✅ 已修；待补 Python 回归 |
+| 32.4 | Windows 上票据/渲染文件被 0600 校验拒绝，无法保存 | Windows 无 POSIX mode，`os.stat` 恒 0666/0444；`auth_guard`/`render_guard` 直接比较 0600 | 两个 guard 在 `os.name=="nt"` 时跳过 POSIX mode，改由 `.local` 路径+ACL 边界；POSIX 保持 0600 | ✅ 已修并真实保存成功；待双审 |
+| 32.5 | S6 对账 `E_RECONCILE_SOURCE`：没有 attempt 受理回执 | 执行成功后只写了 status 记录，没有写 attempt；reconcile 只认 attempt | 用 `status` 查得 finished/50/6；待把 status 记录接进 reconcile，或在 execute 成功时补 attempt | ⏳ 待修 |
+
+### 32.1 本轮对抗结论
+
+- 32.1 是**方法错误**，不是平台波动；单页 50% 不能定界，必须远端复测。
+- 32.2 是**数据污染级**问题：标签是共享资产，保存前不验空=可能把 1.1 万人拉进序列；S10 在修复前禁止执行。
+- 32.3/32.4 是 Windows 兼容 P0，均已真实保存链路验证；仍缺两名非作者独立审查与回归。

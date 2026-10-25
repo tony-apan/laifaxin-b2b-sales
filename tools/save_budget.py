@@ -986,6 +986,23 @@ def plan(root, **kwargs):
         _release_quiet(lock)
 
 
+def make_ready_row_payload(*, b_plan, confirm_n, n_cons, n_est, risk_ack,
+                           cap_ack, exec_quote_ref, batch_points_upper,
+                           round_id, spent_all, budget_left,
+                           per_company_upper):
+    """ready 台账行的唯一生产者；字段变更有回归测试盯住 count_guard 消费端。"""
+    return {
+        "b_plan": str(b_plan), "freeze": False, "confirm_n": confirm_n,
+        "n_cons": n_cons, "n_est": n_est, "risk_ack": bool(risk_ack),
+        "cap_ack": bool(cap_ack), "exec_quote_ref": str(exec_quote_ref),
+        "batch_points_upper": str(batch_points_upper),
+        "round_id": str(round_id),
+        "spent_all": str(spent_all),
+        "budget_left": str(budget_left),
+        "per_company_upper": str(per_company_upper),
+    }
+
+
 def _plan_locked(root, *, project, org, b_plan, b_avail, read_at=None,
          target_companies=0, already_saved=0, max_points_suggest=None,
          balance_source=None,
@@ -1214,17 +1231,18 @@ def _plan_locked(root, *, project, org, b_plan, b_avail, read_at=None,
         _fail("E_CAP_CONFIRMATION_REQUIRED",
               "一次执行预计扣点 %s > 建议上限 %s，须用户确认（只提示不硬拒）"
               % (batch_points_upper, int(cap_limit)))
-    assert_ledger = {
-        "b_plan": str(frozen), "freeze": False, "confirm_n": confirm_n,
-        "n_cons": n_cons, "n_est": n_est, "risk_ack": risk_ack,
-        "cap_ack": cap_ack, "exec_quote_ref": str(exec_quote_ref),
-        "batch_points_upper": str(batch_points_upper),
-    }
+    assert_ledger = make_ready_row_payload(
+        b_plan=str(frozen), confirm_n=confirm_n, n_cons=n_cons, n_est=n_est,
+        risk_ack=risk_ack, cap_ack=cap_ack, exec_quote_ref=str(exec_quote_ref),
+        batch_points_upper=str(batch_points_upper), round_id=str(round_id),
+        spent_all=str(accounts["spent_all"]), budget_left=str(budget_left),
+        per_company_upper=str(upper))
     append_ledger(Path(root), org_hash=org_hash(org), project=project,
                   kind="plan", source_ref=str(exec_quote_ref), state="ready",
                   payload=assert_ledger)
     result.update({"status": "ready", "confirm_n": confirm_n,
-                   "selectTotal": confirm_n, "requires_confirmation": False})
+                   "selectTotal": confirm_n, "requires_confirmation": False,
+                   "exec_quote_ref": str(exec_quote_ref), "risk_ack": risk_ack})
     return result
 
 

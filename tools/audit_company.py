@@ -290,8 +290,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--query", default="", help="搜索关键词（--domains 模式下可省略）")
     ap.add_argument("--pages", default="", help="页码,逗号分隔,如 1,500,1000")
-    ap.add_argument("--token", required=True)
-    ap.add_argument("--org", required=True)
+    ap.add_argument("--token", default="")
+    ap.add_argument("--org", default="")
+    ap.add_argument("--from-session", action="store_true", help="从本机会话读取凭据（免 argv 明文）")
     ap.add_argument("--mode", default="moderate", choices=["strict", "moderate", "loose"],
                     help="匹配标准: strict=只算MATCH(采购方) / moderate=MATCH+MARGINAL(默认,含配件商/制造商) / loose=MATCH+MARGINAL(宽松口径，分母=实际返回条数)")
     ap.add_argument("--product", default="", help="产品名（仅用于展示）")
@@ -299,6 +300,12 @@ def main():
     ap.add_argument("--domains", default="", help="域名模式: 逗号分隔的种子域名（作 refine/company-list 的 keyword）")
     ap.add_argument("--match-words", default="", help="额外匹配词,逗号分隔(产品自定义)")
     args = ap.parse_args()
+    if args.from_session:
+        from session_store import load_ready
+        _host, args.token, args.org = load_ready(__import__("pathlib").Path(__file__).resolve().parent.parent)
+    if not args.token or not args.org:
+        print("❌ 需要 --token/--org，或用 --from-session 读取本机会话")
+        raise SystemExit(2)
     # ★断点修复(2026-09-09)：产品词必填——内置词表只服务"宠物食品包装"样例，
     #   换产品不带词会全页 REJECT=0%，静默误导。此处 fail-fast。
     if not args.match_words.strip():

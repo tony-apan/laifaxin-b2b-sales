@@ -15,6 +15,7 @@ draft → confirmed → attempted/uncertain/accepted（GUARD-FIX-V2 §5.2/§5.3�
 """
 from __future__ import annotations
 
+import calendar
 import hashlib
 import json
 import os
@@ -30,6 +31,7 @@ TOOLS_DIR = Path(__file__).resolve().parent
 if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
+import count_guard
 import rule_check
 
 SCHEMA_VERSION = 2
@@ -683,6 +685,16 @@ def build_dependencies(root: Path, plan: Dict[str, Any]) -> Dict[str, Any]:
         "budget_points": plan.get("budget_points"),
         "max_points": plan.get("max_points"),
         "estimation": plan.get("estimation"),
+        "count": {
+            "select_total": plan.get("selectTotal"),
+            "derived_select_total": plan.get("derived_select_total"),
+            "count_mode": plan.get("count_mode"),
+            "count_hash": plan.get("count_hash"),
+            "budget_ledger_hash": plan.get("budget_ledger_hash"),
+            "count_evidence": plan.get("count_evidence"),
+            "sample_ack": bool(str(plan.get("sample_ack") or "").strip()),
+            "count_quote": plan.get("count_quote"),
+        },
     }
 
 def prepare_save(root: Path, *, project: str, source: Dict[str, Any],
@@ -710,20 +722,52 @@ def prepare_save(root: Path, *, project: str, source: Dict[str, Any],
                 selection_id=str(source["selection_id"]))
     except registry.RegistryError as exc:
         raise PlanError(exc.code, exc.reason)
-    select_total = offline_input.get("selectTotal")
-    if select_total is not None:
-        select_total = rule_check.validate_select_total({**offline_input, "selectTotal": select_total})
+    # 数量只能由 S4 收口证据 + 预算上界推导；selectTotal 不再是自由输入。
+    evidence = offline_input.get("count_evidence")
+    count_mode = str(offline_input.get("count_mode") or "").strip()
+    explicit_count = offline_input.get("explicit_count")
+    sample_ack = str(offline_input.get("sample_ack") or "").strip()
+    count_quote = str(offline_input.get("count_quote") or "").strip()
+    estimation = {
+        "estimated_emails_per_company": coefficients.get("estimated_emails_per_company"),
+        "estimated_points_per_email": coefficients.get("estimated_points_per_email"),
+        "selectTotal": None,
+    }
+    ledger_doc = offline_input.get("budget_ledger") or budget.get("ledger")
+    guard_plan = {"project": project,
+                  "budget_points": budget.get("budget_points"),
+                  "max_points": budget.get("max_points"),
+                  "estimation": estimation}
+    if ledger_doc is not None:
+        guard_plan["budget_ledger"] = ledger_doc
+    try:
+        derived = count_guard.derive(
+            evidence, guard_plan,
+            mode=count_mode, explicit_count=explicit_count,
+            sample_ack=sample_ack, quote=count_quote)
+        if ledger_doc is not None:
+            count_guard.verify_ledger_file(root, guard_plan)
+    except count_guard.CountError as exc:
+        _fail(exc.code, exc.reason)
+    select_total = derived["select_total"]
+    estimation["selectTotal"] = select_total
+    manual = offline_input.get("selectTotal")
+    if manual is not None:
+        manual = rule_check.validate_select_total({**offline_input, "selectTotal": manual})
+        if manual != select_total:
+            _fail("E_SELECT_TOTAL_DERIVED_MISMATCH",
+                  "手工 selectTotal=%d 与证据推导=%d 不一致" % (manual, select_total))
         count = offline_input.get("count")
         if count is not None:
             rule_check.check_count_alias({**offline_input, "selectTotal": select_total}, select_total)
     wire = rule_check.validate_wire(offline_input["wire_payload"]) if offline_input.get("wire_payload") else None
+    if not isinstance(wire, dict):
+        _fail("E_PLAN_REQUIRED", "缺 wire_payload，无法绑定保存数量")
+    if wire.get("selectTotal") != select_total:
+        _fail("E_SELECT_TOTAL_DERIVED_MISMATCH",
+              "wire.selectTotal=%r 与证据推导=%d 不一致" % (wire.get("selectTotal"), select_total))
     plan_id = offline_input.get("plan_id") or ("plan-" + secrets.token_hex(8))
     revision = int(offline_input.get("revision") or 1)
-    estimation = {
-        "estimated_emails_per_company": coefficients.get("estimated_emails_per_company"),
-        "estimated_points_per_email": coefficients.get("estimated_points_per_email"),
-        "selectTotal": select_total,
-    }
     computed: Dict[str, Any] = {}
     unresolved: List[str] = []
     try:
@@ -762,6 +806,20 @@ def prepare_save(root: Path, *, project: str, source: Dict[str, Any],
         "contactVerifyStatus": offline_input.get("contactVerifyStatus",
                                                  list(rule_check.VERIFY_STATUS_DRAFT)),
         "selectTotal": select_total,
+        "derived_select_total": select_total,
+        "count_mode": count_mode,
+        "explicit_count": explicit_count,
+        "sample_ack": sample_ack,
+        "count_quote": count_quote,
+        "count_evidence": evidence,
+        "count_hash": derived["count_hash"],
+        "budget_ledger": ledger_doc,
+        "budget_ledger_hash": derived.get("ledger_hash"),
+        "count_derivation": {
+            "y": derived["y"], "n_budget": derived["n_budget"],
+            "points": derived["points"], "unit": derived["unit"],
+            "effective_budget": derived["effective_budget"],
+        },
         "audit_manifest": audit.get("path", audit_manifest_path),
         "audit_window": audit.get("window"),
         "estimation": estimation, "budget_points": budget.get("budget_points"),
@@ -806,6 +864,7 @@ def binding_hash(plan: Dict[str, Any]) -> str:
         "plan_id": plan.get("plan_id"), "revision": plan.get("revision"),
         "wire_payload_sha256": plan.get("wire_payload_sha256"),
         "dependency_sha256": plan.get("dependency_sha256"),
+        "count_hash": plan.get("count_hash"),
     }
     return rule_check.canonical_hash(material)
 
@@ -825,7 +884,8 @@ def confirm_plan(root: Path, draft: Dict[str, Any], *, quote: str,
         _fail("E_PLAN_NOT_CONFIRMED", "plan 状态非法")
     expires = str(draft.get("expires_at") or "")
     try:
-        deadline = time.mktime(time.strptime(expires, "%Y-%m-%dT%H:%M:%SZ"))
+        # expires_at 是 UTC；time.mktime 按本地时区解析，Windows/UTC+8 会误判已过期。
+        deadline = calendar.timegm(time.strptime(expires, "%Y-%m-%dT%H:%M:%SZ"))
     except ValueError:
         deadline = 0
     if deadline and (now if now is not None else time.time()) > deadline:
@@ -836,6 +896,11 @@ def confirm_plan(root: Path, draft: Dict[str, Any], *, quote: str,
     # 铁律7：confirm 再验一次标签，防手改 draft 绕过 prepare。
     validate_offline_tags(Path(root), str(draft.get("project") or ""), draft)
     select_total = rule_check.check_save(wire, {**draft, "status": "confirmed"})
+    # 数量必须能从 S4 证据 + 预算重算；confirm 不接受 draft 自报值。
+    try:
+        count_guard.validate_plan(draft)
+    except count_guard.CountError as exc:
+        _fail(exc.code, exc.reason)
     # B1：confirm 重读 registry+audit manifest，依赖变化一律拒。
     current_dependencies = build_dependencies(Path(root), draft)
     if rule_check.canonical_hash(current_dependencies) != draft.get("dependency_sha256"):

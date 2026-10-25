@@ -21,6 +21,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+import save_plan  # noqa: E402
 SEQ = "0123456789abcdef01234567"
 ORG = "org-for-precheck-tests"
 PROJECT = "tony/demo"
@@ -69,6 +71,15 @@ class S10PrecheckTest(unittest.TestCase):
         self.project_dir.mkdir(parents=True)
         self.record = self.project_dir / "operation-record.md"
         self.write_record("S9")
+        self.plan = self.project_dir / "s5-plan-final.json"
+        plan = {"project": PROJECT, "plan_id": "plan-test", "revision": 1,
+                "status": "confirmed", "selectTotal": 5,
+                "wire_payload_sha256": "0" * 64, "dependency_sha256": "0" * 64,
+                "count_hash": "a" * 64,
+                "wire_payload": {"contactTags": TAGS, "companyTags": ["tag-company"],
+                                  "selectTotal": 5}}
+        plan["binding_sha256"] = save_plan.binding_hash(plan)
+        self.plan.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
         self.bin = self.tmp / "bin"
         self.bin.mkdir()
         self.log = self.tmp / "curl.log"
@@ -142,6 +153,7 @@ class S10PrecheckTest(unittest.TestCase):
             [sys.executable, str(self.repo / "tools" / "contact_add_authorized.py"),
              "--token", TOKEN, "--org", ORG, "--seq", SEQ, "--tags", ",".join(TAGS),
              "--task", TASK, "--project", PROJECT, "--record", str(self.record),
+             "--plan", str(self.plan),
              "--approval", self.approval, *extra],
             capture_output=True, text=True, cwd=self.repo, env=self.env, timeout=180, encoding="utf-8", errors="replace")
 
@@ -190,6 +202,19 @@ class S10PrecheckTest(unittest.TestCase):
             self.assertIn(must, out, f"dry-run 预检缺「{must}」")
         self.assertNotIn("sequences/contact-add", self.calls(),
                          "dry-run 不得写平台")
+
+    def test_plan_tag_mismatch_blocks_before_write(self):
+        self.install_curl(total=5)
+        self.plan.write_text(json.dumps({
+            "project": PROJECT, "selectTotal": 5, "count_hash": "a" * 64,
+            "wire_payload": {"contactTags": ["tag-other"], "companyTags": ["tag-company"],
+                              "selectTotal": 5}}, ensure_ascii=False), encoding="utf-8")
+        ticket = self.mint_ticket()
+        r = self.run_add("--auth-ticket", str(ticket))
+        out = r.stdout + r.stderr
+        self.assertEqual(2, r.returncode, out)
+        self.assertIn("计划联系人标签不一致", out)
+        self.assertNotIn("sequences/contact-add", self.calls())
 
     # ---------- ⑤ 人数硬对账：contactSaveCount ≠ 标签人数 → exit 2，不写平台 ----------
     def test_saved_count_mismatch_blocks_before_write(self):

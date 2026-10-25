@@ -29,6 +29,7 @@ updated: "2026-10-25"
 | test_compliance_evidence_mode.py | S7/S8/S11/S12 合规证据模式：live-only 与 fail-closed 契约 | 改 S7/S8/S11/S12 合规证据校验后 |
 | test_confirm_numbering.py | 确认点一律回数字（2026-10-23 用户要求：只回数字就能继续）。 | 改确认点话术或确认闸门后 |
 | test_contact_add_ticket_gate.py | P0-A S10 票据门回归测试（静态红队：票据门曾经失效）。 | 改 S10 加人票据门后 |
+| test_count_guard.py | S5 数量推导闸门回归：50 绕过、末页、预算、样本、五处一致、哈希篡改。 | 改保存数量/预算/证据推导后 |
 | test_credential_input.py | 聊天框两行凭据解析（LF/CRLF/缺 org/超限 fail-closed） | 改凭据输入/传输方式后 |
 | test_cross_platform.py | 跨平台一致性：preflight.py 存在且用当前解释器、.gitattributes 行尾、Windows/macOS 文案齐全。 | 改自检入口、行尾规则或安装话术后 |
 | test_cta_keyword_gate.py | CTA 回复关键词闸门测试：引导对方回一个短词，且该短词必须加粗。 | 改模板 CTA 关键词或渲染文案后 |

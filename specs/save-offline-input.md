@@ -40,8 +40,14 @@ confirmed plan + render + ticket ──execute（工作空间预检→重验 bin
 | `wire_payload` | ✅（真保存） | object | 平台保存 payload，严格 18 字段（见 §五）；prepare 时可缺省，但 confirm/execute 必须有 |
 | `audit_manifest` | ✅（confirm 前） | string(path) | 审计证据文件路径（仓库根相对或绝对）；confirm 时不存在 → `E_AUDIT_SCOPE` |
 | `budget` | ✅（真保存） | object | `budget_points` / `max_points`（见 §四）；缺来源/缺失 → `E_BUDGET_UNRESOLVED` |
+| `budget_ledger` | ✅（calibrated） | object | `save_budget.py plan --confirm-n ...` 的 ready 输出；`confirm_n` 是唯一数量，`n_cons/n_est/batch_points_upper` 是硬上界；缺 → `E_LEDGER_REQUIRED` |
 | `coefficients` | ✅（真保存） | object | `estimated_emails_per_company` / `estimated_points_per_email`（见 §四） |
-| `selectTotal` | ✅（真保存） | int | 本次保存家数，严格 int 且 >0；缺失 → `E_SELECT_TOTAL_REQUIRED` |
+| `count_evidence` | ✅（真保存） | object | S4 收口证据：`threshold_page`/`pool_total`/`evidence_mode`（live 或 strict）/`page_rows`；缺 → `E_COUNT_EVIDENCE_REQUIRED` |
+| `count_mode` | ✅（真保存） | string | `sample`（未校准，只能 1 家）/ `calibrated` / `explicit_small`（≤50，需 sample_ack+原话） |
+| `explicit_count` | 条件 | int | 仅 explicit_small 必填；≤50，且仍受 Y/预算约束 |
+| `sample_ack` | 条件 | string | 显式小批量/样本确认锚点；缺失 → `E_SAMPLE_ACK_REQUIRED` |
+| `count_quote` | 条件 | string | 人工确认原话；与 sample_ack 同时出现 |
+| `selectTotal` | 只读派生 | int | **不再自由输入**：必须等于 count_guard 推导值；手工值不等 → `E_SELECT_TOTAL_DERIVED_MISMATCH` |
 | `count` | 可选 | int | 旧字段别名；若给必须等于 `selectTotal`，否则 `E_COUNT_MISMATCH` |
 | `companyTags` | ✅ | array[string] | 公司标签**名称**（铁律7：语言-行业-角色）；与 wire 的标签 ID 必须成对 |
 | `contactTags` | ✅ | array[string] | 联系人标签名称；同上 |
@@ -78,6 +84,9 @@ confirmed plan + render + ticket ──execute（工作空间预检→重验 bin
 }
 ```
 
+- `calibrated` 必须带 `budget_ledger`；数量取台账的 `confirm_n`，且 `confirm_n <= Y`、`<= n_cons`、`<= n_est`，`P <= batch_points_upper`。`budget_points`/`max_points` 只是遗留兼容，不能替代台账。
+- **单客成本上界**：本次计划单价 `e*p` 不得高于台账 `per_company_upper`；高于时 `N_cons` 会被高估、预算可能不够，直接 `E_LEDGER_UPPER_TOO_LOW`，不允许“先算再说”。
+- **信任边界（必须知道）**：`.local/budget-ledger.jsonl` 是本地信任根，**没有签名/HMAC**；能改写 `.local` 的人可以伪造一条自洽的 ready 行。本闸门防的是误操作、字段漂移、旧台账混用，不防本机恶意写入。要防恶意写入需另加外部签名或服务端账本，不能靠当前文件自证。
 - 估算：`E = selectTotal × e`（邮箱），`P = ceil(selectTotal × e × p)`（点数）。
 - `P > max_points` → `E_MAX_POINTS_EXCEEDED`；`P > budget_points` → `E_BUDGET_EXCEEDED`；预算/系数缺 `source_ref`/`version` → `E_BUDGET_UNRESOLVED`/`E_ESTIMATE_SOURCE`。
 - 数字型预算（如 `"budget_points": 10000`）代码也接受，但不留来源，**不推荐**。
@@ -118,6 +127,13 @@ confirmed plan + render + ticket ──execute（工作空间预检→重验 bin
     "segment_id": "S01",
     "keyword": "caps manufacturer"
   },
+  "count_evidence": {
+    "threshold_page": 30,
+    "pool_total": 3000,
+    "evidence_mode": "strict",
+    "page_rows": [{"page": 30, "returned": 10}]
+  },
+  "count_mode": "calibrated",
   "selectTotal": 300,
   "companyTags": ["英语-客户"],
   "contactTags": ["英语-联系人"],
@@ -127,6 +143,13 @@ confirmed plan + render + ticket ──execute（工作空间预检→重验 bin
   "budget": {
     "budget_points": {"points": 10000, "source_ref": "用户本轮明确预算", "version": "2026-10-23"},
     "max_points": {"points": 18000, "source_ref": "账户可用点数上限", "version": "2026-10-23"}
+  },
+  "budget_ledger": {
+    "status": "ready", "org_hash": "0123456789abcdef", "round_id": "round-abc123",
+    "exec_quote_ref": "用户确认保存 300 家",
+    "confirm_n": 300, "n_cons": 300, "n_est": 300,
+    "b_plan": "10000", "spent_all": "0", "budget_left": "10000",
+    "per_company_upper": "1.5", "batch_points_upper": "1000"
   },
   "coefficients": {
     "estimated_emails_per_company": {"value": 1.5, "source_ref": "历史均值", "version": "CORE-POINTS"},
@@ -175,6 +198,9 @@ confirmed plan + render + ticket ──execute（工作空间预检→重验 bin
 | `E_BUDGET_UNRESOLVED` / `E_MAX_POINTS_EXCEEDED` / `E_BUDGET_EXCEEDED` | 预算缺失/超上限/超本次预算 |
 | `E_ESTIMATE_SOURCE` | 系数缺值/缺来源/非正数 |
 | `E_AUDIT_SCOPE` | confirm 时 `audit_manifest` 不存在 |
+| `E_LEDGER_REQUIRED` / `E_LEDGER_NOT_READY` / `E_LEDGER_ROW_NOT_FOUND` | calibrated 缺台账 / 台账非 ready / 仓库账簿找不到同内容 ready 行 |
+| `E_LEDGER_QUANTITY_EXCEEDS_Y` / `E_LEDGER_QUANTITY_EXCEEDS_CONS` | 台账确认量 > S4 的 Y / > n_cons |
+| `E_SELECT_TOTAL_DERIVED_MISMATCH` / `E_COUNT_HASH_MISMATCH` / `E_LEDGER_HASH_MISMATCH` | 手填数量、数量哈希、台账哈希与重算不一致 |
 | `E_PLAN_DEPENDENCY_CHANGED` | draft 过期或依赖（来源/审计/预算/系数）变化，须重新 prepare |
 
 ## 八、相关

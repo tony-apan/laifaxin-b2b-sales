@@ -4,8 +4,9 @@
 ★S10 授权写通道（现役正路）：经 save_guard.authorize_write(action="sequence", payload, ticket) 校验票据后写平台；
   票据由 auth_guard.py authorize --action sequence 生成，payload 哈希逐字绑定，缺失/不符=拒绝。
 用法:
-  python3 contact_add.py --token <T> --org <orgId> --seq <seqId> --tags <联系人标签id,可逗号多个> \
-      --task <保存任务id>(★必填:时序铁律) --approval <ap-id> --project <项目键> \
+  python3 contact_add_authorized.py --token <T> --org <orgId> --seq <seqId> --tags <联系人标签id> \
+      --task <保存任务id>(★必填:时序铁律) --plan <S5 confirmed plan 路径>(★正式必填) \
+      --approval <ap-id> --project <项目键> \
       --record runs/<operator_key>/<product_key>/operation-record.md \
       --auth-ticket .local/auth/ticket-<nonce>.json [--dry-run]
   ★--auth-ticket 在非 dry-run 时必填：票据由 auth_guard.py authorize --action sequence 生成,
@@ -46,13 +47,14 @@ ap.add_argument("--org", required=True, help="当前工作空间ID=localStorage�
 ap.add_argument("--seq", required=True, help="序列id")
 ap.add_argument("--tags", required=True, help="联系人标签id(逗号分隔)")
 ap.add_argument("--task", required=True, help="保存任务id(refine/company-save 返回)——★必填:时序铁律,无任务id=无法确认finished,拒绝执行")
+ap.add_argument("--plan", default="", help="★S5 confirmed plan 路径；正式加人必填，用于绑定项目/联系人标签/数量")
 ap.add_argument("--record", default="", help="项目operation-record；成功且add对账后推进S10,next=S11")
 ap.add_argument("--approval", default="", help="★S10 审批凭证id(.local/approvals.tsv)")
 ap.add_argument("--project", required=True, help="稳定项目键=<operator_key>/<product_key>")
 ap.add_argument("--timeout", type=int, default=900, help="等保存任务最大秒数")
 ap.add_argument("--dry-run", action="store_true", help="只打印 payload/时序检查,不写")
 ap.add_argument("--auth-ticket", default="", help="★S10 写票据文件路径 .local/auth/ticket-<nonce>.json")
-ap.add_argument("--allow-count-mismatch", action="store_true", help="★仅人工排查用：跳过「保存任务 contactSaveCount = 标签人数」硬对账（默认 fail-closed；使用须在记录里写明原因）")
+ap.add_argument("--allow-count-mismatch", action="store_true", help="已停用：仅保留参数兼容旧脚本；数量不等一律 fail-closed")
 args = ap.parse_args()
 # ★P0-A 票据门(静态红队): 非 dry-run 一律必须有写票据——缺失时在**任何联网之前**拒绝,
 #   绝不"先查一圈平台再发现没票"; 坏票/哈希不符在写入前由 save_guard 校验并拒绝。
@@ -76,6 +78,50 @@ tags = sorted({t.strip() for t in args.tags.split(",") if t.strip()})  # 去重�
 if not tags:
     print("❌ S10 加人前预检未通过：没给联系人标签（缺标签）——不写平台、不加人")
     print("   --tags 须是本客群的联系人标签id（逗号分隔可多个）；请先在 S5 建好/确认标签")
+    sys.exit(2)
+if len(tags) != 1:
+    print("❌ S10 只允许一个联系人标签：多标签会重复计数/混批，无法证明联系人集合")
+    print("   请把本批联系人归到一个新建标签后重跑；不写平台、不加人。")
+    sys.exit(2)
+# ★批次身份: 正式加人必须绑定 S5 confirmed plan，防止拿旧标签/旧数量混批。
+# ★不要在这里把 plan.selectTotal 和 estimated_add 硬相等：
+#   plan.selectTotal 是 S5 保存的公司数；S10 是按 contactTags 把标签下联系人加进序列，
+#   对账口径是 contactSaveCount == 标签人数(estimated_add)。两者不是同一量。
+#   硬相等会违反已确认的 S10 节点（“加人按标签，不按保存公司数”）。
+plan_doc = None
+if args.plan:
+    try:
+        plan_doc = json.loads(Path(args.plan).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"❌ S10 计划文件读不了: {args.plan}（{exc}）——不写平台"); sys.exit(2)
+    wire = plan_doc.get("wire_payload") if isinstance(plan_doc, dict) else None
+    wire = wire if isinstance(wire, dict) else {}
+    if plan_doc.get("project") != args.project:
+        print(f"❌ S10 计划项目不一致: plan={plan_doc.get('project')!r} CLI={args.project!r}——不写平台"); sys.exit(2)
+    if wire.get("contactTags") != tags:
+        print(f"❌ S10 计划联系人标签不一致: plan={wire.get('contactTags')!r} CLI={tags!r}——多标签/旧标签混批，不写平台"); sys.exit(2)
+    if not wire.get("companyTags"):
+        print("❌ S10 计划缺公司标签（companyTags）——无法证明本批联系人来自本批公司，不写平台"); sys.exit(2)
+    if not isinstance(wire.get("selectTotal"), int) or wire.get("selectTotal") <= 0:
+        print("❌ S10 计划缺有效 selectTotal——不写平台"); sys.exit(2)
+    if plan_doc.get("selectTotal") != wire.get("selectTotal"):
+        print("❌ S10 计划 selectTotal 与 wire 不一致——不写平台"); sys.exit(2)
+    if not str(plan_doc.get("count_hash") or "").strip():
+        print("❌ S10 计划缺 count_hash（数量未受机器推导）——不写平台"); sys.exit(2)
+    if plan_doc.get("status") != "confirmed":
+        print(f"❌ S10 计划未 confirmed（status={plan_doc.get('status')!r}）——不写平台"); sys.exit(2)
+    if not str(plan_doc.get("binding_sha256") or "").strip():
+        print("❌ S10 计划缺 binding_sha256——不写平台"); sys.exit(2)
+    try:
+        import save_plan as _planlib
+        expected_binding = _planlib.binding_hash(plan_doc)
+    except Exception as exc:
+        print(f"❌ S10 计划绑定哈希无法重算: {exc}——不写平台"); sys.exit(2)
+    if expected_binding != plan_doc.get("binding_sha256"):
+        print("❌ S10 计划 binding_sha256 与重算不一致——不写平台"); sys.exit(2)
+elif not args.dry_run:
+    print("❌ 正式加人必须带 --plan <S5 confirmed plan>：没有计划就无法证明“保存任务/标签/数量”是同一批")
+    print("   不写平台、不加人。请从 S5 的 confirmed plan 文件传入。")
     sys.exit(2)
 # ★审批硬闸门+参数绑定: 本工具按本次实际参数(seq/tags/task/project)重算哈希, 凭证memo须逐字一致
 binding = {"project": args.project, "org_sha256": hashlib.sha256(str(args.org).encode()).hexdigest(), "seq": args.seq, "tags": tags, "task": args.task}
@@ -266,12 +312,12 @@ except (TypeError, ValueError):
 if _saved != estimated_add:
     print(f"❌ S10 人数对账不通过：保存任务 contactSaveCount={_saved} ≠ 本客群标签人数={estimated_add}")
     print("   常见原因：标签混了别的批次 / 保存任务没完全落定 / 取错标签。不写平台、不加人。")
-    print("   处理：回 S5 核对保存任务与标签；等计数落定后重跑。确属人工排查后要强推，才加 --allow-count-mismatch 并在记录里写明原因。")
-    if not args.allow_count_mismatch:
-        sys.exit(2)
-    print("⚠️ 已按 --allow-count-mismatch 跳过人数硬对账——责任与原因须写入 operation-record")
-else:
-    print(f"✅ S10 人数对账通过: 保存任务 contactSaveCount={_saved} = 本客群标签人数={estimated_add}")
+    print("   处理：回 S5 核对保存任务与标签；等计数落定后重跑。旁路已停用，数量不等一律 fail-closed。")
+    sys.exit(2)
+print(f"✅ S10 人数对账通过: 保存任务 contactSaveCount={_saved} = 本客群标签人数={estimated_add}")
+if estimated_add <= 0:
+    print("❌ 本客群标签人数为 0：没有可加的联系人，停止（不写平台、不推进 S11）")
+    sys.exit(2)
 tag_detail = "、".join(f"{tg}（{tag_names.get(tg) or '未命名'}）={n} 人" for tg, n in precheck_counts.items())
 print(f"   本客群标签: {tag_detail}")
 print(f"   本客群标签下人数: {estimated_add} 人")
@@ -314,8 +360,8 @@ if r.get("success"):
         print("❌ 返回无 add 数——无法对账，进入 ERROR_BLOCKED；用 sequence-details 核对")
         if args.record: update_frontmatter(args.record, {"status": "ERROR_BLOCKED", "next_state": "S10"}, expected_states=("S9", "S10"))
         sys.exit(1)
-    if sum(gots.values()) and add > sum(gots.values()):
-        print(f"❌ add={add} 明显超过标签人数合计 {sum(gots.values())}——异常，进入ERROR_BLOCKED")
+    if add != estimated_add:
+        print(f"❌ add={add} ≠ 本客群标签人数={estimated_add}——少加/多加都不能推进，进入ERROR_BLOCKED")
         if args.record: update_frontmatter(args.record, {"status": "ERROR_BLOCKED", "next_state": "S10"}, expected_states=("S9", "S10"))
         sys.exit(1)
     if not args.record:

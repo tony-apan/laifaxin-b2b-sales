@@ -104,7 +104,64 @@ def _validate(data):
     return data['host'], data['access_token'], data['org_id']
 
 
+def _save_session_windows(root, host, token, org):
+    data = dict(host=host, access_token=token, org_id=org,
+                saved_at=datetime.now(timezone.utc).isoformat(),
+                sha256=hashlib.sha256(token.encode()).hexdigest())
+    data['credential_sha256'] = _bound_digest(data)
+    _validate(data)
+    local = Path(root) / '.local'
+    try:
+        local.mkdir(mode=0o700, exist_ok=True)
+        os.chmod(local, 0o700)
+    except OSError:
+        pass
+    target = local / NAME
+    temporary = local / ('.' + NAME + '.' + secrets.token_hex(16) + '.tmp')
+    fd = None
+    try:
+        fd = os.open(str(temporary), os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_BINARY', 0), 0o600)
+        stream = os.fdopen(fd, 'w', encoding='utf-8')
+        fd = None
+        with stream:
+            json.dump(data, stream, ensure_ascii=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(str(temporary), str(target))
+        try: os.chmod(target, 0o600)
+        except OSError: pass
+        _verified.clear()
+    except (OSError, ValueError, TypeError):
+        raise SessionError('E_SESSION_SAVE', '保存失败。') from None
+    finally:
+        if fd is not None:
+            os.close(fd)
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _read_session_windows(root):
+    target = Path(root) / '.local' / NAME
+    try:
+        info = target.stat()
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 16384:
+            raise _stale()
+        with target.open('r', encoding='utf-8') as stream:
+            data = json.load(stream)
+        return _validate(data)
+    except FileNotFoundError:
+        raise SessionError('E_NO_SESSION', '未找到本机会话，请先登录保存。') from None
+    except (ValueError, UnicodeError, TypeError):
+        raise _corrupt() from None
+    except OSError:
+        raise _transient() from None
+
+
 def save_session(root, host, token, org):
+    if os.name == 'nt':
+        return _save_session_windows(root, host, token, org)
     data = dict(host=host, access_token=token, org_id=org,
                 saved_at=datetime.now(timezone.utc).isoformat(),
                 sha256=hashlib.sha256(token.encode()).hexdigest())
@@ -137,6 +194,8 @@ def save_session(root, host, token, org):
 
 
 def _read_session(root):
+    if os.name == 'nt':
+        return _read_session_windows(root)
     try:
         with _directory(root) as directory:
             descriptor = os.open(NAME, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
@@ -168,6 +227,15 @@ def load_verified(root):
 
 
 def forget_session(root):
+    if os.name == 'nt':
+        try:
+            (Path(root) / '.local' / NAME).unlink()
+        except FileNotFoundError:
+            pass
+        except OSError:
+            raise SessionError('E_SESSION_DELETE', '会话清除失败，请稍后重试。') from None
+        _verified.clear()
+        return
     try:
         with _directory(root, create=True) as directory:
             try:

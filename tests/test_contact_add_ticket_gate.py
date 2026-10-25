@@ -23,6 +23,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+import save_plan  # noqa: E402
 SEQ = "0123456789abcdef01234567"
 ORG = "org-for-ticket-tests"
 PROJECT = "tony/demo"
@@ -71,6 +73,15 @@ class ContactAddTicketGateTest(unittest.TestCase):
         self.project_dir.mkdir(parents=True)
         self.record = self.project_dir / "operation-record.md"
         self.write_record("S9")
+        self.plan = self.project_dir / "s5-plan-final.json"
+        plan = {"project": PROJECT, "plan_id": "plan-test", "revision": 1,
+                "status": "confirmed", "selectTotal": 5,
+                "wire_payload_sha256": "0" * 64, "dependency_sha256": "0" * 64,
+                "count_hash": "a" * 64,
+                "wire_payload": {"contactTags": TAGS, "companyTags": ["tag-company"],
+                                  "selectTotal": 5}}
+        plan["binding_sha256"] = save_plan.binding_hash(plan)
+        self.plan.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
         self.bin = self.tmp / "bin"
         self.bin.mkdir()
         self.log = self.tmp / "curl.log"
@@ -140,6 +151,7 @@ class ContactAddTicketGateTest(unittest.TestCase):
             [sys.executable, str(self.repo / "tools" / "contact_add_authorized.py"),
              "--token", TOKEN, "--org", ORG, "--seq", SEQ, "--tags", ",".join(TAGS),
              "--task", TASK, "--project", PROJECT, "--record", str(self.record),
+             "--plan", str(self.plan),
              "--approval", self.approval, *extra],
             capture_output=True, text=True, cwd=self.repo, env=self.env, timeout=180, encoding="utf-8", errors="replace")
 

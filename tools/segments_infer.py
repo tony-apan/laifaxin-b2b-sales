@@ -25,7 +25,8 @@ from update_run_state import require_state, update_frontmatter
 from workspace_guard import preflight
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--token", required=True); ap.add_argument("--org", required=True)
+ap.add_argument("--token", default=""); ap.add_argument("--org", default="")
+ap.add_argument("--from-session", action="store_true", help="从本机已保存会话读取凭据（免 argv 明文；推荐）")
 ap.add_argument("--product", required=True, help="产品名(⚠️两套档案命名可能不同L-37:匹配name/zh/en三字段;不确定时--dry-run看,或直接--pid)")
 ap.add_argument("--pid", default="", help="推理档案id直传(免匹配,最稳)")
 ap.add_argument("--rounds", type=int, default=4, help="默认发 4 轮推演请求；候选数以平台返回为准（RULES/契约的『默认4个』指展示候选，不由此参数保证）")
@@ -35,6 +36,11 @@ ap.add_argument("--approval", default="", help="S2 绑定profile+pid+rounds的�
 ap.add_argument("--project", required=True, help="稳定项目键=<operator_key>/<product_key>")
 ap.add_argument("--dry-run", action="store_true")
 args = ap.parse_args()
+if args.from_session:
+    from session_store import load_ready
+    _host, args.token, args.org = load_ready(KB)
+if not args.token or not args.org:
+    ap.error("需要 --token/--org，或用 --from-session 读取本机会话")
 
 def api(path, p, t=90):
 # LFX_GATE_WRITE

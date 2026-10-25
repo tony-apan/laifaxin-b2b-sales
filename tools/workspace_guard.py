@@ -235,6 +235,7 @@ def _load_credentials(args, stdin):
 
 
 def main(argv=None, *, stdin=None, probe=None):
+    _utf8_stdout()
     ap = argparse.ArgumentParser()
     ap.add_argument("--credentials-stdin", action="store_true", help="从 stdin 读取两行凭据")
     ap.add_argument("--require-verified", action="store_true",

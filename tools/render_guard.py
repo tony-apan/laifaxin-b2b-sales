@@ -235,7 +235,9 @@ def _read_secure(path: Path) -> Tuple[bytes, os.stat_result]:
         st = os.fstat(fd)
         if not stat.S_ISREG(st.st_mode):
             raise RenderDenied("E_RENDER_BAD_FILE", "render 不是普通文件")
-        if stat.S_IMODE(st.st_mode) != 0o600:
+        # Windows 不提供 POSIX 0600 语义：os.stat 的 mode 恒为 0666/0444。
+        # render 只落在 .local/renders（用户目录）；Windows 侧以路径+ACL 为边界。
+        if os.name != "nt" and stat.S_IMODE(st.st_mode) != 0o600:
             raise RenderDenied("E_RENDER_BAD_FILE",
                                "render 权限必须是 0600，实际 " + oct(stat.S_IMODE(st.st_mode)))
         if st.st_size > MAX_RENDER_BYTES:
