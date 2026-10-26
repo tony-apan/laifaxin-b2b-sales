@@ -27,6 +27,7 @@ related: ["../START-HERE.md", "cross-platform-setup.md"]
 | 10 | 4 区排除抽验报「记录缺 country_code」，整批阻断 | 平台个别记录国家字段为空（键在、值为空），旧逻辑直接 fail-closed | ✅ 已修：值为空的单列计数、不当作残留；真出现 CN/TW/HK/MO 仍判失败。改完已重跑通过 |
 | 11 | 提交前自检要跑 1–2 分钟，超时像卡死 | `preflight` 是全量测试 | 后台跑或先独立跑一次；确认全绿后可 `SKIP_PREFLIGHT=1` 提交，但**不能不跑就宣称通过** |
 | 12 | 建完序列担心已经在发信 | 序列默认 `inactive` | 未激活不发信、不扣赠送点数；激活只认用户「确认激活」原话 |
+| 13 | 子进程报 `unrecognized arguments: <脚本路径>` | 用 `runpy.run_path` 执行脚本前没设置 `sys.argv`，脚本名被当成参数 | 调 `runpy` 前先 `sys.argv = args`；或直接用 `subprocess` 调脚本 |
 
 ## 上线前自查 4 件事（这次实际用到的）
 1. 序列：12 步、状态 inactive、48 个模板全挂上。

@@ -4,7 +4,7 @@ title: "tools 索引"
 description: "目录索引：tools 下脚本与说明的导航，找现役工具或确认用途时读。"
 type: "index"
 status: "active"
-updated: "2026-10-25"
+updated: "2026-10-26"
 ---
 
 # tools 索引
@@ -35,7 +35,7 @@ updated: "2026-10-25"
 | check_rules.sh | 默认离线检查规则/项目/问题;在线登录校验由主AI经--credentials-stdin传两行凭据 | 交付前离线规则检查 / 排障 |
 | check_template_diff.py | Jaccard相似度≤0.70(差异≥30%);★逐模板template-info取真实html(templates-list不含html) | 第 4/5 步模板差异检查 |
 | compliance_validation.py | live-only;五项72h真实source/detail;模拟离线桩占位fail-closed;flow/activate共用 | 第 7 关激活/合规证据校验 |
-| contact_add.py | 时序守卫(finished+标签>0)+contact-add views:[]铁律+add数核对;--approval S10闸门;--dry-run | 第 6 步加人前 |
+| contact_add.py | ⛔已封条（save_guard.require，运行时即 DEPRECATED）：仅作流程核对，禁止调用 | 只读核对旧链路时 |
 | contact_add_authorized.py | ★S10 加联系人入序列（一条龙缺口#2）：时序守卫(保存finished+标签>0) → contact-add(views:[]铁律) → 核对 add 数 | 第 6 步加联系人入序列前 |
 | count_guard.py | S5 保存数量推导闸门：只认 S4 收口证据 + 预算上界；50/手工缩量/末页/预算超限全拒。 | 第 3 步保存数量推导前 |
 | credential_input.py | 严格解析聊天框两行凭据;LF/CRLF/CR;缺org/重复/控制符/超限fail-closed | 连平台贴凭据后 / 凭据解析失败时 |

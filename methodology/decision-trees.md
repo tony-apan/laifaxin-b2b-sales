@@ -4,7 +4,7 @@ title: "获客双引擎·完整逻辑图（广撒网获询盘→精准背调跟�
 description: "获客双引擎逻辑图：批量获客 S0-S12 铺量拿询盘，询盘后转精准背调与长期跟进。"
 type: "guide"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-26"
 created: 2026-08-29
 author: "AI + 运营方"
 related: [RULES.md, specs/threshold-method, specs/domain-scale-sop, specs/sequence-config, specs/operations-sop, specs/data-structure]
@@ -187,9 +187,9 @@ flowchart LR
 - 入口：`onboard_check.py` → `check_login.py`（第一步）→ `gate_check.sh`（闸门）→ `flow_orchestrator.py`（向导 S0-S12）
 - A①/B③ 搜相似: `refine/company-list`；S2 客群: `inference-segment-generate/list`
 - S4 临界: `audit_company.py` + AI 反思（specs/threshold-method）
-- S5/S6 保存: `save_first_n.py --approval`（front+exclude4区+max3）→ `wait_save_done.py` → `verify_exclude.py`
+- S5/S6 保存: `save_company_cli.py prepare → confirm → execute`（front+exclude4区+max3）→ `status`/`reconcile` 对账 → `verify_exclude.py`
 - S7/S8 模板: `gen_templates.py --preview` → `--approval` 建批 → `check_template_diff.py`（Jaccard≤0.70）→ 重建用 `rebuild_templates.py`（顺序铁律）
 - S9 序列: `build_sequence.py`（12步 30分/5/15/30天；`resolve_schedule.py --tz` 运行时；notSentTags 按名解析 询盘/不发）→ `verify_sequence.py`
-- S10: `contact_add.py`（views:[]）+ 本地 ops-log 流水
+- S10: `contact_add_authorized.py`（S10 审批 + auth_guard 票据 + views:[]）+ 本地 ops-log 流水
 - 激活后: 后台报告拉取（模板效果）→ 本地 inquiries.tsv（询盘闭环）
 - 全程: `check_rules.sh`（自查）；审批 `approval.py`（`.local/approvals.tsv`）；对抗审查 → 本地审查记录（不入 Git）

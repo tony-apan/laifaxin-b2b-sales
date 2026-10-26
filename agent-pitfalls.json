@@ -87,6 +87,13 @@
       "cause": "序列默认 inactive",
       "action": "未激活不发信不扣赠送点数；只认「确认激活」",
       "verify": "状态 inactive"
+    },
+    {
+      "id": "runpy-argv",
+      "match": "argparse: unrecognized arguments: <脚本路径>",
+      "cause": "runpy.run_path 的子进程没设置 sys.argv，脚本名被当成参数",
+      "action": "runpy 前 sys.argv = args；或直接 subprocess 调脚本而非 runpy",
+      "verify": "子进程 rc=0 且输出符合预期"
     }
   ]
 }

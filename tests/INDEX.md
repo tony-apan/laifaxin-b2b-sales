@@ -4,7 +4,7 @@ title: "tests 索引"
 description: "目录索引：测试用例分组、运行方式与文档回归测试入口，跑回归前读。"
 type: "index"
 status: "active"
-updated: "2026-10-25"
+updated: "2026-10-26"
 ---
 
 # tests 索引
@@ -24,6 +24,7 @@ updated: "2026-10-25"
 |---|---|---|
 | __init__.py | 测试包初始化文件（一次性票据注入） | 无需读；仅测试包初始化 |
 | gate_env.py | 测试放行一次性票据：生产入口只认票据，不认裸 LFX_GATE_TEST_MODE | 改测试放行/门禁隔离后 |
+| test_agent_pitfalls.py | agent-pitfalls.json 契约：结构/引用/与 approval.py 一致/与踩坑文档条数一致 | 改排障库、审批确认语义或踩坑文档后 |
 | test_approval_numeric_quotes.py | 确认卡回数字的审批回归：S7/S9/S10 放行「1」，S5/S12 仍要求原话。 | 改审批确认词判定时 |
 | test_audit_tools_fixes.py | 探针/审计工具的 P1 回归：四区 filters、--domains 走 refine、loose 匹配率、错误上抛（P1-3/P1-4） | 改 S2/S3/S4 搜索与审计工具后 |
 | test_beginner_flow_links.py | 新手入口链接纪律测试（2026-10-23）。 | 改 specs/beginner-flow.md 或新手入口链接后 |
