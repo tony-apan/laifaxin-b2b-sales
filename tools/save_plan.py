@@ -1090,6 +1090,33 @@ def load_attempt_task_id(root: Path, *, plan_id: str, revision: int,
     return None
 
 
+def find_accepted_scope(root: Path, *, plan_id: str, revision: int,
+                        query_scope_key: Optional[str] = None) -> Dict[str, Any]:
+    """定位该 plan/revision 已受理的 scope 账本（task_id 唯一合法来源）。
+
+    优先看计划声明的 scope key；找不到时扫描 scope 目录，但仍严格校验
+    plan_id + revision + state=accepted，避免跨计划/跨轮次串号。
+    """
+    wanted = str(plan_id or "")
+    if not wanted:
+        return {}
+    candidates: List[Dict[str, Any]] = []
+    if query_scope_key:
+        candidates.append(load_scope(root, str(query_scope_key)))
+    try:
+        for path in sorted(scope_dir(root).glob("scope-*.json")):
+            candidates.append(_read_json(path))
+    except OSError:
+        pass
+    for scope in candidates:
+        if (scope.get("state") == "accepted"
+                and str(scope.get("plan_id") or "") == wanted
+                and int(scope.get("revision") or 0) == int(revision)
+                and scope.get("task_id")):
+            return scope
+    return {}
+
+
 def reconcile(root: Path, *, plan_id: str, revision: int,
               query_scope_key: str, attempt_id: str,
               task_id: Optional[str] = None,

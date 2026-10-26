@@ -230,12 +230,18 @@ def _cmd_status(args: Any) -> int:
     root = Path(args.root) if args.root else TOOLS_DIR.parent
     plan = planlib.load_plan(args.plan)
     task_id = args.task_id
+    attempt_id = str(args.attempt_id or "")
     if not task_id:
+        # 保存成功后调用方不必知道 task_id：按 plan/revision 读已受理的 scope 账本。
         scope_doc = plan.get("query_scope") or {}
         key = scope_doc.get("query_scope_key")
-        task_id = planlib.load_attempt_task_id(
-            root, plan_id=str(plan.get("plan_id")), revision=int(plan.get("revision") or 1),
-            query_scope_key=str(key or ""), attempt_id=str(args.attempt_id or "")) if key else None
+        accepted = planlib.find_accepted_scope(
+            root, plan_id=str(plan.get("plan_id")),
+            revision=int(plan.get("revision") or 1),
+            query_scope_key=str(key or ""))
+        task_id = str(accepted.get("task_id")) if accepted.get("task_id") else None
+        if not attempt_id:
+            attempt_id = str(accepted.get("attempt_id") or "")
     if not task_id:
         print(json.dumps({"ok": False, "stage": "status",
                           "code": "E_RECONCILE_SOURCE",
@@ -248,7 +254,7 @@ def _cmd_status(args: Any) -> int:
         "project": plan.get("project"), "plan_id": plan.get("plan_id"),
         "revision": plan.get("revision"),
         "query_scope_key": (plan.get("query_scope") or {}).get("query_scope_key"),
-        "attempt_id": args.attempt_id or "", "task_id": str(task_id),
+        "attempt_id": attempt_id, "task_id": str(task_id),
         "response": response, "response_sha256": rule_check.canonical_hash(response),
         "result": "polled",
     })

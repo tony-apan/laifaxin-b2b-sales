@@ -97,5 +97,81 @@ class WorkspaceGuardPreflightTest(unittest.TestCase):
                         source.index("save_guard.save_company_v2("))
 
 
+class StatusAutoTaskIdTest(unittest.TestCase):
+    """保存成功后 status 不必手工喂 task_id：从已受理 scope 账本自解析。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.scopes = self.root / ".local" / "guard_v2" / "scopes"
+        self.scopes.mkdir(parents=True)
+        self.plan = self.root / "plan.json"
+        self.plan.write_text(json.dumps({
+            "kind": "save_plan", "plan_id": "p-1", "revision": 1,
+            "project": "tony/x", "query_scope": {"query_scope_key": "abc"},
+            "wire_payload": {"keyword": "k"},
+        }, ensure_ascii=False), encoding="utf-8")
+        self.args = SimpleNamespace(
+            token="t", org="o", plan=str(self.plan), task_id=None,
+            attempt_id=None, root=str(self.root), timeout=1,
+        )
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _write_scope(self, **overrides):
+        scope = {
+            "kind": "query_scope", "query_scope_key": "abc",
+            "owner": "owner-1", "attempt_id": "att-1",
+            "plan_id": "p-1", "revision": 1, "state": "accepted",
+            "task_id": "task-9", "transport_started": True,
+        }
+        scope.update(overrides)
+        (self.scopes / "scope-abc.json").write_text(
+            json.dumps(scope, ensure_ascii=False), encoding="utf-8")
+
+    def test_status_reads_task_id_from_accepted_scope(self):
+        self._write_scope()
+        seen = {}
+
+        def fake_http(token, org, timeout, endpoint=None):
+            def call(payload):
+                seen["payload"] = payload
+                return {"success": True, "data": {"status": "finished"}}
+            return call
+
+        with mock.patch.object(cli, "_http", side_effect=fake_http):
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                rc = cli._cmd_status(self.args)
+        self.assertEqual(0, rc, buffer.getvalue())
+        out = json.loads(buffer.getvalue())
+        self.assertEqual("task-9", out["task_id"])
+        records = list((self.root / ".local" / "guard_v2" / "status-ledger").glob("rec-*.json"))
+        self.assertEqual(1, len(records), "应落一条 status 记录")
+        record = json.loads(records[0].read_text(encoding="utf-8"))
+        self.assertEqual("att-1", record.get("attempt_id"))
+        self.assertIn("payload", seen)
+
+    def test_status_ignores_stale_or_unaccepted_scope(self):
+        self._write_scope(state="attempted", task_id="")
+        with mock.patch.object(cli, "_http") as http:
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                rc = cli._cmd_status(self.args)
+        self.assertEqual(2, rc, buffer.getvalue())
+        self.assertIn("E_RECONCILE_SOURCE", buffer.getvalue())
+        http.assert_not_called()
+
+    def test_status_does_not_borrow_other_plan_scope(self):
+        self._write_scope(plan_id="p-other")
+        with mock.patch.object(cli, "_http") as http:
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                rc = cli._cmd_status(self.args)
+        self.assertEqual(2, rc, buffer.getvalue())
+        http.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
