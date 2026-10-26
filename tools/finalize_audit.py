@@ -336,8 +336,12 @@ def main():
     if manifest.get("project") != args.project or manifest.get("profile_sha256") != sha or manifest.get("seed") != rec.get("seed"):
         print("❌ audit manifest未绑定当前project/profile/seed"); return 4
     try:
-        generated = datetime.datetime.fromisoformat(str(manifest.get("generated_at", "")))
-        age = datetime.datetime.now() - generated
+        generated_text = str(manifest.get("generated_at", "")).strip()
+        if generated_text.endswith("Z"):
+            generated_text = generated_text[:-1] + "+00:00"
+        generated = datetime.datetime.fromisoformat(generated_text)
+        now = datetime.datetime.now(generated.tzinfo) if generated.tzinfo else datetime.datetime.now()
+        age = now - generated
         if age.total_seconds() < -300 or age.total_seconds() > 72 * 3600: raise ValueError("超过72小时或来自未来")
     except Exception as exc:
         print(f"❌ audit manifest时间无效/过期: {exc}"); return 2
