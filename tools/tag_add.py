@@ -23,8 +23,9 @@ KB = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KB / "tools"))
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--token", required=True, help="accesstoken 完整串（token中段是用户UID）")
-ap.add_argument("--org", required=True, help="当前工作空间ID=localStorage独立orgId键（企业必填；禁止拿token第2段代替）")
+ap.add_argument("--token", default="", help="accesstoken 完整串（token中段是用户UID）")
+ap.add_argument("--org", default="", help="当前工作空间ID=localStorage独立orgId键（企业必填；禁止拿token第2段代替）")
+ap.add_argument("--from-session", action="store_true", help="从本机会话读取 token/org（免 argv 明文）")
 ap.add_argument("--name", default="", help="标签名(★客户群体中文名,如 水上运动行业客户——勿写产品名)")
 ap.add_argument("--type", default="", choices=["company", "contacts"], help="company=公司标签 / contacts=联系人标签")
 ap.add_argument("--profile", default="", help="创建标签时必填当前产品档案；--list只读免填")
@@ -32,6 +33,12 @@ ap.add_argument("--approval", default="", help="★绑定profile+name+type的S2/
 ap.add_argument("--project", default="", help="稳定项目键=<operator_key>/<product_key>")
 ap.add_argument("--list", action="store_true", help="只列现有标签(免审批)")
 args = ap.parse_args()
+if args.from_session:
+    from session_store import load_ready
+    _host, args.token, args.org = load_ready(KB)
+if not args.list and (not args.token or not args.org):
+    print("❌ 需要 --token/--org，或用 --from-session 读取本机会话")
+    raise SystemExit(2)
 
 def api(path, p, t=40):
 # LFX_GATE_WRITE
