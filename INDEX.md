@@ -23,6 +23,7 @@ audience: 人+AI
 ## 📖 文档索引（md 主索引，人机导航）
 | 模块 | 文档 | 路径 | 用途 | 状态 |
 |------|------|------|------|------|
+| agent-pitfalls.json | 机器可读排障库 | `agent-pitfalls.json` | AI 按报错匹配→执行→自查；人不用读 | ✅ |
 | START-HERE.md | 一页上手 | `START-HERE.md` | ★新手第一读：要准备什么、6 步各回什么、卡住怎么办、去哪核对 | ✅ |
 | **实测踩坑** | live-run-pitfalls | docs/15-live-run-pitfalls.md | 按症状查原因和处理（远程 Windows/token/票据/加人/收口证据） | 2026-10-26 |
 | **全流程演示** | novice-walkthrough-demo | docs/14-novice-walkthrough-demo.md | 14 环节逐屏演示 + 逻辑/走叉；AI 内部排练稿，不是客户话术 | 2026-10-25 |

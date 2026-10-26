@@ -20,7 +20,7 @@ audience: AI优先
 > **本文件只做路由与判据摘要**；执行任何步骤前先读 `RULES.md`（唯一真源）及指向的 specs，禁止凭记忆跳步。
 > **★定位话术**：本系统=**批量获客/广撒网拿询盘**，不是精准开发——"广撒网铺量拿询盘；人或 AI 助手发现回复后须立即打‘询盘’标签，邮件序列才会停发；之后由您人工背调和精准跟进"。
 > **★用户展示话术=照模板**（把用户当小白）：每环节给用户看什么/怎么说，照 `output-templates/S<节点>-*.md` 填充输出（人话+链接+具体核对点）；平台页面直达链接见下方路由表。
-> **👶 第一次用/第一次接手**：先读 [START-HERE.md](START-HERE.md)（一页上手，人话）；报错按 [docs/15-live-run-pitfalls.md](docs/15-live-run-pitfalls.md) 症状查表。
+> **👶 第一次用/第一次接手**：先读 [START-HERE.md](START-HERE.md)（一页上手，人话）；**AI 排障直接用 [agent-pitfalls.json](agent-pitfalls.json)**（match→action→verify，人不用读）；需要解释再看 [docs/15-live-run-pitfalls.md](docs/15-live-run-pitfalls.md)。
 > **断言分级纪律**：关键断言须标成色——实测✅/引用📚/推断⚠️/假设❓；写操作断言必须实测或小样实测+对账。
 
 ## 🚩 开工第一屏（必读，2026-10-23 用户要求）

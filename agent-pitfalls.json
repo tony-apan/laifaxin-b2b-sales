@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "updated": "2026-10-26",
+  "source": "2026-10-26 远程 Windows 真机全流程实测",
+  "usage": "AI 排障：按 match 字段匹配报错文本，命中即执行 action，并用 verify 自查；未命中再查 docs/15-live-run-pitfalls.md",
+  "items": [
+    {
+      "id": "ssh-quote",
+      "match": "远程 Windows 长命令无输出/引号被吃",
+      "cause": "SSH 内再套 bash -lc 时多层双引号转义",
+      "action": "写 .py → scp 上传 → 只执行 py -3 <文件>",
+      "verify": "命令有 rc 与预期输出"
+    },
+    {
+      "id": "gbk-emoji",
+      "match": "UnicodeEncodeError 或中文乱码",
+      "cause": "Windows 控制台/管道默认 GBK",
+      "action": "脚本首部 sys.stdout.reconfigure(encoding='utf-8')",
+      "verify": "emoji 正常打印"
+    },
+    {
+      "id": "token-argv",
+      "match": "token 进了命令行/日志",
+      "cause": "argv 被记录",
+      "action": "凭据只走 stdin；父进程读本地凭据，子进程 readline()",
+      "verify": "ps/日志无 token"
+    },
+    {
+      "id": "auth-ticket-nested",
+      "match": "E_AUTH_NO_TICKET: ...\\.local\\auth\\.local\\auth\\ticket-*.json",
+      "cause": "auth_guard.authorize(root=...) 传成了 .local/auth",
+      "action": "root 传仓库根 ROOT；删除多余嵌套空目录后重试",
+      "verify": "票据落在 <root>/.local/auth/"
+    },
+    {
+      "id": "contact-add-deprecated",
+      "match": "DEPRECATED: use save_guard",
+      "cause": "调用了已封条旧脚本",
+      "action": "改用 tools/contact_add_authorized.py（--plan + --auth-ticket + --approval）",
+      "verify": "写入成功并回读"
+    },
+    {
+      "id": "confirm-numeric",
+      "match": "回 1 被判无效",
+      "cause": "只有 S7/S9/S10 接受纯数字",
+      "action": "S7/S9/S10 回 1；S5 说「确认保存 前 N 家」；S12 说「确认激活」",
+      "verify": "审批通过"
+    },
+    {
+      "id": "auth-reused",
+      "match": "E_AUTH_REUSED",
+      "cause": "票据/审批一次性且绑定参数",
+      "action": "参数变了就重新授权，不复用旧票据",
+      "verify": "新票据可用"
+    },
+    {
+      "id": "save-async",
+      "match": "刚提交就报没数据",
+      "cause": "保存异步，需等 finished",
+      "action": "轮询 status:finished 再对账 contactSaveCount",
+      "verify": "对账数一致"
+    },
+    {
+      "id": "finalize-evidence",
+      "match": "证据不在项目目录 / hash 不匹配",
+      "cause": "证据须与 operation-record 同目录，manifest 用裸文件名",
+      "action": "证据放 runs/<运营方>/<产品>/；manifest path 写文件名；写完再算 sha256",
+      "verify": "finalize_run rc=0"
+    },
+    {
+      "id": "exclude-empty-country",
+      "match": "记录缺 country_code，整批阻断",
+      "cause": "平台个别记录国家字段为空",
+      "action": "空值单列计数不计入 4 区；出现 CN/TW/HK/MO 仍失败",
+      "verify": "含4区=0 且 排除生效"
+    },
+    {
+      "id": "preflight-slow",
+      "match": "提交自检超时像卡死",
+      "cause": "全量测试约 90-100 秒",
+      "action": "后台跑或单独跑；全绿后可 SKIP_PREFLIGHT=1 提交，但不可不跑就宣称通过",
+      "verify": "PREFLIGHT PASS"
+    },
+    {
+      "id": "inactive-safe",
+      "match": "担心已经在发信",
+      "cause": "序列默认 inactive",
+      "action": "未激活不发信不扣赠送点数；只认「确认激活」",
+      "verify": "状态 inactive"
+    }
+  ]
+}
