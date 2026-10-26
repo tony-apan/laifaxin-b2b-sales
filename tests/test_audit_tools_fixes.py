@@ -84,6 +84,23 @@ class AuditCompanyTest(unittest.TestCase):
         self.assertIn("中文可用1条，缺中文1条", out)
         self.assertIn("无法据此判断", out)
 
+    def test_run_semantic_never_calls_classify(self):
+        args = SimpleNamespace(domains="", query="q", pages="1", token="t", org="o",
+                               product="p", exclude="CN", semantic=True, mode="moderate",
+                               match_words="")
+        rows = [{"company_name": "Buyer", "summary_zh": "烘焙厂，生产蛋糕和面包",
+                 "country_code": "US", "client_focus": "B2B"}]
+        buf = io.StringIO()
+        with mock.patch.object(audit_company, "fetch", return_value={"list": rows}), \
+             mock.patch.object(audit_company, "classify", side_effect=AssertionError("keyword path called")), \
+             redirect_stdout(buf):
+            audit_company._run(args, [])
+        out = buf.getvalue()
+        self.assertIn("中文描述", out)
+        self.assertNotIn("MATCH", out)
+        self.assertNotIn("REJECT", out)
+        self.assertNotIn("B2B", out)
+
     def test_401_raises_and_does_not_retry(self):
         captured = []
         stdout = payload_json({"success": False, "message": "unauthorized"}, 401)

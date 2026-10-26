@@ -2,7 +2,7 @@
   "state": "S4",
   "title": "临界页探测",
   "must_read": [
-    "specs/threshold-probe-spec.md v3.7（100页跳/70%/前后3页/反弹不定界）"
+    "specs/threshold-probe-spec.md v3.1（100页跳/70%/前后3页/反弹不定界；判定按 product-profile 语义）"
   ],
   "required_fields": [
     "逐页达标率",

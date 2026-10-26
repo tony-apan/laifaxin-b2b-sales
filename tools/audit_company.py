@@ -246,7 +246,7 @@ def _print_semantic_rows(lst, unit="本页"):
     """语义模式只输出中文原文；缺中文的条目明确标记为不可判断，绝不拿英文冒充中文。"""
     usable = 0
     for i, c in enumerate(lst, 1):
-        print(f"  {i:2d}. {c.get('company_name','')[:40]} | {c.get('country_code') or '-'} | {c.get('client_focus') or '-'}")
+        print(f"  {i:2d}. {c.get('company_name','')[:40]} | {c.get('country_code') or '-'}")
         zh = (c.get("summary_zh") or "").strip()
         if zh:
             print(f"      中文描述: {zh[:300]}")
@@ -267,23 +267,7 @@ def _run(args, filters):
                 print(f"===== 种子 {domain}: 无数据 =====")
                 continue
             print(f"===== 种子 {domain}（keyword=域名，四区 filters）共{len(lst)}条 =====")
-            if getattr(args, "semantic", False):
-                _print_semantic_rows(lst, unit="本批")
-                continue
-            stats = Counter()
-            for i, c in enumerate(lst, 1):
-                verdict, reason = classify(c)
-                stats[verdict] += 1
-                score = c.get("_score")
-                score_text = f"{score:.2f}" if isinstance(score, (int, float)) else "-"
-                print(f"  {i:2d}. [{verdict:8s}] {c.get('company_name','')[:38]:40s} "
-                      f"{(c.get('country_code') or '-'):4s} {(c.get('client_focus') or '-'):4s} "
-                      f"score={score_text} | {reason}")
-            total = len(lst)
-            acc = accuracy(stats, total, args.mode)
-            print(f"  -> 本批: MATCH={stats['MATCH']} MARGINAL={stats['MARGINAL']} REJECT={stats['REJECT']}"
-                  f" | 精准度({args.mode}) = {acc:.0f}%")
-            print()
+            _print_semantic_rows(lst, unit="本批")
         return
 
     for page in [int(p) for p in args.pages.split(",")]:
@@ -293,19 +277,7 @@ def _run(args, filters):
             print(f"===== 第 {page} 页: 无数据 =====")
             continue
         print(f"===== 第 {page} 页 (共{len(lst)}条) =====")
-        if getattr(args, "semantic", False):
-            _print_semantic_rows(lst)
-            continue
-        stats = Counter()
-        for i, c in enumerate(lst, 1):
-            verdict, reason = classify(c)
-            stats[verdict] += 1
-            print(f"  {i:2d}. [{verdict:8s}] {c.get('company_name','')[:38]:40s} {(c.get('country_code') or '-'):4s} | {reason}")
-        total = len(lst)
-        acc = accuracy(stats, total, args.mode)
-        print(f"  -> 本页: MATCH={stats['MATCH']} MARGINAL={stats['MARGINAL']} REJECT={stats['REJECT']}"
-              f" | 精准度({args.mode}) = {acc:.0f}%")
-        print()
+        _print_semantic_rows(lst)
 
 
 def main():
@@ -329,13 +301,6 @@ def main():
     if not args.token or not args.org:
         print("❌ 需要 --token/--org，或用 --from-session 读取本机会话")
         raise SystemExit(2)
-    # ★断点修复(2026-09-09)：产品词必填——内置词表只服务"宠物食品包装"样例，
-    #   换产品不带词会全页 REJECT=0%，静默误导。此处 fail-fast。
-    if not args.semantic and not args.match_words.strip():
-        print("❌ 缺 --match-words <本产品中英词>（品类/材质/形态/角色，逗号分隔）；或加 --semantic 由 AI 直接判断")
-        print("   原因：内置判定词表是「宠物食品包装」样例；换产品不传词会全页判 0% 精准度（真机实测）。")
-        print("   例：--match-words \"raft,rafting,kayak,paddle,inflatable,water sports,漂流,皮筏艇,充气,桨\"")
-        raise SystemExit(2)
     if args.domains and args.query:
         print("❌ --domains 与 --query 只能二选一（域名作关键词时不要同时给 --query）")
         raise SystemExit(2)
@@ -343,20 +308,12 @@ def main():
         print("❌ 缺 --pages（页码，逗号分隔；或改用 --domains 域名模式）")
         raise SystemExit(2)
 
-    # 设置额外匹配词（产品自定义）
-    global EXTRA_MATCH
-    EXTRA_MATCH = [w.strip().lower() for w in args.match_words.split(",") if w.strip()]
-
     exclude_set = {c.strip() for c in args.exclude.split(",") if c.strip()}
     filters = [{"property": "country_code", "operator": "exclude", "value": "", "values": list(exclude_set), "valueType": "select"}] if exclude_set else []
 
     print(f"# 产品: {args.product or '(未填)'} | 排除国家: {args.exclude}")
     print(f"# 搜索词: {(args.query or args.domains)[:80]}...")
-    if args.semantic:
-        print("# 判定方式: 读中文描述直接判断，不用关键词、不算自动精准度\n")
-    else:
-        print(f"# 模式: {args.mode}")
-        print("# 判定标准: MATCH=会采购本产品 | REJECT=无关 | MARGINAL=沾边\n")
+    print("# 判定方式: 读中文描述直接判断，不用关键词、不算自动精准度\n")
 
     try:
         _run(args, filters)

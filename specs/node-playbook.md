@@ -84,10 +84,9 @@ audience: 人+AI
 - **判据（来源）**：`../RULES.md` S4「只读搜客和AI语义审计；50页跳→三页平均→逐页→跌破往前；未完成不能保存」；`specs/threshold-method.md` 全文：**判定标准 = AI 语义反思「这个外贸 B 端客户会不会买我的产品？能买=匹配」**（★不是关键词匹配）；50页一跳全局（50页跳阶段）→ 三页滑动平均 ≥70%（三页平均阶段）→ 临界附近逐页精确到1页（逐页精确阶段）→ **一旦某页/三页平均跌破70%就【往前找】，不看后面**（跌破往前阶段）→ 工具只做趋势初筛、**临界页必须人工逐条读完整10条**（人工逐条读临界页）；阈值默认 70%（`specs/marketing-rules-2.0.md`「阈值档位」：中等默认70%，严格80/宽松60 需用户指定）。
 - **通过条件**：得出临界页 N（=从前往后最后一张≥70%的页；AI 反思 + 人工读两两印证一致）；保存范围 = 前N页 = N×10 条。审计未完成**不能保存**。
 - **API**：`POST /api/refine/company-list {"keyword":<种子>,"current":<页>,"pageSize":10,"filters":[],"logic":"and"}`——见 `specs/api-reference.md` 接口表。
-- **脚本**（⚠️全部是词匹配初筛，**只做趋势参考，不可信**，结论必须 AI/人工语义判断，`specs/threshold-method.md`（判定标准与阶段章节））：
-  - `python3 tools/audit_company.py --query <种子> --pages 1,50,100,...,1000 --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --mode strict --product <产品> --match-words "<产品词,中英文>"`
-  - `python3 tools/find_threshold.py --query <种子> --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --match-words "..." --start 100 --end 500 --threshold 70`
-  - `python3 tools/find_critical.py --query <种子> --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --match-words "..." --start 1 --end 1000 --threshold 70 --step 50`
+- **脚本（语义专用，2026-10-25 收口）**：
+  - `python3 tools/audit_company.py --query <种子> --pages 1,50,100,...,1000 --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --product <产品> --semantic`
+  - 临界页用同工具 `--semantic --pages <前后三页>`，AI 逐条读中文描述后汇总；`find_threshold.py` / `find_critical.py` 是关键词历史工具，**禁止用于 S4 定界**。
   - ★语义判定（逐条读描述）仍由 AI/独立 subagent 完成并两两印证（L-26）；**窗口/临界页/语义表自 2026-10-23 起由 `finalize_audit.py` 机器校验**（连续页、5 页窗口≥70%、临界页=首跌窗起点+3、语义表行数对齐）。
 - **产出记录**：审计证据 + 独立 review 均落项目目录；`audit-manifest.json` 必须声明 `evidence_mode:"live"`，绑定 project/profile_sha256/seed/generated_at 与两文件 path+sha256+pass。simulation/mock/stub/离线/网络桩/占位证据只能演练，`finalize_audit.py` 必须拒绝推进 S4；证据正文含非实时标记也拒。
 

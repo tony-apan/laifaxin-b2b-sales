@@ -141,7 +141,7 @@ runs/
 | **流程向导** | `tools/flow_orchestrator.py` | 节点交互；S11 用 `--resume-s12` 当前TTY只签凭证，不联网/不激活 | ⚠️prototype |
 | **登录/闸门** | `tools/credential_input.py` / `check_login.py` / `gate_check.sh` / `check_rules.sh` | 聊天框两行凭据→主AI程序化stdin；严格org；urllib内存header；默认离线规则检查 | ✅ |
 | **S2/S3** | `tools/segments_infer.py` / `seed_resolve.py` | 客群推演与样板客户结果 id 取域名 | ✅ |
-| **S4审计** | `tools/audit_company.py` / `find_threshold.py` / `find_critical.py` / `finalize_audit.py` | 趋势初筛+语义证据；仅evidence_mode=live可正式收口 | ✅ |
+| **S4审计** | `tools/audit_company.py`（`--semantic`）/ `finalize_audit.py` | 只打印中文描述、AI 逐条判断；`find_threshold/find_critical` 为历史关键词工具，S4 禁用；仅 evidence_mode=live 可正式收口 | ✅ |
 | **S5/S6保存** | `tools/save_company_cli.py`（V2 现役）/ `tag_add.py` / `save_budget.py` | plan/confirm/execute 票据链、任务/标签对账 | ✅ |
 | **S7/S8模板** | `tools/gen_templates.py` / `render_preview.py` / `check_template_diff.py` / `rebuild_templates.py` | claims来源、纯昵称、差异、inactive重建 | ✅/⚠️ |
 | **S9/S10序列** | `tools/build_sequence.py` / `contact_add_authorized.py` | tmap/profile血缘、inactive双回读、views[]、S10 票据 | ✅ |

@@ -60,6 +60,29 @@ class BeginnerFlowLinkTest(unittest.TestCase):
         self.assertIn("--semantic", agents)
         self.assertNotIn("S4 审计必须用 `--mode strict`", agents)
 
+    def test_s4_docs_are_semantic_only(self):
+        playbook = read('specs/node-playbook.md')
+        self.assertIn('--semantic', playbook)
+        self.assertNotIn('--match-words', playbook)
+        self.assertIn('禁止用于 S4 定界', playbook)
+        card = read('output-templates/S4-audit-running.md')
+        self.assertIn('只读中文描述', card)
+        self.assertIn('不再参与判定', card)
+
+    def test_threshold_probe_is_product_agnostic(self):
+        probe = read('specs/threshold-probe-spec.md')
+        self.assertNotIn('户外品类', probe)
+        self.assertNotIn('帐篷或成套露营品', probe)
+        self.assertIn('product-profile', probe)
+        self.assertIn('禁止套用任何行业样例', probe)
+
+    def test_core_points_invalidates_keyword_safe_zone(self):
+        """旧的 620 页安全区来自关键词口径，语义复核后必须带作废标记。"""
+        t = read('CORE-POINTS.md')
+        self.assertIn('旧关键词 classify 口径', t)
+        self.assertIn('第 380 页', t)
+        self.assertIn('禁止把 620 页当安全区', t)
+
     def test_flow_has_no_jargon(self):
         t = FLOW.read_text(encoding='utf-8').lower()
         for word in BANNED:

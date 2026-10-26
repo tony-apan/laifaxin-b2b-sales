@@ -156,7 +156,7 @@ audience: 人+AI
 
 **执行**：
 1. 抽查前 1~5 页 + 末尾几页（每页10条，逐条看本页语义/客户线）
-2. 用审计工具（audit_company.py 规则表）做趋势初筛；工具 confidence/High 比例不是精准度
+2. 用 `audit_company.py --semantic` 只读中文描述、AI 逐条判断；工具不给判定，confidence/High 比例不是精准度
 3. 用连续5页窗口找边界：窗口均值跌破70% → 往前精确；页1/2/5抽样不能宣称边界已到
 4. 排除中国区（CN/TW/HK/MO 默认；filters 完整 schema）
 5. **记录到 search-log.tsv**（窗口页/均值/判定/边界）

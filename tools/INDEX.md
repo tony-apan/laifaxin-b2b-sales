@@ -43,8 +43,8 @@ updated: "2026-10-25"
 | evidence_validation.py | S4/S11/S12共用simulation/mock/stub/离线网络桩占位识别 | S4/S11/S12 证据模式识别 |
 | finalize_audit.py | 70%临界证据+独立放行review后推进S4 | 第 2 步审计收口前 |
 | finalize_run.py | 聚合序列/排除/差异证据与核实面板;仅S10可推进S11 | 第 7 关激活前收口 |
-| find_critical.py | 三页平均(词匹配,参考) | 第 2 步临界页复核（参考） |
-| find_threshold.py | 二分找70%临界(词匹配,参考) | 第 2 步找 70% 临界（参考） |
+| find_critical.py | 三页平均(词匹配,历史) | ⛔ S4 禁用；仅历史参考 |
+| find_threshold.py | 二分找70%临界(词匹配,历史) | ⛔ S4 禁用；仅历史参考 |
 | flow_orchestrator.py | ⚠️原型:仅节点确认向导+approvals记账(输出approval_id);写操作须人工执行 | 需要节点确认向导时（原型） |
 | gate_check.sh | 主AI经程序化stdin运行--credentials-stdin;缺token/orgId阻断;legacy参数仅内部兼容 | 开工前闸门检查 / 登录失败排障 |
 | gen_templates.py | 必须plan+profile;纯昵称签名;profile hash;claims字段/source/evidence_text;--out含meta | 第 4 步生成模板前 |

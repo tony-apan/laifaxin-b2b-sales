@@ -132,29 +132,28 @@ class ShellAndSeedQualityTest(unittest.TestCase):
 
 
 class AuditToolProductWordsTest(unittest.TestCase):
-    """断点#3：审计工具内置词表是宠物包装样例，换产品必须传 --match-words，否则全页 0%。"""
+    """2026-10-25 收口：S4 审计只读中文描述，不再要求产品关键词。"""
 
-    def test_requires_match_words(self):
+    def test_runs_without_match_words_and_prints_semantic_header(self):
         import subprocess, sys
         result = subprocess.run(
             [sys.executable, str(TOOLS / "audit_company.py"),
              "--query", "x", "--pages", "1", "--token", "t", "--org", "o"],
             capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace")
-        self.assertEqual(2, result.returncode, "缺 --match-words 应 fail-fast 退出 2")
-        self.assertIn("--match-words", result.stdout)
+        self.assertIn("判定方式", result.stdout)
+        self.assertNotIn("--match-words", result.stdout)
 
-    def test_docstring_marks_words_as_product_specific(self):
+    def test_semantic_path_is_primary_in_source(self):
         source = read("audit_company.py")
-        self.assertIn("产品词必须由调用方传入", source)
-        self.assertIn("0%", source, "应写明不带产品词的后果")
+        self.assertIn("读中文描述直接判断", source)
+        self.assertIn("--semantic", source)
 
-    def test_sop_requires_match_words(self):
-        """S4 相关 SOP/卡必须写明审计要带本产品词。"""
-        for name in ("specs/threshold-method.md", "output-templates/S4-audit-running.md"):
-            text = (ROOT / name).read_text(encoding="utf-8")
-            with self.subTest(file=name):
-                self.assertRegex(text, r"match-words|产品词",
-                                 f"{name} 未写明审计需带本产品词")
+    def test_sop_and_card_do_not_require_match_words(self):
+        method = (ROOT / "specs/threshold-method.md").read_text(encoding="utf-8")
+        self.assertNotIn("必须传 `--match-words", method)
+        self.assertIn("--semantic", method)
+        card = (ROOT / "output-templates/S4-audit-running.md").read_text(encoding="utf-8")
+        self.assertIn("只读中文描述", card)
 
 
 class TemplateIdempotencyAndFolderTest(unittest.TestCase):
