@@ -68,6 +68,22 @@ class AuditCompanyTest(unittest.TestCase):
         # 分母按实际返回条数（尾页 5 条时不再除 10）
         self.assertAlmostEqual(100.0, audit_company.accuracy(Counter({"MATCH": 5}), 5, "strict"))
 
+    def test_semantic_rows_flag_missing_chinese_and_do_not_substitute_english(self):
+        buf = io.StringIO()
+        rows = [
+            {"company_name": "HasZh", "summary_zh": "椰子面包厂", "summary_en": "coconut bakery",
+             "country_code": "US", "client_focus": "B2B"},
+            {"company_name": "NoZh", "summary_zh": "", "summary_en": "coconut bakery",
+             "country_code": "US", "client_focus": "B2B"},
+        ]
+        with redirect_stdout(buf):
+            audit_company._print_semantic_rows(rows)
+        out = buf.getvalue()
+        self.assertIn("椰子面包厂", out)
+        self.assertNotIn("coconut bakery", out)
+        self.assertIn("中文可用1条，缺中文1条", out)
+        self.assertIn("无法据此判断", out)
+
     def test_401_raises_and_does_not_retry(self):
         captured = []
         stdout = payload_json({"success": False, "message": "unauthorized"}, 401)

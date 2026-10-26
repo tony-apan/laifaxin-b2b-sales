@@ -242,6 +242,22 @@ def classify(company):
     return "REJECT", "无任何相关描述"
 
 
+def _print_semantic_rows(lst, unit="本页"):
+    """语义模式只输出中文原文；缺中文的条目明确标记为不可判断，绝不拿英文冒充中文。"""
+    usable = 0
+    for i, c in enumerate(lst, 1):
+        print(f"  {i:2d}. {c.get('company_name','')[:40]} | {c.get('country_code') or '-'} | {c.get('client_focus') or '-'}")
+        zh = (c.get("summary_zh") or "").strip()
+        if zh:
+            print(f"      中文描述: {zh[:300]}")
+            usable += 1
+        else:
+            print("      中文描述: （平台未返回中文，无法据此判断，请跳过或人工核）")
+    print(f"  -> {unit}共{len(lst)}条，中文可用{usable}条，缺中文{len(lst)-usable}条；"
+          f"只按中文可用条目逐条判断，不自动算精准度")
+    print()
+
+
 def _run(args, filters):
     # ---- 域名模式（★2026-10-23：改走 refine/company-list，keyword=域名；不用 similar-list）----
     if args.domains:
@@ -252,11 +268,7 @@ def _run(args, filters):
                 continue
             print(f"===== 种子 {domain}（keyword=域名，四区 filters）共{len(lst)}条 =====")
             if getattr(args, "semantic", False):
-                for i, c in enumerate(lst, 1):
-                    print(f"  {i:2d}. {c.get('company_name','')[:40]} | {c.get('country_code') or '-'} | {c.get('client_focus') or '-'}")
-                    print(f"      中文描述: {(c.get('summary_zh') or c.get('summary_en') or '')[:300]}")
-                print("  -> 本批需按中文描述逐条判断，不自动算精准度")
-                print()
+                _print_semantic_rows(lst, unit="本批")
                 continue
             stats = Counter()
             for i, c in enumerate(lst, 1):
@@ -282,11 +294,7 @@ def _run(args, filters):
             continue
         print(f"===== 第 {page} 页 (共{len(lst)}条) =====")
         if getattr(args, "semantic", False):
-            for i, c in enumerate(lst, 1):
-                print(f"  {i:2d}. {c.get('company_name','')[:40]} | {c.get('country_code') or '-'} | {c.get('client_focus') or '-'}")
-                print(f"      中文描述: {(c.get('summary_zh') or c.get('summary_en') or '')[:300]}")
-            print("  -> 本页需按中文描述逐条判断，不自动算精准度")
-            print()
+            _print_semantic_rows(lst)
             continue
         stats = Counter()
         for i, c in enumerate(lst, 1):
