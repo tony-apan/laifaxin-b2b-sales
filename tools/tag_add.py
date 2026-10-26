@@ -86,20 +86,6 @@ if issues:
     for issue in issues: print(f"❌ 产品档案闸门: {issue}")
     sys.exit(4)
 
-# 与保存端同一套标签规则：建标签前先按 save_plan.tag_name_problems 校验，
-# 避免“建得出来、保存时被拒”的规则分裂。
-from save_plan import tag_name_problems as _tag_name_problems
-_name_problems = _tag_name_problems(
-    args.name,
-    product_name=str(pm.get("product_name") or pm.get("product_key") or ""),
-)
-if _name_problems:
-    print("❌ 标签名不符合保存端规则，未创建：")
-    for issue in _name_problems:
-        print(f"  - {issue}")
-    print("提示：公司标签与联系人标签必须同名成对，用同一个名称分别建两种类型。")
-    sys.exit(4)
-
 binding = {"project": args.project, "org_sha256": hashlib.sha256(str(args.org).encode()).hexdigest(), "profile": {"sha256": ph, "status": ps, "version": pm.get("profile_version", "")},
            "tag": {"name": args.name, "type": args.type}}
 require_approval(args.approval, args.project, ("S2", "S5"), what="建标签", expected_hash=stable_params_hash(binding))
@@ -117,11 +103,31 @@ for t in lst:
         print(f"   记录格式: {tid}({args.name})")
         sys.exit(0)
 
+# 存量同名标签先复用，再校验新名：旧格式标签不得因新规则被误拒。
+from save_plan import tag_name_problems as _tag_name_problems
+_name_problems = _tag_name_problems(
+    args.name,
+    product_name=str(pm.get("product_name") or pm.get("product_key") or ""),
+)
+if _name_problems:
+    print("❌ 标签名不符合保存端规则，未创建：")
+    for issue in _name_problems:
+        print(f"  - {issue}")
+    print("提示：公司标签与联系人标签必须同名成对，用同一个名称分别建两种类型。")
+    sys.exit(4)
+
 r = api("contacts/tags-add", {"name": args.name, "type": args.type})
 if r.get("success"):
     tid = (r.get("data", {}) or {}).get("id") or (r.get("data") if isinstance(r.get("data"), str) else "")
     print(f"✅ 标签已建: {tid}({args.name})  [type={args.type}]")
     print(f"   记录格式: {tid}({args.name}) —— 写入 runs/<运营方>/<产品>/operation-record.md 与 runs.tsv")
     print(f"   save_first_n 用: --company-tag/--contact-tag {tid}")
+    other = "contacts" if args.type == "company" else "company"
+    od = api("contacts/tags-list", {"type": other})
+    olst = od.get("data", {})
+    olst = olst if isinstance(olst, list) else olst.get("list", [])
+    if not any(t.get("name") == args.name for t in olst):
+        print(f"⚠️ 还差另一半：{other} 类型下没有同名「{args.name}」；"
+              f"保存要求公司/联系人同名成对，请用同一名称再建一次。")
 else:
     print(f"❌ 创建失败: {r.get('message') or str(r)[:100]}"); sys.exit(1)
