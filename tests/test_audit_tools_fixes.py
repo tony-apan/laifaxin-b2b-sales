@@ -15,6 +15,7 @@ if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
 import audit_company  # noqa: E402
+import finalize_audit  # noqa: E402
 import find_critical  # noqa: E402
 import find_threshold  # noqa: E402
 
@@ -162,6 +163,21 @@ class AuditCompanyTest(unittest.TestCase):
             with self.assertRaises(SystemExit) as ctx:
                 audit_company.main()
         self.assertEqual(2, ctx.exception.code)
+
+
+class SourceLineageTest(unittest.TestCase):
+    def test_rejects_missing_generation_and_segment(self):
+        errs = finalize_audit.validate_source_lineage({
+            "source": {"platform_product_id": "coconut", "keyword": "x"}})
+        self.assertTrue(errs)
+        self.assertIn("generation_id", " ".join(errs))
+        self.assertIn("segment_id", " ".join(errs))
+
+    def test_accepts_complete_lineage(self):
+        errs = finalize_audit.validate_source_lineage({"source": {
+            "platform_product_id": "coconut", "generation_id": "g1",
+            "segment_id": "s1", "keyword": "x"}})
+        self.assertEqual([], errs)
 
 
 if __name__ == "__main__":

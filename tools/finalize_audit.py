@@ -156,6 +156,24 @@ def _semantic_counts(semantic):
     return counts, errors
 
 
+SOURCE_LINEAGE_FIELDS = ("platform_product_id", "generation_id", "segment_id", "keyword")
+
+
+def validate_source_lineage(manifest):
+    """审计必须能追溯到平台真实批次/客群；缺一即拒绝收口。
+
+    根因：2026-10-26 真机 S4 只留下页码与公司名单，没有 generation/segment，
+    保存端 E_SOURCE_STALE 拒绝。审计收口就挡住，避免“审完才发现不能保存”。
+    """
+    source = manifest.get("source") if isinstance(manifest, dict) else None
+    source = source if isinstance(source, dict) else {}
+    missing = [key for key in SOURCE_LINEAGE_FIELDS
+               if not str(source.get(key) or "").strip()]
+    if missing:
+        return ["audit manifest 缺来源字段: " + ", ".join(missing)]
+    return []
+
+
 def validate_audit_window(manifest):
     """校验 manifest 的 window 四件套。返回 (errors, warnings)；errors 非空 → exit 2。"""
     errors, warnings = [], []
@@ -332,6 +350,12 @@ def main():
         print(f"❌ audit manifest无效: {exc}"); return 2
     if manifest.get("evidence_mode") != "live":
         print("❌ audit manifest evidence_mode须为字面量live；模拟/占位证据禁止正式收口")
+        return 2
+    lineage_errors = validate_source_lineage(manifest)
+    if lineage_errors:
+        for error in lineage_errors:
+            print("❌ " + error)
+        print("   先做平台客群推演并登记真实批次/客群，再出审计清单；否则保存端会拒绝。")
         return 2
     if manifest.get("project") != args.project or manifest.get("profile_sha256") != sha or manifest.get("seed") != rec.get("seed"):
         print("❌ audit manifest未绑定当前project/profile/seed"); return 4
