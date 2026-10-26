@@ -102,6 +102,8 @@ class FinalizeAuditWindowTest(unittest.TestCase):
             "seed": SEED,
             "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
             "run_id": "run-2026-10-23-window",
+            "source": {"platform_product_id": "prod-1", "generation_id": "gen-1",
+                        "segment_id": "seg-1", "keyword": "tent"},
             "evidence": {"audit": self.evidence_item(audit),
                          "review": self.evidence_item(review)},
         }
