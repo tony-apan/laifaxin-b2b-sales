@@ -105,11 +105,13 @@ for t in lst:
 
 # 存量同名标签先复用，再校验新名：旧格式标签不得因新规则被误拒。
 # 产品名/客群名必须复用保存端的同一组解析函数，否则仍会“建得出、保存被拒”。
-from save_plan import (load_segment_names as _load_segment_names,
+from save_plan import (load_known_tag_ids as _load_known_tag_ids,
+                       load_segment_names as _load_segment_names,
                        looks_like_platform_tag_id as _looks_like_platform_tag_id,
                        resolve_product_names as _resolve_product_names,
                        tag_name_problems as _tag_name_problems)
-if _looks_like_platform_tag_id(args.name):
+if _looks_like_platform_tag_id(
+        args.name, _load_known_tag_ids(KB, args.project)):
     print("❌ 这是标签 ID 形态，不是名称；建标签请传名称，按 ID 复用请走 tags-list。")
     sys.exit(4)
 _p_names = _resolve_product_names(KB, args.project)
