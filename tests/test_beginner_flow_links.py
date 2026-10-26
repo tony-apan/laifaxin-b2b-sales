@@ -99,6 +99,9 @@ class BeginnerFlowLinkTest(unittest.TestCase):
         self.assertLess(t.index('直接复用'), t.index('tag_name_problems'),
                         '查重复用必须在名称校验之前，否则旧标签会被误拒')
         self.assertIn('还差另一半', t)
+        self.assertIn('resolve_product_names', t)
+        self.assertIn('load_segment_names', t)
+        self.assertIn('looks_like_platform_tag_id', t)
 
     def test_api_reference_documents_gift_quota_priority(self):
         """2026-10-26 真机：赠送点数 creditQuota 先扣，通用点数后扣；POST 才通。"""
