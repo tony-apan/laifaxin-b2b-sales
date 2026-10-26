@@ -92,13 +92,20 @@ class FolderTemplateCountedTest(unittest.TestCase):
         self.assertIn("两两相似度均≤0.70", out)
 
     def test_scripts_do_not_skip_grouped_templates(self):
-        for name in ("check_template_diff.py", "rebuild_templates.py"):
-            src = (TOOLS / name).read_text(encoding="utf-8")
-            with self.subTest(tool=name):
-                self.assertNotIn('if t.get("folder"): continue', src,
-                                 "仍在用 folder 字段排除已分组模板")
-                self.assertIn('startswith(args.prefix)', src,
-                              "应按名称前缀识别本批模板（分组/未分组都计入）")
+        # check_template_diff 已把「按前缀收集」抽到 template_batch.collect_batch（单一真源），
+        # 这里检查它确实走该模块、且没有用 folder 字段排除模板；collect_batch 的行为另有
+        # tests/test_template_batch_filter.py 端到端锁死（分组容器排除、组内模板计入）。
+        src = (TOOLS / "check_template_diff.py").read_text(encoding="utf-8")
+        self.assertNotIn('if t.get("folder"): continue', src,
+                         "仍在用 folder 字段排除已分组模板")
+        self.assertIn("from template_batch import collect_batch", src,
+                      "应按名称前缀识别本批模板（分组/未分组都计入）")
+        self.assertIn("collect_batch(lst, args.prefix", src)
+        rb = (TOOLS / "rebuild_templates.py").read_text(encoding="utf-8")
+        self.assertNotIn('if t.get("folder"): continue', rb,
+                         "rebuild_templates 仍在用 folder 字段排除已分组模板")
+        self.assertIn('startswith(args.prefix)', rb,
+                      "rebuild_templates 应按名称前缀识别本批模板（分组/未分组都计入）")
 
 
 class RebuildCollectOldTest(unittest.TestCase):

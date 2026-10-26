@@ -70,6 +70,7 @@ updated: "2026-10-25"
 | test_startup_gate.py | 开工必读闸门：6 文档 sha256+会话+ack 机器强制 | 改开工必读/6 文档哈希登记后 |
 | test_step_map.py | 锁定「逐模块逻辑 + 流程图」索引的存在与关键口径，防止以后被删/被改回旧口径。 | 改 step-map/流程图索引后 |
 | test_subject_per_variant.py | 标题逐变体差异化测试（2026-09-18 用户实测后立）。 | 改邮件主题逐变体规则后 |
+| test_template_batch_filter.py | 批次选取回归：分组容器排除、组内/未分组模板计入、顺序与上限。 | 改模板差异收集口径时 |
 | test_template_folder_scope.py | 模板分组（folder）不得把已分组模板排除（任务C）。 | 改模板分组 folder 规则后 |
 | test_template_generation_gates.py | S8 模板生成三道门的回归测试（P0-C 价格硬门 / P0-D 12轮×4 断言 / P1-E 自动差异检查）。 | 改 S8 模板三道门后 |
 | test_tmap_grid.py | tmap 网格分组测试（2026-09-11 每轮变体数 10→4 后立）。 | 改 tmap 网格/每轮变体数后 |

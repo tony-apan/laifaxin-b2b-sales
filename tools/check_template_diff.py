@@ -15,6 +15,9 @@ def _utf8_stdout():
             pass
 _utf8_stdout()
 import json, subprocess, argparse, re, sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from template_batch import collect_batch
 ap=argparse.ArgumentParser(); ap.add_argument("--token",required=True); ap.add_argument("--org",required=True)
 ap.add_argument("--prefix",required=True); ap.add_argument("--limit",type=int,default=48,help="本批模板总数=12轮×每轮变体数（默认48=每轮4变体）")
 args=ap.parse_args()
@@ -46,9 +49,7 @@ tpls=[]
 for pg in range(1,30):
     lst=api("mailbox/templates-list",{"current":pg,"pageSize":20,"filter":{},"sort":{}}).get("list",[])
     if not lst: break
-    for t in lst:
-        nm=t.get("name") or ""
-        if nm.startswith(args.prefix): tpls.append({"name":nm,"id":t.get("_id")})
+    tpls.extend(collect_batch(lst, args.prefix, args.limit - len(tpls)))
     if len(tpls)>=args.limit: break
 print(f"模板数: {len(tpls)} (前缀 {args.prefix})")
 if len(tpls) != args.limit:

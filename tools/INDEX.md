@@ -81,6 +81,7 @@ updated: "2026-10-25"
 | step_gate.py | 执行卡闸门（L2 加载留痕 / L3 写操作前拒绝）。 | 执行卡加载与写操作前 |
 | tag_add.py | contacts/tags-add建标签+同名查重复用+铁律7中文提醒;--list免审批;--approval S2/S5闸门 | 第 3 步建标签 / 查重 |
 | tag_check.py | 只读检查联系人标签存量；>0 默认拒绝，防复用共享标签把全库老联系人带进 S10。 | 保存前 / 加人前核对标签是否新 |
+| template_batch.py | 模板批次选取单一真源：按前缀收集、排除同名分组容器（分组/未分组模板都计入）。 | 改模板差异/重建模板的收集口径时 |
 | tmap_grid.py | tmap 网格解析（★单一真源）：从 gen_templates 产出的 name→id 映射，解析"12 轮 × N 变体"并分组。 | 第 5 步解析 12 轮×N 变体分组 |
 | update_run_state.py | 安全更新operation-record并按合法转换图/恢复证据防跳步 | 推进状态 / 换机续接 |
 | usage_record.py | 把「用途 + 推演来源」写进 operation-record，保证换会话/重跑可复现（v3 K6）。 | 写运行记录 / 换会话续接 |
