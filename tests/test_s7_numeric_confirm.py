@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""S7 数字确认端到端回归（2026-10-23 三审 K 余项）：用户回「1」只对 S7 模板确认有效。
+"""数字确认端到端回归（2026-10-23 三审 K 余项，2026-10-26 修正适用范围）。
 
-锁死：
-  ① approval.py grant --state S7_... --quote 1 → 允许（S7 卡允许数字确认）
-  ② 非 S7 节点（S2/S5/S9/S10）--quote 1 → 拒绝（必须明确确认词，防手滑）
-  ③ S7 用明确确认词也允许（两条路径都通）
+确认卡统一让用户「回 1」，因此放行范围必须与 output-templates 的确认卡一致：
+  ① S7/S9/S10 允许裸「1」（S7 模板、S9 序列、S10 加人 三张卡都是「回 1」）
+  ② 其他节点（S2/S5/S6/S8/S11/S12）--quote 1 → 拒绝，仍要明确确认词（防手滑）
+  ③ 明确确认词在所有节点都允许
+2026-10-26 真机卡点：S9 卡让用户回 1，但 approval.py 只放行 S7，合法确认被拒。
 """
 import shutil
 import subprocess
@@ -52,12 +53,19 @@ class S7NumericConfirmTest(unittest.TestCase):
         r = self.grant("S7_模板预览", "确认执行")
         self.assertEqual(0, r.returncode, r.stdout + r.stderr)
 
-    def test_non_s7_rejects_bare_number(self):
-        for state in ("S2_客群确认", "S5_保存参数", "S9_序列配置", "S10_加联系人"):
+    def test_s9_s10_accept_bare_number(self):
+        for state in ("S9_序列配置", "S10_加联系人"):
+            with self.subTest(state=state):
+                r = self.grant(state, "1")
+                self.assertEqual(0, r.returncode, r.stdout + r.stderr)
+
+    def test_other_states_reject_bare_number(self):
+        for state in ("S2_客群确认", "S5_保存参数", "S6_保存执行", "S12_激活"):
             with self.subTest(state=state):
                 r = self.grant(state, "1")
                 self.assertNotEqual(0, r.returncode, f"{state} 不应接受裸「1」: {r.stdout}")
-                self.assertIn("确认", r.stdout + r.stderr)
+                out = r.stdout + r.stderr
+                self.assertTrue(any(k in out for k in ("确认", "禁止", "拒绝")), out)
 
 
 if __name__ == "__main__":

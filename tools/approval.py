@@ -282,6 +282,19 @@ def confirm_quote_ok(quote):
     return bool(re.search(r"确认|确定|同意|通过|可以|好的|没问题|激活|^是$|^好$|^行$|\b(?:yes|ok|okay|confirm(?:ed)?|approve[de]?|activate)\b", q, re.I))
 
 
+_NUMERIC_CONFIRM_STATES = ("S7", "S9", "S10")
+
+
+def numeric_confirm_quote(quote, state):
+    """★2026-10-26 真机卡点：确认卡话术统一是「回 1」（output-templates/S*-confirm.md），
+    但 approval.py 只对 S7 放行纯数字 1，S9/S10 的合法「1」被拒 → 用户按卡回数字反而走不动。
+    这里把「纯数字 1/①」限定放行到 S7/S9/S10；S5 仍要求「确认保存 前 N 家」这类带数量的原话，
+    S12 不走本函数（由 flow_orchestrator 校验「确认激活」）。"""
+    q = str(quote or "").strip()
+    st = str(state or "").upper()
+    return q in ("1", "①") and any(st.startswith(s) for s in _NUMERIC_CONFIRM_STATES)
+
+
 def _load_params(args):
     raw = ""
     if getattr(args, "params_file", ""):
@@ -354,9 +367,9 @@ def _main(argv=None):
         print("❌ S12 激活凭证禁止通过 approval.py grant 铸造；用 flow_orchestrator --resume-s12 --confirm \"<用户原话>\" 签发（会一并校验 S11/档案/合规live 并绑定参数哈希）")
         raise SystemExit(2)
     obj = _load_params(args)
-    numeric_s7 = args.quote.strip() in ("1", "①") and str(args.state).startswith("S7")
-    # 2026-10-23 三审H：S7 卡写明「回 1 = 认可」，该节点允许纯数字 1 作为确认原话；其他节点仍要求明确确认词
-    if args.decision == "confirm" and not (confirm_quote_ok(args.quote) or numeric_s7):
+    numeric_ok = numeric_confirm_quote(args.quote, args.state)
+    # 确认卡统一要求「回 1」；S7/S9/S10 允许纯数字 1 作为确认原话，S5 仍需带数量的原话
+    if args.decision == "confirm" and not (confirm_quote_ok(args.quote) or numeric_ok):
         print("❌ --quote 不是明确正向确认（含否定/犹豫/疑问或缺确认词）——拒绝铸造可授权凭证")
         raise SystemExit(2)
     ph = stable_params_hash(obj)
