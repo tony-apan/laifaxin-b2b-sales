@@ -45,6 +45,13 @@ class BeginnerFlowLinkTest(unittest.TestCase):
         self.assertIn("也只对用户列 4 个", t)
         self.assertIn("S2 候选只展示 4 类", read("AGENTS.md"))
 
+    def test_windows_python_has_no_heredoc(self):
+        """Windows Bash 工具 stdin 不关闭，py - <<EOF 会卡死；入口必须禁用 heredoc。"""
+        agents = read("AGENTS.md")
+        self.assertIn("Windows 下禁用 heredoc", agents)
+        self.assertIn("py -3", agents)
+        self.assertIn("禁止 `py - <<EOF`", agents)
+
     def test_flow_has_no_jargon(self):
         t = FLOW.read_text(encoding='utf-8').lower()
         for word in BANNED:
