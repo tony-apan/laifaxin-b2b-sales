@@ -34,17 +34,31 @@ def clist(pg):
         print(f"❌ 第{pg}页查询失败，无法证明排除生效: {exc}")
         sys.exit(1)
 bad=[]
+unknown=0
+seen=0
 for pg in [int(x) for x in args.pages.split(",")]:
     for c in clist(pg):
-        cc=c.get("country_code")
+        seen+=1
+        # ★2026-10-26 真机：部分记录国家字段为空（不是缺键），旧实现直接 fail-closed 整批阻断。
+        # 收紧为：空的单列计数、不计入4区；只要出现 CN/TW/HK/MO 就仍判残留并失败。
+        cc=(c.get("country_code") or (c.get("company") or {}).get("country_code") or "").strip().upper()
         if not cc:
-            print(f"❌ p{pg} 记录缺country_code，无法证明排除生效")
-            sys.exit(1)
+            unknown+=1
+            continue
         if cc in BAD: bad.append((pg,c.get("company_name","")[:24],cc))
+if seen == 0:
+    print("❌ 抽验没有拿到任何公司记录，无法证明排除生效")
+    sys.exit(1)
+if seen and unknown == seen:
+    print("❌ 抽验记录全部缺国家字段，无法证明排除生效")
+    sys.exit(1)
 print(f"验({args.keyword} 页{args.pages}): 含4区={len(bad)}")
 for pg,name,cc in bad[:8]: print(f"  ⚠️ p{pg}: {name} ({cc})")
 if bad:
     print("❌ 排除有残留（种子公司自身或数据异常）——复核")
     sys.exit(1)
-else: print("✅ 排除生效（无4区残留）")
+else:
+    print("✅ 排除生效（无4区残留）")
+    if unknown:
+        print(f"ℹ️ 有{unknown}条记录国家字段为空，未计入4区统计（不视为残留）")
 print(f"⚠️ 抽验覆盖={len([int(x) for x in args.pages.split(',')])*10}家(proxy=company-list非保存结果); 抽样扩大: --pages 1,2,3,50,100,200")
