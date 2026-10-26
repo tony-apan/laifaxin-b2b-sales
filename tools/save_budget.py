@@ -1363,8 +1363,10 @@ def _run(argv: Optional[List[str]] = None) -> int:
     p = sub.add_parser("probe")
     p.add_argument("--root", default=str(TOOLS_DIR.parent))
     p.add_argument("--project", required=True)
-    p.add_argument("--org", required=True)
-    p.add_argument("--token", required=True)
+    p.add_argument("--org", default="")
+    p.add_argument("--token", default="")
+    p.add_argument("--from-session", action="store_true",
+                   help="从本机会话读取 token/org（免 argv 明文）")
     p.add_argument("--out", default=None)
 
     b = sub.add_parser("begin")
@@ -1379,8 +1381,10 @@ def _run(argv: Optional[List[str]] = None) -> int:
     st = sub.add_parser("settle")
     st.add_argument("--root", default=str(TOOLS_DIR.parent))
     st.add_argument("--project", required=True)
-    st.add_argument("--org", required=True)
-    st.add_argument("--token", required=True)
+    st.add_argument("--org", default="")
+    st.add_argument("--token", default="")
+    st.add_argument("--from-session", action="store_true",
+                    help="从本机会话读取 token/org（免 argv 明文）")
     st.add_argument("--task-id", required=True)
     st.add_argument("--concurrent-tasks", type=int, default=0)
     st.add_argument("--out", default=None)
@@ -1435,6 +1439,12 @@ def _run(argv: Optional[List[str]] = None) -> int:
     s.add_argument("--project", default=None)
 
     args = parser.parse_args(argv)
+    if getattr(args, "from_session", False):
+        from session_store import load_ready
+        _host, args.token, args.org = load_ready(TOOLS_DIR.parent)
+    if args.cmd in ("probe", "settle") and (not args.token or not args.org):
+        print("❌ 需要 --token/--org，或用 --from-session 读取本机会话")
+        return 2
     root = Path(args.root)
     # 时钟注入（测试/审计）：LFX_BUDGET_NOW 供用例对齐快照时间；缺省真实 now。
     import os as _os
