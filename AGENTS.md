@@ -58,8 +58,7 @@ flowchart TD
 - 用户视角只有 6 步；**S0-S12 编号/哈希/审批凭证等内部词不许对用户说**。
 - **S2 候选只展示 4 类**：平台返回超过 4 类时，对用户只列评分最高的 4 类 + 一句「还有 N 类，回复『展开』再看」；禁止一次列 20 类。
 - **Windows 下禁用 heredoc 跑 Python**：统一用 `py -3 <脚本>` 或 `py -3 -c "<一行>"`；禁止 `py - <<EOF` / `python3 - <<EOF`（zcode 等 Bash 工具的 stdin 不关闭会永久卡住）。改文件用 read/write/edit，不要用 heredoc 临时脚本。
-- **S4 判定词禁用原料名本身**：产品是原料（如椰蓉/椰子）时，`--match-words` 只能放**下游成品/买家角色**词（bakery, cake, pastry, confectionery, dessert, bread, biscuit, 烘焙, 糕点, 蛋糕, 面包）；禁止把 `coconut/椰蓉/椰子` 本身当判定词，否则供应商/同行会被算成买家、精度虚高。
-- **S4 审计必须用 `--mode strict`**：保存阈值只算 MATCH（真买家）；MARGINAL（配件商/制造商/擦边）不得计入。`moderate` 只用于摸趋势，不能拿来定保存量。
+- **S4 审计必须语义判断**：禁止用关键词/`--match-words` 给公司下结论；一律读平台返回的**中文公司描述**，直接判断「是不是本产品的潜在买家」。工具用 `--semantic` 只打印中文描述；保存阈值只算 AI 判定的真买家。
 - 播报进度**每 10–30 秒一次**；用户不需要懂 Git/Python/token。
 - **回答也受约束**：涉及规则/数字/话术前，先读对应文档并指出来源，不凭记忆作答（问答类无机器门，靠本纪律＋审查）。
 - 出错先自查：`wiki/faq.md` → `specs/problems-and-fixes-2026-10-23.md` → `lessons/lessons-learned.md`；查不到再开 Issue，**禁止让用户自己排查**。

@@ -52,17 +52,13 @@ class BeginnerFlowLinkTest(unittest.TestCase):
         self.assertIn("py -3", agents)
         self.assertIn("禁止 `py - <<EOF`", agents)
 
-    def test_s4_match_words_exclude_raw_material(self):
-        """S4 判定词不能放原料名本身，否则供应商/同行会被算成买家。"""
+    def test_s4_audit_requires_semantic_judgment(self):
+        """S4 必须读中文描述直接判断，禁止用关键词下结论。"""
         agents = read("AGENTS.md")
-        self.assertIn("S4 判定词禁用原料名本身", agents)
-        self.assertIn("coconut/椰蓉/椰子", agents)
-
-    def test_s4_audit_requires_strict_mode(self):
-        """S4 保存阈值只算 MATCH，MARGINAL 不得计入。"""
-        agents = read("AGENTS.md")
-        self.assertIn("S4 审计必须用 `--mode strict`", agents)
-        self.assertIn("MARGINAL", agents)
+        self.assertIn("S4 审计必须语义判断", agents)
+        self.assertIn("中文公司描述", agents)
+        self.assertIn("--semantic", agents)
+        self.assertNotIn("S4 审计必须用 `--mode strict`", agents)
 
     def test_flow_has_no_jargon(self):
         t = FLOW.read_text(encoding='utf-8').lower()
