@@ -85,6 +85,21 @@ if not issues and args.project != expected: issues.append("--project与产品档
 if issues:
     for issue in issues: print(f"❌ 产品档案闸门: {issue}")
     sys.exit(4)
+
+# 与保存端同一套标签规则：建标签前先按 save_plan.tag_name_problems 校验，
+# 避免“建得出来、保存时被拒”的规则分裂。
+from save_plan import tag_name_problems as _tag_name_problems
+_name_problems = _tag_name_problems(
+    args.name,
+    product_name=str(pm.get("product_name") or pm.get("product_key") or ""),
+)
+if _name_problems:
+    print("❌ 标签名不符合保存端规则，未创建：")
+    for issue in _name_problems:
+        print(f"  - {issue}")
+    print("提示：公司标签与联系人标签必须同名成对，用同一个名称分别建两种类型。")
+    sys.exit(4)
+
 binding = {"project": args.project, "org_sha256": hashlib.sha256(str(args.org).encode()).hexdigest(), "profile": {"sha256": ph, "status": ps, "version": pm.get("profile_version", "")},
            "tag": {"name": args.name, "type": args.type}}
 require_approval(args.approval, args.project, ("S2", "S5"), what="建标签", expected_hash=stable_params_hash(binding))

@@ -92,6 +92,13 @@ class BeginnerFlowLinkTest(unittest.TestCase):
         t = read('specs/problems-and-fixes-2026-10-23.md')
         self.assertNotIn('.local/', t, '台账泄露内部路径')
 
+    def test_tag_tool_reuses_save_rule_before_creating(self):
+        """2026-10-26 真机：建标签与保存端规则分裂，先建后拒。建之前必须同规则校验。"""
+        t = read('tools/tag_add.py')
+        self.assertIn('tag_name_problems', t)
+        self.assertIn('未创建', t)
+        self.assertIn('同名成对', t)
+
     def test_api_reference_documents_gift_quota_priority(self):
         """2026-10-26 真机：赠送点数 creditQuota 先扣，通用点数后扣；POST 才通。"""
         t = read('specs/api-reference.md')
