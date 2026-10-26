@@ -329,7 +329,9 @@ POST /api/mailbox/template-add
 | `POST /api/expenses/cdkey/redeem-code` | 兑换码 |
 | `POST /api/expenses/packages/show-count` | 套餐 |
 | `POST /api/expenses/sell-goods` | 商品 |
-| `POST /api/expenses/give-get/status` | 赠送 |
+| `POST /api/expenses/give-status?uid=<org>` | 赠送点数/邮箱验证额度；返回 `creditQuota`（赠送点，优先扣）、`verifyQuota`（邮箱验证额度） |
+
+> **预算扣费顺序（2026-10-26 真机确认）**：平台先扣 `creditQuota` 赠送点数，赠送点用完后才扣通用点数（`account/current.creditCount`）。保存邮箱和发信都可使用这两类点数；查余额时必须同时看赠送点，不能只看通用点数。GET 该路径返回 404，必须用 POST。
 
 ## 📌 全量接口模块分布（对抗审查 · 420 个接口）
 

@@ -92,6 +92,14 @@ class BeginnerFlowLinkTest(unittest.TestCase):
         t = read('specs/problems-and-fixes-2026-10-23.md')
         self.assertNotIn('.local/', t, '台账泄露内部路径')
 
+    def test_api_reference_documents_gift_quota_priority(self):
+        """2026-10-26 真机：赠送点数 creditQuota 先扣，通用点数后扣；POST 才通。"""
+        t = read('specs/api-reference.md')
+        self.assertIn('/api/expenses/give-status', t)
+        self.assertIn('creditQuota', t)
+        self.assertIn('先扣', t)
+        self.assertIn('POST', t)
+
 
 if __name__ == '__main__':
     unittest.main()
