@@ -4,7 +4,7 @@ title: "来发信知识库·总索引（AI快速查询）"
 description: "目录索引：全仓文档与数据表的总入口，按模块标注路径与用途，换机或断会话后先看。"
 type: "index"
 status: "active"
-updated: "2026-10-25"
+updated: "2026-10-26"
 created: 2026-08-29
 author: "AI + 用户对抗"
 source: "对抗完善"
@@ -23,6 +23,8 @@ audience: 人+AI
 ## 📖 文档索引（md 主索引，人机导航）
 | 模块 | 文档 | 路径 | 用途 | 状态 |
 |------|------|------|------|------|
+| START-HERE.md | 一页上手 | `START-HERE.md` | ★新手第一读：要准备什么、6 步各回什么、卡住怎么办、去哪核对 | ✅ |
+| **实测踩坑** | live-run-pitfalls | docs/15-live-run-pitfalls.md | 按症状查原因和处理（远程 Windows/token/票据/加人/收口证据） | 2026-10-26 |
 | **全流程演示** | novice-walkthrough-demo | docs/14-novice-walkthrough-demo.md | 14 环节逐屏演示 + 逻辑/走叉；AI 内部排练稿，不是客户话术 | 2026-10-25 |
 | **新手入口** | beginner-flow.md | specs/beginner-flow.md | 一页看懂 6 步 + 开场卡 + 截图参照 + 资料落仓清单（AI 第一屏必读） | 2026-10-23 |
 | **踩坑台账** | problems-and-fixes.md | specs/problems-and-fixes-2026-10-23.md | 真实问题：现象/根因/处理/对抗审查/固化位置 | 2026-10-23 |

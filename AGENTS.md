@@ -4,7 +4,7 @@ title: "AGENTS.md · 来发信 Skill 的 AI 执行入口（机器强制）"
 description: "任何 AI 工具接手本仓库的强制入口：先读顺序、全流程地图与铁律摘要，开工前必读。"
 type: "entry"
 status: "active"
-updated: "2026-10-25"
+updated: "2026-10-26"
 ---
 
 # AGENTS.md · 来发信 Skill 的 AI 执行入口（机器强制）
@@ -21,6 +21,7 @@ updated: "2026-10-25"
    - `specs/beginner-flow.md`（新手 6 步全景）
    - `specs/novice-flow-contract.md`（回复次数与确认闸门契约）
    - `specs/problems-and-fixes-2026-10-23.md`（踩坑台账：已经踩过的坑）
+   - `START-HERE.md`（用户/新手视角的一页上手）+ `docs/15-live-run-pitfalls.md`（真机实测踩坑速查）
    - `MD-METADATA.md`（Markdown 元数据规范：新增/修改文档前必读）
 2. 安装自检：`python3 tools/onboard_check.py`（Windows 用 `py tools/onboard_check.py`；**未通过不得开始**）。这里的 `onboard_check` 是**安装门**；`preflight` 是维护者发布门，安装阶段不需要跑，失败也不等于安装失败。
 3. 拿到用户第一条回复（昵称 + 产品）后，立即登记开工必读：
