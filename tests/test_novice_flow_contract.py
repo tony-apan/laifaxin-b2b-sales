@@ -25,6 +25,31 @@ def _blocks(name):
     return re.findall(r"```[a-zA-Z]*\n(.*?)```", text, re.S)
 
 
+class DemoResidualTest(unittest.TestCase):
+    def test_demo_connection_before_profile_and_no_first_screen_bans(self):
+        demo = (ROOT / "docs" / "14-novice-walkthrough-demo.md").read_text(encoding="utf-8")
+        chart = demo.split("## 一、整条路", 1)[1].split("```", 2)[1]
+        self.assertIn("先选连接方式", chart)
+        self.assertIn("实际校验登录与工作空间", chart)
+        self.assertIn("通过", chart)
+        self.assertNotIn("只问昵称+产品", chart)
+        section = demo.split("### 环节 0", 1)[1].split("### 紧接着", 1)[0]
+        screen = re.search(r"```text\n(.*?)```", section, re.S).group(1)
+        for banned in ("确认激活", "不会自动停", "额度", "怎么称呼", "主要卖什么"):
+            self.assertNotIn(banned, screen)
+        for required in ("回 1", "回 2", "登录", "两行"):
+            self.assertIn(required, screen)
+        table = demo.split("| 序 | 什么时候", 1)[1].split("---", 2)[-1]
+        self.assertLess(table.index("第 0 屏连接"), table.index("连接校验通过后"))
+
+    def test_demo_save_card_covers_three_ways_and_rejections(self):
+        demo = (ROOT / "docs" / "14-novice-walkthrough-demo.md").read_text(encoding="utf-8")
+        section = demo.split("### 环节 3", 1)[1].split("### 环节 4", 1)[0]
+        for phrase in ("确认", "确认保存 前 2600 家", "2600", "空答", "精确等于", "N=1", "删除必须带家数", "任何纯数字无效"):
+            self.assertIn(phrase, section)
+        self.assertNotIn("只回「1」我不动手", section)
+
+
 class InstallScreenSingleSourceTest(unittest.TestCase):
     def test_first_screen_is_byte_identical(self):
         flow = (ROOT / "specs" / "beginner-flow.md").read_text(encoding="utf-8")
@@ -43,9 +68,15 @@ class InstallScreenSingleSourceTest(unittest.TestCase):
         # 2026-10-27 改序：第 0 屏只连接，连接成功前不得问昵称/产品（留给 C1）
         for banned in ("怎么称呼您", "卖什么产品", "一条消息回两样"):
             self.assertNotIn(banned, block, f"第 0 屏连接成功前不得先问「{banned}」")
-        for must in ("装好了", "连接", "确认激活", "有人回复不会自动停",
-                     "不用装任何东西", "平台额度", "不搜索", "不扣点"):
+        for must in ("装好了", "我能帮您", "来发信", "回 1", "回 2"):
             self.assertIn(must, block, f"第 0 屏缺少「{must}」")
+        # 2026-10-27 最新裁决：这三句不进第 0 屏；对用户也不说这些词
+        for moved in ("确认激活", "有人回复不会自动停", "平台额度",
+                      "您不用装任何东西", "环境", "参数", "手动"):
+            self.assertNotIn(moved, block, f"第 0 屏不得再出现「{moved}」")
+        card = (TEMPLATES / "S0-install-report.md").read_text(encoding="utf-8")
+        for must in ("试着打开窗口", "两行登录信息", "⭐推荐"):
+            self.assertIn(must, card, f"填完的分支表缺少「{must}」")
 
 
 class InstallScreenShortAndBranchTest(unittest.TestCase):
@@ -70,35 +101,53 @@ class InstallScreenShortAndBranchTest(unittest.TestCase):
         return [l for l in card.splitlines() if l.startswith("| **")]
 
     def _rendered(self, detect, reply1, reply2):
-        text = self.block
-        text = text.replace("<A/B/C/D 里的一句>", detect)
-        text = text.replace("<该分支下一步>", reply1)
-        text = text.replace("<该分支另一条路>", reply2)
-        return text
+        """星标写在动作前；没有星标时冒号前不留空格。"""
+        def opt(label, cell):
+            star = ""
+            action = cell.strip()
+            if action.startswith("⭐推荐"):
+                star = " ⭐推荐"
+                action = action[len("⭐推荐"):].lstrip("：: ").strip()
+            return "- **%s**%s：%s" % (label, star, action)
+
+        lines = []
+        for raw in self.block.splitlines():
+            if raw.startswith("我查过了："):
+                lines.append("我查过了：" + detect)
+            elif raw.startswith("- **回 1**"):
+                lines.append(opt("回 1", reply1))
+            elif raw.startswith("- **回 2**"):
+                lines.append(opt("回 2", reply2))
+            else:
+                lines.append(raw)
+        return "\n".join(lines)
 
     def test_rendered_branches_fit_and_have_no_placeholders(self):
         """长度按填完四个分支后的用户屏计算，不能只量带尖括号的骨架。"""
-        self.assertIn("<A/B/C/D 里的一句>", self.block)
-        self.assertIn("<该分支下一步>", self.block)
-        self.assertIn("<该分支另一条路>", self.block)
+        self.assertIn("<检测一句>", self.block)
+        self.assertIn("<星或空>", self.block)
+        self.assertIn("<动作1>", self.block)
+        self.assertIn("<动作2>", self.block)
         rows = self._branch_rows()
         self.assertEqual(4, len(rows), "分支对照表应正好 4 行")
         for row in rows:
             cells = [c.strip() for c in row.strip("|").split("|")]
-            detect, reply = cells[2], cells[3]
-            for cell in (detect, reply):
+            detect, reply1, reply2 = cells[2], cells[3], cells[4]
+            for cell in (detect, reply1, reply2):
                 self.assertNotIn("<", cell, "模拟输出不得留尖括号：%s" % cell)
                 self.assertNotIn(">", cell, "模拟输出不得留尖括号：%s" % cell)
-            # 表里只放动作。模板行已有「- **回 1** ＝」，再写「回 1 ＝」会重复。
-            one, two = [p.strip() for p in reply.split("；")]
-            for action in (one, two):
-                self.assertNotIn("回 1", action, "该回什么只放动作，不要再写回 1：%s" % action)
-                self.assertNotIn("回 2", action, "该回什么只放动作，不要再写回 2：%s" % action)
-            rendered = self._rendered(detect, one, two)
+            for action in (reply1, reply2):
+                self.assertNotIn("回 1", action, "表里只放星标和动作：%s" % action)
+                self.assertNotIn("回 2", action, "表里只放星标和动作：%s" % action)
+            rendered = self._rendered(detect, reply1, reply2)
             self.assertNotIn("<", rendered, "渲染稿不得留尖括号：\n%s" % rendered)
             self.assertNotIn(">", rendered, "渲染稿不得留尖括号：\n%s" % rendered)
             self.assertEqual(1, rendered.count("**回 1**"), "回 1 被填重了：\n%s" % rendered)
             self.assertEqual(1, rendered.count("**回 2**"), "回 2 被填重了：\n%s" % rendered)
+            self.assertEqual(1, rendered.count("⭐推荐"), "每套只推荐一行：\n%s" % rendered)
+            for banned in ("您不用装任何东西", "确认激活", "有人回复不会自动停",
+                           "平台额度", "环境", "参数", "手动"):
+                self.assertNotIn(banned, rendered, "填完稿不得出现「%s」" % banned)
             lines = [l for l in rendered.strip().splitlines() if l.strip()]
             self.assertLessEqual(len(lines), 9, "渲染后超过 9 行：%s" % cells[0])
             for line in lines:
@@ -115,8 +164,10 @@ class InstallScreenShortAndBranchTest(unittest.TestCase):
         """加粗最多 6 处，且必须覆盖这 6 个重点。"""
         bolds = re.findall(r"\*\*([^*]+)\*\*", self.block)
         self.assertLessEqual(len(bolds), 6, "加粗超过 6 处：%r" % bolds)
-        for word in ("装好了", "我能帮您", "确认激活", "有人回复不会自动停", "回 1", "回 2"):
+        for word in ("装好了", "我能帮您", "回 1", "回 2"):
             self.assertIn(word, bolds, "必须加粗「%s」：%r" % (word, bolds))
+        self.assertEqual(["装好了", "我能帮您", "回 1", "回 2"], bolds,
+                         "加粗只许这四处：%r" % bolds)
 
     def test_reply_options_are_their_own_list_lines(self):
         lines = [l for l in self.block.strip().splitlines() if l.strip()]
@@ -124,14 +175,14 @@ class InstallScreenShortAndBranchTest(unittest.TestCase):
         two = [l for l in lines if l.startswith("- **回 2**")]
         self.assertEqual(1, len(one), "「回 1」必须单独成一行真列表：%r" % lines)
         self.assertEqual(1, len(two), "「回 2」必须单独成一行真列表：%r" % lines)
-        cue = [l for l in lines if l.startswith("您选一个回我")]
-        self.assertEqual(1, len(cue), "「您选一个回我」必须单独成行")
+        cue = [l for l in lines if "您选一个回复我" in l]
+        self.assertEqual(1, len(cue), "「您选一个回复我」必须单独成行")
         self.assertLess(lines.index(cue[0]), lines.index(one[0]))
         self.assertLess(lines.index(one[0]), lines.index(two[0]))
-        detect = [l for l in lines if l.startswith("我查了一下")]
+        detect = [l for l in lines if l.startswith("我查过了")]
         self.assertEqual(1, len(detect), "检测句必须单独成行")
-        stop = [l for l in lines if "有人回复不会自动停" in l][0]
-        self.assertNotIn("我查了一下", stop, "检测句不得并进「有人回复」那一行")
+        self.assertNotIn("确认激活", self.block)
+        self.assertNotIn("有人回复不会自动停", self.block)
 
     def test_branch_table_covers_four_branches(self):
         rows = self._branch_rows()
@@ -139,9 +190,39 @@ class InstallScreenShortAndBranchTest(unittest.TestCase):
         for tag, row in zip(("**A ", "**B ", "**C ", "**D "), rows):
             self.assertIn(tag, row, "分支对照表第 %s 行标签不对" % tag)
             cells = [c.strip() for c in row.strip("|").split("|")]
-            self.assertNotIn("回 1", cells[3], "该回什么只放动作：%s" % cells[3])
-            self.assertNotIn("回 2", cells[3], "该回什么只放动作：%s" % cells[3])
-            self.assertIn("；", cells[3], "两个动作用分号分开：%s" % cells[3])
+            self.assertGreaterEqual(len(cells), 5, "分支行要有检测句、回 1、回 2：%s" % row)
+            for cell in cells[2:5]:
+                self.assertNotIn("回 1", cell, "表里只放星标和动作：%s" % cell)
+                self.assertNotIn("回 2", cell, "表里只放星标和动作：%s" % cell)
+            stars = (cells[3].startswith("⭐推荐"), cells[4].startswith("⭐推荐"))
+            self.assertEqual(1, sum(stars), "每支正好一颗星：%s" % row)
+            if "**D " in row:
+                self.assertTrue(stars[0], "D 支推荐必须仍是回 1：%s" % row)
+                self.assertIn("再试着打开窗口", cells[3])
+            if "**C " in row:
+                self.assertTrue(stars[1], "C 支推荐在回 2：%s" % row)
+                self.assertIn("不能自动连接", cells[2])
+                self.assertIn("检查能否修好", cells[3])
+                self.assertNotIn("直接连上", cells[3])
+
+    def test_browser_presence_is_not_verified_capability(self):
+        card = (TEMPLATES / "S0-install-report.md").read_text(encoding="utf-8")
+        rows = {row.split("| ")[1].split(" ")[0]: [c.strip() for c in row.strip("|").split("|")]
+                for row in self._branch_rows()}
+        unknown = rows["**B"]
+        unsupported = rows["**C"]
+        # probe 返回 browsers 非空、can_auto=false、can_launch=false 时未试启动。
+        probe = {"browsers": [{"name": "chrome"}], "can_auto": False, "can_launch": False}
+        self.assertTrue(probe["browsers"])
+        self.assertFalse(probe["can_auto"] or probe["can_launch"])
+        self.assertIn("未全部验证", unknown[1])
+        self.assertIn("还没试过", unknown[2])
+        self.assertNotIn("不能自动连接", unknown[2])
+        self.assertNotIn("可以", unknown[2])
+        self.assertIn("已确认", unsupported[1])
+        self.assertIn("不能自动连接", unsupported[2])
+        self.assertIn("回 1 前不得为验证启动或安装", card)
+        self.assertIn("用户说「登录好了」仅是通知", card)
 
     def test_flow_chart_covers_four_branches(self):
         flow = (ROOT / "specs" / "beginner-flow.md").read_text(encoding="utf-8")
@@ -150,14 +231,37 @@ class InstallScreenShortAndBranchTest(unittest.TestCase):
         for node in ("分支A", "分支B", "分支C", "分支D"):
             self.assertIn(node, flow, "流程图缺 %s" % node)
         chart = flow[flow.index("#### 第 0 屏分流图"):flow.index("#### 检测项")]
-        self.assertIn("B2 --> W", chart, "分支 B 必须先等用户回「登录好了」")
-        self.assertNotIn("B2 --> E", chart, "分支 B 不得直接跳到问昵称")
-        self.assertNotIn("手动", chart, "分流图对用户的选项不得说「手动」")
+        self.assertIn("B2 -- 回 1 后打开窗口 --> W", chart)
+        self.assertIn("B2 -- 回 2 贴两行 --> V", chart)
+        self.assertIn("W --> V", chart)
+        self.assertIn("V -- 通过 --> E", chart)
+        self.assertNotIn("B2 --> E", chart)
+        self.assertNotIn("W --> E", chart)
+        for banned in ("手动", "环境", "参数"):
+            self.assertNotIn(banned, chart, "分流图对用户的选项不得说「%s」" % banned)
 
     def test_detection_commands_documented(self):
         flow = (ROOT / "specs" / "beginner-flow.md").read_text(encoding="utf-8")
         for cmd in ("onboard_check.py", "check_login.py", "browser_login.py --probe-only"):
             self.assertIn(cmd, flow, "检测项缺 %s" % cmd)
+        screen = re.search(r"### 第 0 屏.*?```[a-z]*\n(.*?)```", flow, re.S).group(1)
+        for cmd in ("onboard_check.py", "check_login.py", "browser_login.py"):
+            self.assertNotIn(cmd, screen, "命令不得进第 0 屏用户代码块")
+
+    def test_install_failure_is_not_screen_zero(self):
+        card = (TEMPLATES / "S0-install-report.md").read_text(encoding="utf-8")
+        self.assertIn("## 话术（安装没通过", card)
+        fail = card.split("## 话术（安装没通过", 1)[1].split("## ", 1)[0]
+        blocks = re.findall(r"```[a-zA-Z]*\n(.*?)```", fail, re.S)
+        self.assertTrue(blocks, "安装没通过缺用户话术块")
+        block = blocks[0]
+        for must in ("有个东西没装好", "不是您的问题", "我来处理", "您什么都不用做"):
+            self.assertIn(must, block, "安装没通过缺少「%s」" % must)
+        self.assertNotIn("组件", block, "安装没通过不得对用户说「组件」")
+        for banned in ("装好了", "回 1", "回 2", "环境", "参数", "手动"):
+            self.assertNotIn(banned, block, "安装没通过不得出现「%s」" % banned)
+        self.assertIn("先自己重试一次", fail)
+        self.assertIn("唯一下一步", fail)
 
 class Step1HonestQuoteTest(unittest.TestCase):
     def setUp(self):
@@ -170,6 +274,8 @@ class Step1HonestQuoteTest(unittest.TestCase):
         # 2026-10-27 改序：连接在第 0 屏已完成，第 1 屏只确认「账号已连好」，不再重复约连接
         self.assertIn("账号刚才已经连好", self.block)
         self.assertIn("2 分钟", self.block)
+        self.assertIn("确认激活", self.block, "确认激活必须留在第 1 屏")
+        self.assertIn("有人回复不会自动停", self.block, "有人回复不会自动停必须留在第 1 屏")
         self.assertNotIn("连您的来发信账号", self.block, "连接已前移，第 1 屏不得再约连接")
 
     def test_honest_reply_count(self):

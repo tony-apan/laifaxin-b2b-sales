@@ -52,7 +52,11 @@ class ConfirmNumberingTest(unittest.TestCase):
     def test_beginner_flow_counts_replies(self):
         text = (ROOT / "specs" / "beginner-flow.md").read_text(encoding="utf-8")
         self.assertIn("你要回几次", text, "beginner-flow 要写清用户一共回几次")
-        self.assertIn("各自单独确认", text, "beginner-flow 要写明各写操作单独确认")
+        self.assertIn("保存客户必须单独", (ROOT / "specs" / "novice-flow-contract.md").read_text(encoding="utf-8"))
+        self.assertIn("建序列和加人已经并进", text)
+        self.assertIn("确认激活", text)
+        rules = (ROOT / "RULES.md").read_text(encoding="utf-8")
+        self.assertIn("S9审批与S10审批+票据分别", rules)
         self.assertIn("10 次", text, "beginner-flow 要如实写清约 10 次回话")
 
 

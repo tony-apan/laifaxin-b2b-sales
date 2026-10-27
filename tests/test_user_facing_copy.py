@@ -110,6 +110,26 @@ class ConnectCardTest(unittest.TestCase):
             self.assertIn(needed, block, f"连接卡缺少关键要素: {needed}")
         self.assertIn("不搜索", block, "连接卡必须说明只读、不搜索不保存")
 
+    def test_domains_are_bound_to_purpose_across_sources(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        rules = (ROOT / "RULES.md").read_text(encoding="utf-8")
+        browser = (ROOT / "tools" / "browser_login.py").read_text(encoding="utf-8")
+        manual = browser.split("MANUAL_STEPS = (", 1)[1].split("\n)", 1)[0]
+        section = skill.split("**★首次调用平台前必过=登录检查**", 1)[1].split("  - 生产连接主体", 1)[0]
+        fallback = section.split("②一键命令兜底", 1)[1].split("13/15/12/23", 1)[0]
+        self.assertEqual(2, fallback.count("web.laifaxin.com"))
+        self.assertNotIn("app.laifaxin.com", fallback)
+        for source in (section, self.text, rules):
+            command = next(line for line in source.splitlines() if "var t=localStorage.getItem" in line)
+            self.assertIn("请在 web.laifaxin.com 页面执行本命令", command)
+        self.assertIn("打开 web.laifaxin.com 并登录", self.text)
+        self.assertIn("打开 https://web.laifaxin.com", manual)
+        self.assertIn("用户查看平台页面入口为 `https://app.laifaxin.com`", rules)
+        self.assertIn("https://app.laifaxin.com/settings/templets", skill)
+        self.assertIn("https://app.laifaxin.com/marketing/sequences", skill)
+        self.assertIn("UNVERIFIED", section)
+        self.assertIn("UNVERIFIED", rules)
+
     def test_card_forbids_env_var_and_readonly_claim(self):
         self.assertIn("禁止要求用户设置环境变量", self.text)
         self.assertIn("只读 token", self.text)  # 在"禁止"语境中出现
@@ -894,7 +914,7 @@ class ActivationIsOneChatLineTest(unittest.TestCase):
         self.assertIn("方式二", self.card, "激活卡未给出'您去网页自己开'的方式")
         # 方式二必须说明去哪、做什么、回来怎么讲
         # ★2026-09-17 修：旧值 mailing/sequence 是 404（用户实测），真值 /marketing/sequences
-        self.assertIn("web.laifaxin.com/marketing/sequences", self.card,
+        self.assertIn("app.laifaxin.com/marketing/sequences", self.card,
                       "方式二未给出正确的序列页地址（用户会点到 404）")
         self.assertRegex(self.card, r"我已在网页激活", "方式二未给出用户回来说什么")
         # ★只查**用户话术块**：AI 要点里"不需要开终端"这类否定说明是合法且必要的
@@ -1161,12 +1181,12 @@ class PlatformLinkTruthTest(unittest.TestCase):
         for base in (ROOT / "output-templates", ROOT / "tools", ROOT / "specs"):
             for path in base.rglob("*"):
                 if path.is_file() and path.suffix in (".md", ".py", ".sh"):
-                    urls.update(_re.findall(r"https://web\.laifaxin\.com/[A-Za-z0-9/_-]*",
+                    urls.update(_re.findall(r"https://(?:web|app)\.laifaxin\.com/[A-Za-z0-9/_-]*",
                                             path.read_text(encoding="utf-8", errors="ignore")))
         for name in ("RULES.md", "SKILL.md", "README.md", "INDEX.md"):
             f = ROOT / name
             if f.exists():
-                urls.update(_re.findall(r"https://web\.laifaxin\.com/[A-Za-z0-9/_-]*",
+                urls.update(_re.findall(r"https://(?:web|app)\.laifaxin\.com/[A-Za-z0-9/_-]*",
                                         f.read_text(encoding="utf-8", errors="ignore")))
         return sorted({u for u in urls if "/api/" not in u})
 
@@ -1174,7 +1194,7 @@ class PlatformLinkTruthTest(unittest.TestCase):
         """★任何文件都不得再出现已废弃的平台路径（用户点了会看到 404）。"""
         offenders = []
         for u in self.all_platform_urls():
-            path = u.replace("https://web.laifaxin.com", "").rstrip("/")
+            path = re.sub(r"https://(?:web|app)\.laifaxin\.com", "", u).rstrip("/")
             if path in self.DEAD:
                 offenders.append(path)
         self.assertEqual([], offenders,
@@ -1184,7 +1204,7 @@ class PlatformLinkTruthTest(unittest.TestCase):
         """所有平台链接必须能在真值表里找到（防瞎猜新路径）。"""
         unknown = []
         for u in self.all_platform_urls():
-            path = u.replace("https://web.laifaxin.com", "").rstrip("/")
+            path = re.sub(r"https://(?:web|app)\.laifaxin\.com", "", u).rstrip("/")
             if path not in self.TRUTH and path not in ("", "/"):
                 unknown.append(path)
         self.assertEqual([], unknown,
@@ -1385,7 +1405,11 @@ class S12ActivationCardTest(unittest.TestCase):
 
     def test_manual_path_kept_and_ledgered(self):
         self.assertIn("我已在网页激活 <序列名>", self.block)
+        self.assertIn("用户问了再给", self.block)
         self.assertIn("两种方式", self.block)
+        default = re.findall(r"```[a-zA-Z]*\n(.*?)```", self.block, re.S)[0]
+        self.assertNotIn("方式二", default, "方式二不进默认确认屏")
+        self.assertIn("⭐推荐", default)
 
     def test_hesitation_option_explained(self):
         self.assertIn("回 **2**", self.block)

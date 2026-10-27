@@ -80,8 +80,14 @@ class FirstScreenPlainLanguageTest(unittest.TestCase):
         for word in self.BANNED:
             self.assertNotIn(word, block, f"首屏出现黑话「{word}」")
         # 2026-10-27 改序：第 0 屏只连接，昵称/产品在连接成功后由 C1 询问
-        for must in ("装好了", "连接", "确认激活"):
+        for must in ("装好了", "我能帮您", "来发信", "回 1", "回 2"):
             self.assertIn(must, block, f"第 0 屏缺少「{must}」")
+        card = (ROOT / "output-templates" / "S0-install-report.md").read_text(encoding="utf-8")
+        for must in ("试着打开窗口", "两行登录信息", "⭐推荐"):
+            self.assertIn(must, card, f"填完的分支表缺少「{must}」")
+        for moved in ("确认激活", "有人回复不会自动停", "平台额度",
+                      "您不用装任何东西", "环境", "参数", "手动"):
+            self.assertNotIn(moved, block, f"第 0 屏不得再出现「{moved}」")
         for banned in ("怎么称呼您", "卖什么产品"):
             self.assertNotIn(banned, block, f"连接成功前第 0 屏不得先问「{banned}」")
         for banned in ("只回一个数字", "6 步", "开始新的获客项目"):

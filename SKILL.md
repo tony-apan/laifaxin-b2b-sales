@@ -147,10 +147,10 @@ flowchart TD
 ## 2️⃣ 新获客项目的必备前置（用户明确选择后才执行，缺一停）
 
 - **★用户没有来发信账号时先引导注册（2026-09-09 对抗审查补）**：让用户去 https://laifa.xin 点页面上的「免费注册」（注册免费、无需先付费），注册登录后再走连接检查。AI **不代办注册、不代填手机号/邮箱、不承诺权益数额**；权益/套餐/赠点一律以官网客服实时答复为准
-- **★首次调用平台前必过=登录检查**（不是安装或对话开局第一句）：到此节点仍无凭据/已失效，按 [T-token引导](output-templates/T-token-guide.md) 的**三层降级**执行：①CDP 自动（首选）——在 `https://web.laifaxin.com` 通过现有 Chrome/Edge 自动取参；②一键命令兜底——自动失败且适用时，请在 **app.laifaxin.com** 页面执行下方命令，粘贴回车后通过剪贴板回传；③手动两值兜底——仅对 11/14/20/21/26 的 `E_BROWSER_UNSUPPORTED`，命令被拦时才引导用户在 `https://app.laifaxin.com` 按三步复制两个值。13/15/12/23 只给“确认目标空间/重新登录”类指引，不引导手动取参。**禁止让用户手写文件或手敲/背诵 token；只允许剪贴板粘贴与 `session_store`（目录 0700、文件 0600）；AI 不回显 token、不写 runs 日志。跨域 token 有效性为 UNVERIFIED，待首次真实平台冒烟验证；每次取参后强制运行 `workspace_guard` 做落点校验，通过前停止。**
-  - 一键兜底命令（请在 **app.laifaxin.com** 页面执行；原样给出，不拆行）：
+- **★首次调用平台前必过=登录检查**（不是安装或对话开局第一句）：到此节点仍无凭据/已失效，按 [T-token引导](output-templates/T-token-guide.md) 的**三层降级**执行：①CDP 自动（首选）——在 `https://web.laifaxin.com` 通过现有 Chrome/Edge 自动取参；②一键命令兜底——自动失败且适用时，请在 **web.laifaxin.com** 页面执行下方命令，粘贴回车后通过剪贴板回传；③手动两值兜底——仅对 11/14/20/21/26 的 `E_BROWSER_UNSUPPORTED`，命令被拦时才引导用户在 `https://web.laifaxin.com` 按三步复制两个值。13/15/12/23 只给“确认目标空间/重新登录”类指引，不引导手动取参。**禁止让用户手写文件或手敲/背诵 token；只允许剪贴板粘贴与 `session_store`（目录 0700、文件 0600）；AI 不回显 token、不写 runs 日志。`app` 域取参→`web` 域 API 已于 2026-10-27 实测通过；**`web` 域取参的 token 是否同样可调 = UNVERIFIED**；每次取参后强制运行 `workspace_guard` 做落点校验，通过前停止。**
+  - 一键兜底命令（请在 **web.laifaxin.com** 页面执行；原样给出，不拆行）：
     ````
-    var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！回到对话框 Ctrl+V（Mac按⌘V）粘贴发送给 AI"):(location.host.indexOf("laifaxin")<0&&location.host.indexOf("worldtradetool")<0?"❌ 你现在打开的网页（"+location.host+"）不是来发信——请在 app.laifaxin.com 页面执行本命令":"❌ 来发信页面上没取到登录凭证——先看右上角有没有你的账号头像：没有=先登录；有=按 F5 刷新后再运行一次");
+    var t=localStorage.getItem("accesstoken");t&&t!=="null"?(copy("accesstoken="+t+"\norgId="+localStorage.getItem("orgId")),"✅ 已复制到剪贴板！回到对话框 Ctrl+V（Mac按⌘V）粘贴发送给 AI"):(location.host.indexOf("laifaxin")<0&&location.host.indexOf("worldtradetool")<0?"❌ 你现在打开的网页（"+location.host+"）不是来发信——请在 web.laifaxin.com 页面执行本命令":"❌ 来发信页面上没取到登录凭证——先看右上角有没有你的账号头像：没有=先登录；有=按 F5 刷新后再运行一次");
     ````
   - 手动兜底：只让用户分别复制 `accesstoken` 与 `orgId`，说明企业账号二者不同、漏 orgId 会连错空间；不要手敲。
   - 生产连接主体是真实 Chrome/Edge 的 CDP；Playwright 仅作可选能力探测，不作为生产依赖。探测要同时检查 Python 包与浏览器二进制；离线不要求安装。

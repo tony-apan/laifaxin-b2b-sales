@@ -72,7 +72,7 @@ class S2CardTest(unittest.TestCase):
 
     def test_multi_segment_prompt_block_present(self):
         block = self.text
-        for needed in ("建议**分开做**", "共用一个标签", "先做 1 个", "都做"):
+        for needed in ("建议分开做", "共用一个标签", "先做 1 个", "都做"):
             with self.subTest(needed=needed):
                 self.assertIn(needed, block, f"S2 多客群提示缺少: {needed}")
 
@@ -132,6 +132,11 @@ class BatchOwnershipInCardsTest(unittest.TestCase):
             with self.subTest(file=path):
                 self.assertRegex(blocks, r"第\s*<i>\s*/\s*<K>\s*批|本批客群|第 <i>/<K> 批",
                                  f"{path} 用户话术块缺「第 i/K 批」批次占位")
+
+    def test_s9_configuration_is_visible_before_confirmation(self):
+        block = user_blocks(read("output-templates/S9-sequence-confirm.md"))[0]
+        for item in ("12 轮", "30 分钟", "5 天", "15 天", "30 天", "时区", "纽约", "30000", "每天最多 5 封", "允许发送窗口内", "顺延"):
+            self.assertIn(item, block)
 
     def test_cards_forbid_merging_segments(self):
         for path, *_ in self.CASES:

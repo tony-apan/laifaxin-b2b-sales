@@ -41,7 +41,9 @@ class NoviceEdgeCaseTest(unittest.TestCase):
         self.assertIn("只返回一家样板", s3)
         self.assertIn("再找一轮", s3)
         self.assertIn("该回什么", s3)
-        self.assertIn("回复数字 1", s3)
+        self.assertIn("回 1 就用它", s3)
+        self.assertIn("发我网址", s3)
+        self.assertIn("不要", s3)
 
     def test_audit_eta_must_not_be_guessed(self):
         s4 = read("output-templates/S4-audit-running.md")

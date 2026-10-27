@@ -25,9 +25,9 @@ MAGIC = 'laifaxin-browser-login-v1'
 MAX_MESSAGE = 1024 * 1024
 PLAYWRIGHT_INSTALL = 'python -m venv .venv && .venv/bin/pip install playwright && .venv/bin/python -m playwright install chromium'
 MANUAL_STEPS = (
-    '① 二层降级优先：在 app.laifaxin.com 页面按 F12 打开控制台，粘贴一键命令取参',
-    '② 仍不行→三步手动兜底：打开 https://app.laifaxin.com → 登录 → 按 F12 粘贴同一一键命令',
-    'AI 用 web 入口取参、你手动用 app 入口查看，两者是同一账号的不同入口',
+    '① 二层降级优先：在 web.laifaxin.com 页面按 F12 打开控制台，粘贴一键命令取参',
+    '② 仍不行→三步手动兜底：打开 https://web.laifaxin.com → 登录 → 按 F12 粘贴同一一键命令',
+    '取参统一走 web.laifaxin.com（机器/人工相同）；app.laifaxin.com 是你登录查看平台实际情况的入口，两域同一后台',
     '如遇登录态互踢以实际为准并报错（跨域有效性 UNVERIFIED，首次真实登录时冒烟验证）',
     '只允许剪贴板粘贴 + session_store（0600/0700），禁止手写文件；不得回显完整 token',
 )

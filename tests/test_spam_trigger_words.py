@@ -29,13 +29,13 @@ class SpamTriggerDoctrineTest(unittest.TestCase):
     def test_s12_answers_delivery_questions(self):
         s12 = (ROOT / "output-templates/S12-activation-confirm.md").read_text(encoding="utf-8")
         for needle in ("用户看数据时最常问的 5 句", "对方说没收到", "不是垃圾邮件",
-                       "20% 以内属正常波动", "30%", "发信环境由平台统一负责", "回 **1**/「好的」不会开", "打开率", "退回去的还能再发吗", "截图发我", "对方的回信会在平台邮箱里收到", "顺延到下一个可发送时点", "回读「没开」只说明现在已关", "数据会陆续更新", "20%–30% 之间", "想排下一波跟我说一声", "还没发的不会再发"):
+                       "20% 以内属正常波动", "30%", "发信环境由平台统一负责", "只回 1、只回「好的」或只回「激活」都不开", "打开率", "退回去的还能再发吗", "截图发我", "回信在平台邮箱里", "顺延到下一个可发时点", "不等于过去一封没发", "数据会陆续更新", "20%–30% 之间", "想排下一波跟我说一声", "还没发的不再发"):
             self.assertIn(needle, s12)
 
 
     def test_s12_activation_failure_states(self):
         s12 = (ROOT / "output-templates/S12-activation-confirm.md").read_text(encoding="utf-8")
-        for needle in ("回读「没开」只说明现在已关", "另查发送记录", "暂不能确认"):
+        for needle in ("只说明此刻是关的", "不等于过去一封没发", "另查发送记录", "暂不能确认"):
             self.assertIn(needle, s12)
 
     def test_s12_delivery_bands_unified(self):

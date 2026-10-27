@@ -19,8 +19,8 @@ class LateStageEdgeCaseTest(unittest.TestCase):
 
     def test_s9_gives_real_small_trial_path(self):
         s9 = read("output-templates/S9-sequence-confirm.md")
-        self.assertIn("先小范围试", s9)
-        self.assertIn("停发只停后续", s9)
+        self.assertIn("这一次只能整批加", s9)
+        self.assertIn("想少加，回 2，我改数量后重出这张卡", s9)
 
     def test_s10_says_no_partial_add(self):
         s10 = read("output-templates/S10-contacts-confirm.md")
@@ -33,8 +33,8 @@ class LateStageEdgeCaseTest(unittest.TestCase):
 
     def test_s11_digit_reply_does_not_activate(self):
         s11 = read("output-templates/S11-completion-report.md")
-        self.assertIn("也不会开开关", s11)
-        self.assertIn("不等于激活", s11)
+        self.assertIn("也不会打开发信", s11)
+        self.assertIn("完成不等于开始发", s11)
 
 
 if __name__ == "__main__":
