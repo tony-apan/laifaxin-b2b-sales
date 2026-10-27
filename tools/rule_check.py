@@ -371,6 +371,27 @@ def extract_save_count(quote: Any) -> Optional[int]:
     return None
 
 
+# v3（2026-10-27）：卡面已写清 N 家时，用户只回「确认」也应放行。
+# 但纯确认原话必须**整句就是确认**、且不含任何数字/别的动作词，
+# 数字由卡面 plan 绑定并在 confirmed plan 里留痕（count_bound_by=card）。
+_PLAIN_CONFIRM_RE = re.compile(
+    r"^\s*(?:确认|确认保存|确定)\s*(?:吧|一下|啦)?\s*[。.!！~～]*\s*$", re.I)
+
+
+def is_plain_save_confirm(quote: Any) -> bool:
+    """无数字纯确认原话判定（只给 S5 保存确认用，不用于激活）。"""
+    if not isinstance(quote, str):
+        return False
+    q = " ".join(quote.split()).strip()
+    if not q:
+        return False
+    if re.search(r"[0-9零一二三四五六七八九十百千万两]", q):
+        return False
+    if re.search(r"(激活|发信|建序列|加人|模板|删除|取消|暂停|不确认|不要|别|等等|稍等)", q):
+        return False
+    return bool(_PLAIN_CONFIRM_RE.match(q))
+
+
 _CN_MAGNITUDE = {"十": 10, "百": 100, "千": 1000, "万": 10000}
 
 

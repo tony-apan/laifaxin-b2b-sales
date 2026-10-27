@@ -225,7 +225,7 @@ B=10000点，e=1.5邮箱/家，p=1.5点/邮箱
 保存接口不返回消耗点数（已核实），唯一真实成本 = **同一 org、同一 token、同一任务窗口、已结转的余额差**。命令：`python3 tools/save_budget.py probe|begin|settle|carry|plan|status`。
 
 1. **probe（只读）**：读 benefits/refine-data 的 monthlyLimit/monthlyUsed，`B_avail=limit−used`；字段缺失或 limit<=0 → `E_BALANCE_UNAVAILABLE`；`used>limit` → `E_BALANCE_OVER_LIMIT`（不截断为 0）；`used==limit` → `B_avail=0` 并报 `E_BUDGET_EXHAUSTED`。读数超过 10 分钟 → `E_BALANCE_STALE`。
-2. **样本前告知 + 递增探针阶梯（v14）**：无历史时固定 **1 家探针**（不再一次 20 家）；阶梯 `1 → 10 → 50 → 按上限`，**每级单独确认**；同一 `round_id` 内探针批合计 **≤3 批**，超限仍无可靠上限 → `E_CALIB_INCONCLUSIVE`（停止交用户）。探针批的 `sample_ack` 账簿记录必须**早于**该批 `batch_begin`（严格小于时间戳），否则该批 `void` 并报 `E_LEDGER_REPLAY`。`per_company_upper` **只用最新一级**（固定费纠正，ROUND_CEILING 到 6 位），不得用 1 家级外推大批量。有历史干净批次时 `N0=min(100,max(1,min(20,floor(B_plan/历史上限))))`；可负担 <20 时取可负担量并硬提示、单独确认，禁止硬顶 20。用户估值只标 `kind=user_estimate`，不得用于 N_cons/可负担量。样本风险告知原文：“首批 N0 家为成本实测样本，实际扣点未知；样本本身可能耗掉本轮预算的大部分甚至全部余额。”未确认 → `E_SAMPLE_ACK_REQUIRED`。
+2. **样本前告知 + 100 家探针（v3）**：无历史时固定 **100 家探针**（受本轮预算点数封顶，不足则降级并单独确认）；探针一次拿单价/联系人率，之后直接按预算推导全量，不再 1/10/50 逐档；同一 `round_id` 重复调用**幂等返回 100**（重试不判死）。探针批的 `sample_ack` 账簿记录必须**早于**该批 `batch_begin`（严格小于时间戳），否则该批 `void` 并报 `E_LEDGER_REPLAY`。`per_company_upper` **只用最新一级**（固定费纠正，ROUND_CEILING 到 6 位），不得用 1 家级外推大批量。有历史干净批次时 `N0=min(100,max(1,min(20,floor(B_plan/历史上限))))`；可负担 <20 时取可负担量并硬提示、单独确认，禁止硬顶 20。用户估值只标 `kind=user_estimate`，不得用于 N_cons/可负担量。样本风险告知原文：“首批 N0 家为成本实测样本，实际扣点未知；样本本身可能耗掉本轮预算的大部分甚至全部余额。”未确认 → `E_SAMPLE_ACK_REQUIRED`。
 3. **begin（执行前）**：写 `batch_begin`（exec_ack、B0）；同一 batch_id 重复 begin → `E_LEDGER_REPLAY`。
 4. **settle（取样点）**：任务 finished 后每秒轮询余额，连续两次读数相等且稳定 ≥10s 得 `B_settle`；120s 不稳定 → `E_BALANCE_NOT_SETTLED`，该批保持 preliminary 并停止推进。取样点 `batch_cost_lo=B0−B_settle`，此时 `cost_lo==0` 属正常中间态，不报错。settle 必须对应已存在的 begin；重复 settle → `E_LEDGER_REPLAY`。
 5. **carry（结转）**：读 `B_after`；`late=max(0,B_settle−B_after)`，`batch_cost=max(0,B0−B_settle)+late`；写 `carry`（state=settled、late、external_risk）。**两次确认**（执行前 exec_ack + 结转后 settle_ack）都齐才 `external_risk=confirmed`；任一缺失 → `unprovable`（计入 spent_all、不进校准账）。结转后 `batch_cost==0` 且公司数>0 → `E_CALIB_COST_ZERO`；重复 carry → `E_LEDGER_REPLAY`。
@@ -330,9 +330,9 @@ python3 tools/save_budget.py plan   --project acme/widget --org "$ORG" --b-plan 
 ## ★S5 保存前必读要点（2026-10-23 实战教训固化）
 
 ### 必须满足的三件事（缺一则工具会拒绝）
-1. **原话含数量**：用户授权原话必须能被解析出公司数，例如「确认，保存 9400 家」；只说「确认」→ `E_AUTH_COUNT_AMBIGUOUS`。
+1. **数量来源可确定**：原话含家数（如「确认，保存 9400 家」）按原话校验；卡面已写清 N 时只说「确认」也放行——由 plan 绑定卡面 N（`count_bound_by=card`）并留痕；两者都没有 → `E_AUTH_COUNT_AMBIGUOUS`。
 2. **显式点数预算**：`budget_points` 与 `max_points` 取用户明示值（如「点数预算 3 万」）。不足 → `E_BUDGET_EXCEEDED` / `E_MAX_POINTS_EXCEEDED`。
-3. **探针确认**：auto-cal 首轮要求 1 家样本单独确认（`sample_needs_ack`）；上一轮未结清须先 `audit-clear`（0=确认未扣点），否则冻结额成锚。
+3. **探针确认**：auto-cal 首轮要求 100 家探针单独确认；上一轮未结清须先 `audit-clear`（0=确认未扣点），否则冻结额成锚。
 
 ### 保存期间的操作要求
 - **每 10–30 秒查一次任务状态**；禁止重复 execute。**必须滚动向用户报进度**（见下「汇报纪律」）。
@@ -394,7 +394,7 @@ python3 tools/save_budget.py plan   --project acme/widget --org "$ORG" --b-plan 
 ## ★回复点与确认闸门（2026-10-23 契约 v1.0：全流程约 10 次回话）
 - **固定 6 步**：1 找买家（先连账号）→ 2 筛名单 → 3 存客户 → 4 写开发信（本地 4 封样稿）→ 5 批量建 48 封模板 → 6 建跟进计划（建序列 → 加人 → 设置 → 终检）→ 之后单独确认是否激活发信。
 - **用户回数字 5 次**：选买家类型、选起点、认可样稿（第 4 步；第 5 步自动建 48 封模板，同 1 次回复）、建序列、加人。
-- **用户回文字 3 次**：开头昵称+产品、产品资料确认（回「确认」）、保存确认（回「确认保存 前 N 家」，必须带 N）。
+- **用户回文字 3 次**：开头昵称+产品、产品资料确认（回「确认」）、保存确认（卡面已写清 N 时回「确认」即可；也可回「确认保存 前 N 家」）。
 - **粘贴 1 次**：连平台两行（CDP 自动取参成功则 0 次）；**激活原话 1 次**：「确认激活」。
 - **不能打包的硬闸门**：保存客户、建序列、contact-add、激活——各自本节点确认；建模板与第 4 步样稿确认合并（不用回第二次）。禁止「一次 A 全做完」式授权；`build_sequence.py` 与 `contact_add_authorized.py` 分别要求 S9、S10 审批（旧 `contact_add.py` 已封条）。
 - 第 6 步执行时每 10–30 秒播报一次：「第 X 步 / 共 6 步 + 已加 X 家 + 大概还要多久」，不得长时间静默。

@@ -804,19 +804,26 @@ def _audit_clear_locked(root, *, project, org, batch_id, value, basis,
     return record
 
 
-PROBE_LEVELS = (1, 10, 50)
+# v3（2026-10-27）：探针改「一次 100 家」——1→10→50 阶梯实测太慢（用户要跑几十轮）。
+# 100 家一次拿到单价与联系人率后，直接按预算推导 N 全量；探针失败/校准不可信才再交用户决策。
+PROBE_LEVELS = (100,)
+
+
+def _probe_planned(root, *, project, org, round_id, level):
+    """同 project/org/round/level 是否已落过探针行（用于幂等，防重试重复记账）。"""
+    for row in read_ledger(root, project):
+        payload = row.get("payload") or {}
+        if (row.get("kind") == "plan" and row.get("state") == "probe_level"
+                and str(row.get("org_hash") or "") == org_hash(org)
+                and str(payload.get("round_id") or "") == str(round_id)
+                and payload.get("probe_level") == level):
+            return True
+    return False
 
 
 def next_probe_level(root, *, project, org, round_id):
-    """同一 round 内探针批合计 ≤3：返回 1/10/50 的下一级，超限 E_CALIB_INCONCLUSIVE。"""
-    used = [r for r in read_ledger(root, project)
-            if r.get("kind") == "plan"
-            and r.get("state") == "probe_level"
-            and (r.get("payload") or {}).get("round_id") == round_id]
-    if len(used) >= len(PROBE_LEVELS):
-        _fail("E_CALIB_INCONCLUSIVE",
-              "同一 round 内 1/10/50 探针批已达 3 批仍无可靠上限，停止并交用户决策")
-    return PROBE_LEVELS[len(used)]
+    """探针只跑一次 100 家：重复调用必须幂等返回 100（重试/重放不判死）。"""
+    return PROBE_LEVELS[0]
 
 
 def round_accounts(root, *, project, org, b_now=None):
@@ -939,12 +946,19 @@ def freeze_b_plan(root, *, project, org, b_avail, ratio=DEFAULT_BUDGET_RATIO,
 
 
 def bootstrap_sample(*, b_plan, b_avail, history_upper=None,
-                     sample_ack_quote="", sample_ack_ref="", sample_n0=1):
-    """v14：无历史固定 1 家探针（阶梯 1→10→50），不再一次 20 家；
+                     sample_ack_quote="", sample_ack_ref="", sample_n0=100):
+    """v3：无历史先生成 100 家探针（一次拿单价/联系人率），随后直接推导全量；
     旧的 B_plan<20 点门槛已删除（量纲无关）。"""
     budget = Decimal(str(b_plan))
     if history_upper is None:
         n0 = 1 if sample_n0 is None else int(sample_n0)
+        # 保守封顶：按「每家公司至少 1 点」估，探针量不得超过本轮预算点数。
+        try:
+            cap = int(budget)
+        except Exception:
+            cap = n0
+        if cap > 0 and n0 > cap:
+            n0 = max(1, cap)
         warning = ("首批 %d 家为成本实测样本，实际扣点未知；样本本身可能耗掉"
                    "本轮预算的大部分甚至全部余额。" % n0)
         affordable = None
@@ -1089,7 +1103,7 @@ def _plan_locked(root, *, project, org, b_plan, b_avail, read_at=None,
                                else str(cumulative_cap)})
         need_open_round = False
     if accounts["carry_count"] == 0:
-        # 校准账空：只能走递增探针阶梯（1→10→50，每级单独确认，≤3 批）。
+        # 校准账空：先跑一次 100 家探针（单独确认），拿到单价后直接推导全量。
         level = next_probe_level(root, project=project, org=org,
                                  round_id=round_id)
         sample = bootstrap_sample(b_plan=frozen, b_avail=b_avail,
@@ -1107,7 +1121,8 @@ def _plan_locked(root, *, project, org, b_plan, b_avail, read_at=None,
                                "sample_n": sample["sample_n"],
                                "risk_notice": sample["risk_notice"],
                                "sample_ack_ref": str(sample_ack_ref or "")})
-        if sample["sample_ack"]:
+        if sample["sample_ack"] and not _probe_planned(
+                root, project=project, org=org, round_id=round_id, level=level):
             append_ledger(Path(root), org_hash=org_hash(org), project=project,
                           kind="plan", source_ref="probe_ladder",
                           state="probe_level",

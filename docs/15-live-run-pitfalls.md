@@ -20,7 +20,7 @@ related: ["../START-HERE.md", "cross-platform-setup.md"]
 | 3 | token 不想落盘/不想进命令行 | argv 会被历史与日志记录 | 凭据只走 stdin：父进程读本地凭据文件，子进程 `sys.stdin.readline()`；不改写 `--token STDIN` 占位就不会真带 token |
 | 4 | `E_AUTH_NO_TICKET: 票据文件不存在: ...\.local\auth\.local\auth\ticket-*.json` | 调用 `auth_guard.authorize(..., root=...)` 时把 root 传成了 `.local/auth`，票据在里层又建一套目录 | **root 传仓库根**（`ROOT`），票据会落在 `<root>/.local/auth/`；看到双层路径先删多余空目录再重试 |
 | 5 | `DEPRECATED: use save_guard` | 用了已封条的旧加人脚本 | 加人走 `tools/contact_add_authorized.py`，需要 `--plan` + `--auth-ticket` + `--approval`；旧 `contact_add.py` 只作流程核对 |
-| 6 | 审批卡里回「1」被判无效 | 只有 S7/S9/S10 接受纯数字；S5 要含「确认保存 前 N 家」，S12 要含「确认激活」 | 按卡面提示回；S7/S9/S10 回 `1` 即可（已加测试覆盖） |
+| 6 | 审批卡里回「1」被判无效 | 只有 S7/S9/S10 接受纯数字；S5 卡面写清 N 后回「确认」即可（也可「确认保存 前 N 家」），S12 要含「确认激活」 | 按卡面提示回；S7/S9/S10 回 `1` 即可（已加测试覆盖） |
 | 7 | `E_AUTH_REUSED` / 重跑被拒 | 票据和审批是一次性的，hash 绑定了当次参数 | 正常保护。参数变了就重新授权一次，不复用旧票据 |
 | 8 | 保存任务刚提交就报「没数据」 | 保存是异步的，`front` 提交后要等 `status:finished` | 轮询到 finished 再对账（`contactSaveCount`），别提前读 |
 | 9 | 收口报「证据不在项目目录 / 文件 hash 不匹配」 | `finalize_run.py` 要求 4 份证据与 `operation-record.md` **同一目录**，manifest 里的 path 是相对该目录的**纯文件名** | 证据直接放 `runs/<运营方>/<产品>/`；manifest 写 `"path": "s11-sequence.txt"` 这类裸文件名，写完再算 sha256 |

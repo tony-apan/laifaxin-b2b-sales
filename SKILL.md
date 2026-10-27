@@ -29,7 +29,7 @@ audience: AI优先
 - **新用户第一句先问两样**（`output-templates/S0-opening-questions.md` C1：怎么称呼您 + 一句话产品），**不出菜单、不要数字**；拿到后立刻按 specs/beginner-flow.md 第 1 屏输出「6 步全景 + 当前第几步 + 接下来 + 等你回什么 + 约 10 次回话」，之后**每个阶段级汇报**都带三行（不是每句话）。
 - 只有检测到旧项目才展示 `output-templates/S0-task-menu.md`「有旧项目时」4 项。
 - 用户视角只有 6 步 + 最后发信开关；内部 S0-S12 编号不要对用户说（对照表见 beginner-flow 第八节）。
-- 确认一律给编号（1/2/3，1=同意继续放第一）；两个例外：产品资料回「确认」、保存回「确认保存 前 N 家」；发信激活要求回「确认激活」四个字。
+- 确认一律给编号（1/2/3，1=同意继续放第一）；两个例外：产品资料回「确认」、保存回「确认」（卡面已写清 N 时；也可「确认保存 前 N 家」）；发信激活要求回「确认激活」四个字。
 - 第 4 步写邮件前主动邀请：有以前效果好的开发信可以截图发我（1-5 张），只学结构/语气；产品事实仍取产品档案；提炼结果写 runs/运营方/产品/email-style.md。
 - 踩坑台账：specs/problems-and-fixes-2026-10-23.md（每踩一坑先记账再改规则）。
 - 🛡 **机器强制（开工门）**：拿到昵称+产品后立刻运行 `python3 tools/startup_gate.py ack --nickname <昵称> --product <产品>`（Windows 把 `python3` 换成 `py`）；未登记或必读文档变化时，**所有写操作（保存链 + 建模板/建序列/加人/激活/标签等 16 个写脚本）都会被机器拒绝**，并给用户白话提示；测试进程只由测试标记放行。
@@ -183,7 +183,7 @@ flowchart TD
 | S2 SEGMENT_PENDING | **两条路径都推演**；★**客群只能逐条来自本次平台返回**，记录来源接口/调用成功状态/返回条数；success=false、异常超时、成功但列表空、只拿到旧客群 → **不推进客群状态、不执行依赖客群的 S3+ 动作、不本地补条**，给一句"平台这次没推出来，我稍后重试，或您稍等再点一次"。★质量补推：空/与已否定或已选重复/明显跑偏 → 可主动再推一轮（最多 2 轮），补推前先说"我按…理解推的，这次结果不太贴，我再试一次"，补推不改用户已确认的用途；仍差则给三个出口。★**多客群分批**（铁律7d）：选中≥2个必须提示分开做并告知 K×48 模板+K 序列（默认48=12轮×4），一个客群走完 S3→S10 再做下一个；推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add；推演描述用 `tools/product_desc.py` 固定四段+档案①-③白名单（④目标客群不参与，只留本地备注），用途不写档案；★展示条数=本次返回条数，历史遗留不混入；★用途与推演来源写 operation-record 可复现；★客群推演**优先读 product-profile.md** 的产品线/客群/卖点，推得更准）|
 | S3 SEED_PENDING | ★入口二选一：有起点网址→确认并判定其客群；没有→从已推演客群挑精准买家。**起点必须关联客群**。AI 数据库搜索链三步：①当前轮 query_en **逐字**搜第一页（25字段/条，含 id、无 domain；同一 generation/segment）②代表买家 id→`domain/base-info` 取域名并落选择记录 ③**已选域名**作 keyword 走主搜扩量（禁 similar-list）→用户确认锚点；随后 S4 审计（同一域名/来源范围）、S5/S6 按 S4 的同一 keyword/filters/logic/sort 保存，不另换词 |
 | S4 AUDIT_RUNNING | 只读+AI 语义反思找 70% 边界：100页跳→前后3页→**连续5页滑动窗口**→逐页；单页只记抖点，High比例/搜索分数/页1/2/5抽样不是窗口证据。按三条客户线留痕。正式收口须 `evidence_mode=live` 并绑定真实线上审计+独立review hash；模拟/离线/网络桩/占位只能出演练报告，禁止推进S4或保存 |
-| S5 SAVE_PENDING | 展示 confirmed plan：N（家）/E（邮箱）/P（点）/B（预算）及来源、连续窗口边界、四区 filters、标签实际ID、max_points 来源/版本、重复保存检查；用户原话确认后才保存（→confirmed plan/render/ticket）。`prepare` 不出写、`execute` 才写；无 plan 不写；不擅自缩量；用户明确20家且计划成立则允许。**保存前自动校准**：`tools/save_budget.py probe` 只读余额 → `begin` 执行前确认 → `settle` 取样（finished 后稳定读数，仅 preliminary）→ `carry` 结转（late 加回；执行前+结转后两次确认才 confirmed）→ `plan` 用冻结预算算 [N_cons,N_est] 区间；无历史先 1→10→50 家递增探针（每级单独确认、同轮≤3 批、上限只取最新一级）；未结清批次按批窗口计入预算并冻结；平台不返回点数消耗，禁止臆造系数 |
+| S5 SAVE_PENDING | 展示 confirmed plan：N（家）/E（邮箱）/P（点）/B（预算）及来源、连续窗口边界、四区 filters、标签实际ID、max_points 来源/版本、重复保存检查；用户原话确认后才保存（→confirmed plan/render/ticket）。`prepare` 不出写、`execute` 才写；无 plan 不写；不擅自缩量；用户明确20家且计划成立则允许。**保存前自动校准**：`tools/save_budget.py probe` 只读余额 → `begin` 执行前确认 → `settle` 取样（finished 后稳定读数，仅 preliminary）→ `carry` 结转（late 加回；执行前+结转后两次确认才 confirmed）→ `plan` 用冻结预算算 [N_cons,N_est] 区间；无历史先 **100 家一次探针**（单独确认；拿到单价/联系人率后直接按预算推导 N 全量，不再 1/10/50 逐档）；未结清批次按批窗口计入预算并冻结；平台不返回点数消耗，禁止臆造系数 |
 | S6 SAVE_RUNNING | front 保存；等任务 status:finished；用 `status` 按本 plan/attempt/task_id 只读回读，`reconcile` 只消费本 CLI 生产记录；用标签结果/contactSaveCount 对账。★完成后主动出示**数量账**（S6-count-report.md：max3/验真/去重/异步四机制；历史 1.4~2.1 邮箱/家属正常，<1.0 查锚点）。结果不明保留锁，不盲目重试 |
 | S7 TEMPLATE_PENDING | 只生草稿，展示默认 4 个、用户主动要多看最多 8 个**渲染后视图**+理由，确认后才批量创建。★邮件末尾签名区只有纯个人昵称，禁止公司名/官网/邮箱/职位/认证/宣传语。★正文卖点只可使用当前 confirmed product-profile 中有字段级来源的事实（认证/产能/MOQ/交期等；价格/折扣禁止写入），计划绑定 profile hash 并逐句 claims 校验；declined 档案只用无具体事实通用表达。生成模板前按 P1 留存模板读取回执，详见 [specs/sequence-config.md](specs/sequence-config.md) |
 | S8 TEMPLATE_BUILD | 生成整批模板（默认48=12轮×4）并**自动归入同名分组**（禁散落未指定目录），断言变量样式/标题/差异（Jaccard≤0.70），失败回 S7 |
@@ -241,7 +241,7 @@ flowchart TD
 | 档案（多公司多产品） | `runs/<运营方>/<产品>/`（operation-record/reflection/evidence/**product-profile**/verify-*）+ `runs/_template/` + 本地运行记录（不入 Git）|
 | 问题与教训 | 本地问题登记（`db/issues.tsv`，本地数据不入 Git，open 即待办）/ `lessons/lessons-learned.md`（L-01~L-61；L-44 起为脱敏抽象条目，随库分发）/ `review-cycle.md`（旁观者审查）|
 
-> ⚠️ **执行纪律**：写操作必须带 `--approval <id> --project <operator_key>/<product_key>`；凭证仅 `confirm+confirmed` 可用，并须与工具按实际参数重算的hash一致。modify/pending/backfilled不可授权。S5 另须 confirmed plan/render/ticket 同 binding；菜单/列表数字不等于授权，但保存卡写清家数/邮箱数/额度消耗后，用户回复须含「确认保存」四个字和家数的原话（如「确认保存 前 2600 家」）才是保存授权；只回「1」不算（卡面数字必须与 plan 一致）。
+> ⚠️ **执行纪律**：写操作必须带 `--approval <id> --project <operator_key>/<product_key>`；凭证仅 `confirm+confirmed` 可用，并须与工具按实际参数重算的hash一致。modify/pending/backfilled不可授权。S5 另须 confirmed plan/render/ticket 同 binding；菜单/列表数字不等于授权，但保存卡写清家数/邮箱数/额度消耗后，用户回复「确认」（卡面已写清 N 家时）或含家数的原话（如「确认保存 前 2600 家」）都是保存授权；只回「1」不算，卡面数字必须与 plan 一致，纯确认会绑定卡面 N 并留痕 count_bound_by=card。
 >
 > ⚠️ **写入口纪律（2026-10-21 V2）**：旧 8 个写脚本 + 5 个删库脚本为禁用清单（**除 P6 四个抓包脚本外，`save_first_n`/`contact_add`/`delete_all_products`/`wait_save_done` 也已加物理封条（`save_guard.require`，最早可执行位置）；但仍非安全边界（可被删封条/伪造模块绕过）**，见 RULES 边界声明），禁止再调用；保存只走 `save_company_cli.py` 的 prepare/confirm/execute 计划链，无 confirmed plan 不写；**实际票据分层**：S5 保存=save_guard V2 plan/render/ticket，S10 加人=auth_guard `authorize_write(action="sequence")`，模板/序列/激活=approval.py 审批凭证（S12 另加原话校验），**不是** authorize_write。保存成功按 S6 数量账与 `status/reconcile` 对账汇报；旧 `report_text` 校验约定保留为历史，新链路若返回 render 绑定则按其校验，禁止手写 sha。
 >

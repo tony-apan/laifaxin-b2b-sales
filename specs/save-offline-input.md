@@ -43,9 +43,9 @@ confirmed plan + render + ticket ──execute（工作空间预检→重验 bin
 | `budget_ledger` | ✅（calibrated） | object | `save_budget.py plan --confirm-n ...` 的 ready 输出；`confirm_n` 是唯一数量，`n_cons/n_est/batch_points_upper` 是硬上界；缺 → `E_LEDGER_REQUIRED` |
 | `coefficients` | ✅（真保存） | object | `estimated_emails_per_company` / `estimated_points_per_email`（见 §四） |
 | `count_evidence` | ✅（真保存） | object | S4 收口证据：`threshold_page`/`pool_total`/`evidence_mode`（live 或 strict）/`page_rows`；缺 → `E_COUNT_EVIDENCE_REQUIRED` |
-| `count_mode` | ✅（真保存） | string | `sample`（未校准，只能 1 家）/ `calibrated` / `explicit_small`（≤50，需 sample_ack+原话） |
-| `explicit_count` | 条件 | int | 仅 explicit_small 必填；≤50，且仍受 Y/预算约束 |
-| `sample_ack` | 条件 | string | 显式小批量/样本确认锚点；缺失 → `E_SAMPLE_ACK_REQUIRED` |
+| `count_mode` | ✅（真保存） | string | `sample`（未校准，只能 1 家）/ `calibrated` / `probe`（探针 ≤100，默认 100，需 sample_ack+原话）/ `explicit_small`（≤50，需 sample_ack+原话） |
+| `explicit_count` | 条件 | int | 仅 explicit_small/probe 必填；probe ≤100、explicit_small ≤50，且仍受 Y/预算约束 |
+| `sample_ack` | 条件 | string | 显式小批量/探针/样本确认锚点；缺失 → `E_SAMPLE_ACK_REQUIRED` |
 | `count_quote` | 条件 | string | 人工确认原话；与 sample_ack 同时出现 |
 | `selectTotal` | 只读派生 | int | **不再自由输入**：必须等于 count_guard 推导值；手工值不等 → `E_SELECT_TOTAL_DERIVED_MISMATCH` |
 | `count` | 可选 | int | 旧字段别名；若给必须等于 `selectTotal`，否则 `E_COUNT_MISMATCH` |

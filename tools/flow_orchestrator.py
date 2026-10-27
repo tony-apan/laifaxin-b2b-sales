@@ -575,9 +575,9 @@ else:
         print(f"  种子={kw}: ★按 v2 三条客户线(直采/OEM/拓品, threshold-method.md)逐条 AI 判定+判定表留痕; 100页跳→前后3页→连续5页窗口→跌破往前; 边界案例做敏感性检查; 未完成不能保存")
 
 # ---------- S5 SAVE_PENDING (B4-5: 解析并回显 N; ★绑定实际N/seed/exclude) ----------
-print("●S5 SAVE_PENDING: 展示 临界N/标签/排除/max/点数 → 确认后保存")
+print("●S5 SAVE_PENDING: 展示 临界N/标签/排除/max/点数 → 用户回「确认」或「确认保存 前 N 家」后保存")
 S5_SCHEMA = '{"project":"...","org_sha256":"...","profile":{...},"keyword":"...","n":N,"company_tag":"...","contact_tag":"...","max":3,"exclude":["CN","HK","MO","TW"],"verify_status":["valid","unkown"]}'
-kind5, ans5 = ask("S5_保存参数", "保存前 N 家+排除4区+max3? (可写「确认保存 前 2000 家」或「确认保存 前N=2000」指定数量)")
+kind5, ans5 = ask("S5_保存参数", "保存前 N 家+排除4区+max3? (卡面已写清 N 时回「确认」即可；也可写「确认保存 前 2000 家」)")
 if kind5 == "modify":
     _record_modify_once("S5_保存参数", ans5, node_params({"seed": args.seed, "exclude": args.exclude}))
     print("  ⚠️ 参数调整后须重新发起本节点确认; 未确认前不得保存")

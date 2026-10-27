@@ -288,7 +288,7 @@ _NUMERIC_CONFIRM_STATES = ("S7", "S9", "S10")
 def numeric_confirm_quote(quote, state):
     """★2026-10-26 真机卡点：确认卡话术统一是「回 1」（output-templates/S*-confirm.md），
     但 approval.py 只对 S7 放行纯数字 1，S9/S10 的合法「1」被拒 → 用户按卡回数字反而走不动。
-    这里把「纯数字 1/①」限定放行到 S7/S9/S10；S5 仍要求「确认保存 前 N 家」这类带数量的原话，
+    这里把「纯数字 1/①」限定放行到 S7/S9/S10；S5 由 save_plan 决定：带数量原话或卡面已写清 N 时只回「确认」都行，纯数字 1 仍不算，
     S12 不走本函数（由 flow_orchestrator 校验「确认激活」）。"""
     q = str(quote or "").strip()
     st = str(state or "").upper()

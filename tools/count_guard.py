@@ -15,7 +15,8 @@
 模式：
   sample         未校准时只允许 1 家样本；
   calibrated     必须绑定 save_budget ready 台账，以 confirm_n 为数量并受 Y/n_cons/n_est/batch 上界约束；
-  explicit_small 用户显式小批量（<=50），必须有 sample_ack + 原话，且仍受 Y/B 约束。
+  explicit_small 用户显式小批量（<=50），必须有 sample_ack + 原话，且仍受 Y/B 约束；
+  probe          首轮成本探针（<=100 家，默认 100），必须有 sample_ack + 原话；
 """
 from __future__ import annotations
 
@@ -26,7 +27,7 @@ from decimal import Decimal, ROUND_CEILING
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-COUNT_MODES = ("sample", "calibrated", "explicit_small")
+COUNT_MODES = ("sample", "calibrated", "explicit_small", "probe")
 STRICT_MODES = ("live", "strict", "rigorous", "严谨", "严格")
 
 
@@ -286,6 +287,15 @@ def derive(evidence: Dict[str, Any], plan: Dict[str, Any], *,
     ledger = _ledger(plan, budget["unit"]) if plan.get("budget_ledger") is not None else None
     if mode == "sample":
         n = min(1, y, n_budget)
+    elif mode == "probe":
+        if explicit_count is None:
+            _fail("E_COUNT_EXPLICIT", "探针必须给 explicit_count")
+        explicit_count = _strict_int(explicit_count, "explicit_count", 1)
+        if explicit_count > 100:
+            _fail("E_COUNT_EXPLICIT", "探针上限 100，实际 %d" % explicit_count)
+        if not str(sample_ack or "").strip() or not str(quote or "").strip():
+            _fail("E_SAMPLE_ACK_REQUIRED", "探针必须同时有 sample_ack 和用户原话")
+        n = min(explicit_count, y, n_budget)
     elif mode == "explicit_small":
         if explicit_count is None:
             _fail("E_COUNT_EXPLICIT", "显式小批量必须给 explicit_count")

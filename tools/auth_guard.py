@@ -401,7 +401,7 @@ def _require_startup_ack() -> None:
 
 def authorize(action: Any, quote: Any, payload: Any, *, task: Optional[str] = None,
               fields: Any = None, root: Optional[Any] = None,
-              plan: Any = None) -> Dict[str, Any]:
+              plan: Any = None, action_verified: bool = False) -> Dict[str, Any]:
     _require_startup_ack()
     if not isinstance(action, str) or action.strip().lower() not in ACTIONS:
         return _deny(action, quote, "E_AUTH_NO_ACTION",
@@ -410,8 +410,12 @@ def authorize(action: Any, quote: Any, payload: Any, *, task: Optional[str] = No
     if not isinstance(quote, str) or not quote.strip():
         return _deny(act, quote, "E_AUTH_NO_ACTION", "缺少用户授权原话", root)
 
+    # v3：S5 纯确认（「确认」）不含动作词，由 authorize_save_plan 校完卡面绑定后置位，
+    # 这里不再重复要求“保存/存入”等动作词；否定式检查仍然执行。
     # ★2026-10-23：编号选项（A/B/C/D 或 1/2/3/4）是用户对已展示选项的明确选择，视为显式授权。
-    if act == "activate" and isinstance(payload, dict) and str(payload.get("seq") or "").strip() and "激活" in str(quote or ""):
+    if action_verified:
+        hits = [str(quote).strip()]
+    elif act == "activate" and isinstance(payload, dict) and str(payload.get("seq") or "").strip() and "激活" in str(quote or ""):
         hits = [str(quote).strip()]
     elif re.fullmatch(r"[A-Da-d1-4]", str(quote or "").strip()):
         hits = [str(quote).strip()]
@@ -456,7 +460,10 @@ def authorize(action: Any, quote: Any, payload: Any, *, task: Optional[str] = No
 
     # ★2026-10-23：编号选项（A-D / 1-4）指代已展示的完整选项卡，具体目标在 payload 中，
     # 不能再要求 quote 里出现数量/域名/标签。
-    if re.fullmatch(r"[A-Da-d1-4]", str(quote or "").strip()):
+    # v3：S5 纯确认的目标=plan 卡面 N（authorize_save_plan 已校验），此处视为已带对象。
+    if action_verified:
+        has_target = True
+    elif re.fullmatch(r"[A-Da-d1-4]", str(quote or "").strip()):
         has_target = True
     else:
         has_target = _has_number(quote) or _has_domain(quote) or _has_tag(quote)
@@ -850,11 +857,16 @@ def authorize_save_plan(action: Any, quote: Any, payload: Any, *,
     if count is not None and (type(count) is not int or count != select_total):
         return _deny(action, quote, "E_COUNT_MISMATCH",
                      "count=%r 与 selectTotal=%r 不一致" % (count, select_total), root)
-    from rule_check import extract_save_count  # noqa: WPS433 - 延迟导入避免环
+    from rule_check import extract_save_count, is_plain_save_confirm  # noqa: WPS433 - 延迟导入避免环
     quoted_count = extract_save_count(quote)
     if quoted_count is None:
-        # B2：数量歧义/缺失默认拒；唯一例外=代词+render.fields 明确对象（既有路径）。
-        if not (_has_pronoun(quote) and _fields_have_object(fields)):
+        # v3（2026-10-27）：卡面已写清 N 家、用户只回「确认」时，
+        # confirmed plan 必须自带卡面绑定（count_bound_by=card 且 count_bound_n=selectTotal），才放行。
+        card_bound = (plan.get("count_bound_by") == "card"
+                      and plan.get("count_bound_n") == select_total
+                      and is_plain_save_confirm(quote))
+        # B2：数量歧义/缺失默认拒；例外=卡面绑定，或代词+render.fields 明确对象。
+        if not card_bound and not (_has_pronoun(quote) and _fields_have_object(fields)):
             return _deny(action, quote, "E_AUTH_COUNT_AMBIGUOUS",
                          "原话未给出可确定的公司数（歧义/缺失），须明确 N 家或给明确对象",
                          root)
@@ -863,7 +875,7 @@ def authorize_save_plan(action: Any, quote: Any, payload: Any, *,
                      "原话 %d 家与 plan selectTotal=%d 不一致" % (quoted_count, select_total),
                      root)
     return authorize(action, quote, payload, task=task, fields=fields,
-                     plan=plan, root=root)
+                     plan=plan, root=root, action_verified=card_bound)
 
 
 def check(action: Any, quote: Any, payload: Any, *, task: Optional[str] = None,

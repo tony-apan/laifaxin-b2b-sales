@@ -907,10 +907,18 @@ def confirm_plan(root: Path, draft: Dict[str, Any], *, quote: str,
         _fail("E_PLAN_DEPENDENCY_CHANGED",
               "依赖变化（来源/选择/filters/审计窗口/预算/系数），须重新 prepare")
     # B2：原话数量必须可确定；歧义/缺失 → E_AUTH_COUNT_AMBIGUOUS（confirm 无 render.fields 路径）。
+    # v3（2026-10-27）：卡面已经写清 N 家时，用户只回「确认/确认保存」也算授权——
+    # 但必须整句纯确认（不含数字/别的动作词），N 从 plan 绑定并留痕 count_bound_by=card，
+    # 保留“原话说了另一个数 → 拒绝”的防漂移检查。
     quoted = rule_check.extract_save_count(quote)
     if quoted is None:
-        _fail("E_AUTH_COUNT_AMBIGUOUS",
-              "原话未给出可确定的公司数（歧义/缺失），须明确 N 家后再确认")
+        if not rule_check.is_plain_save_confirm(quote):
+            _fail("E_AUTH_COUNT_AMBIGUOUS",
+                  "原话未给出可确定的公司数（歧义/缺失），须明确 N 家或只回「确认」后再确认")
+        quoted = int(select_total["selectTotal"])
+        count_bound_by = "card"
+    else:
+        count_bound_by = "quote"
     if quoted != select_total["selectTotal"]:
         _fail("E_AUTH_COUNT_MISMATCH",
               "原话 %d 家与 plan selectTotal=%d 不一致" % (quoted, select_total["selectTotal"]))
@@ -918,6 +926,8 @@ def confirm_plan(root: Path, draft: Dict[str, Any], *, quote: str,
     confirmed.update({
         "status": "confirmed", "quote": quote, "quote_ref": quote_ref,
         "confirmed_at": _now_ts(), "binding_sha256": binding_hash(draft),
+        "count_bound_by": count_bound_by,
+        "count_bound_n": int(select_total["selectTotal"]),
     })
     _atomic_write(plan_path(root, confirmed["plan_id"], confirmed["revision"]), confirmed)
     return confirmed
