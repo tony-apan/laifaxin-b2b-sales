@@ -23,7 +23,7 @@ import approval, auth_guard, save_plan  # noqa: E402
 from profile_utils import profile_gate  # noqa: E402
 
 SYMBOL = "@bundle-created-seq"
-BASE = "https://web.laifaxin.com/marketing/sequences"
+BASE = "https://app.laifaxin.com/marketing/sequences"
 
 
 def die(msg, code=2):

@@ -127,7 +127,7 @@ updated: "2026-10-23"
 - `--from-session` → `workspace: verified`（真实联网校验通过）
 - `POST /api/refine/company-list` `{keyword,current,pageSize,filters,logic}` → `total` + `records`（含 company_name/confidence/country_code/phones，**无 domain**）
 - `POST /api/domain/base-info` `{domain: <id>}` → 返回域名（实测 `wholesaletowel.com`）
-- **证据等级**：以上实测仅覆盖 app 来源凭据；**web 来源 token 可用性 = UNVERIFIED**，首次真实登录时冒烟验证（`workspace_guard` 落点校验通过前不得继续）。
+- **证据等级**：以上实测仅覆盖 app 来源凭据；**web 来源 token 可用性 = UNVERIFIED**，首次真实登录时冒烟验证（`workspace_guard` 落点校验通过前不得继续）。2026-10-27 补充：app 来源凭据再测 `sequences/sequence-options|sequence-summary|sequence-details` 全 success，`data.contactsCount` 实测为整数。
 - `POST /api/profile/inference-product-list` `{}` → `data` 是**数组**，产品 ID 字段名是 **`_id`**（不是文档写的 product_id）
 - `POST /api/profile/inference-segment-list` `{product_id: <_id>}` → 8 个客群，含 `segment_name`/`query_en`/`query_total`/`ai_reason`
 - `browser_login.py --timeout` **上限 180**，超了报 E_ARGUMENT（卡片未写）

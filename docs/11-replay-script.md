@@ -46,7 +46,7 @@ audience: 人+AI
  "session_store":"load_ready(root) → 0600/0700，--forget 清理"}
 ```
 
-> **证据等级**：本页只证明 app 来源凭据可调 web API；**web 来源 token 是否同样可用 = UNVERIFIED**，待首次真实登录时冒烟验证。
+> **证据等级**：本页只证明 app 来源凭据可调 web API；**web 来源 token 是否同样可用 = UNVERIFIED**，待首次真实登录时冒烟验证。2026-10-27 再次实测 app 来源 → web 域 `sequences/sequence-options|sequence-summary|sequence-details` 全部 success（后者确认 `data.contactsCount` 为整数）。
 ```
 
 **闸门**：workspace 必须 verified；未 verified 一律停，不用旧白名单顶替。

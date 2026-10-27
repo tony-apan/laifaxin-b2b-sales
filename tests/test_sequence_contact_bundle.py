@@ -132,7 +132,7 @@ class BundleTest(H._RepoCase):
         self.assertEqual(1, len(self.stub.calls("sequences/contact-add")))
         self.assertEqual({"seqId": SEQ, "tags": [TAG], "views": []}, self.stub.calls("sequences/contact-add")[0][1])
         self.assertEqual([], self.stub.calls("sequences/sequence-active"), "激活必须 0")
-        self.assertIn("仍未激活", out); self.assertIn("https://web.laifaxin.com/marketing/sequences", out); self.assertIn(H.SEQ_NAME, out)
+        self.assertIn("仍未激活", out); self.assertIn("https://app.laifaxin.com/marketing/sequences", out); self.assertIn(H.SEQ_NAME, out)
         self.assertNotIn(TOKEN, out); self.assertEqual("S10", self.record_status())
         self.assertTrue(all({k.lower(): v for k, v in c[2].items()}.get("accesstoken") == TOKEN for c in self.stub.log), "凭据走进程内 HTTP header")
 

@@ -267,7 +267,7 @@ POST /api/mailbox/template-add
 | `POST /api/sequences/sequence-copy` | **复制序列** | ✅ id+name → 自动"(副本1)" |
 | `POST /api/sequences/sequence-delete` | 删除序列 | ✅ id（**先暂停active**: sequence-active active:false）|
 | `POST /api/sequences/sequence-options` | 序列选项 | ✅ {} → 所有序列（下拉用） |
-| `POST /api/sequences/sequence-summary` | 序列摘要 | id |
+| `POST /api/sequences/sequence-summary` | 序列摘要 | ✅ id → `data.contactsCount`(int)+`stepsCount`（2026-10-27 实测）|
 | `POST /api/settings/sequence/schedule-list` | **计划时间模板列表** | ✅ {current,pageSize:100} → 含 name/time_zone/skip_holidays/time_windows/isDefault |
 
 ### 步骤管理（1步=1轮）✅ 全部实测

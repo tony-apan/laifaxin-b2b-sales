@@ -328,7 +328,7 @@ if args.sync_manual:
         print("❌ 平台状态未能回读（接口偶发空——稍等重试）；在读到明确 active 之前不改本地状态"); sys.exit(3)
     if st_now != "active":
         print(f"❌ 平台回读状态={st_now}≠active——说明网页上的开关没生效（或还没开/开在了别的工作空间）。")
-        print("   本地状态保持 S11 不变。请回 https://web.laifaxin.com/marketing/sequences 确认该序列已开启后重跑本命令。")
+        print("   本地状态保持 S11 不变。请回 https://app.laifaxin.com/marketing/sequences 确认该序列已开启后重跑本命令。")
         sys.exit(3)
     # ★三审 S0-2：方式二也先跑同一套只读闸门（上限/标签身份/模板与步长）；不通过不得写 S12
     _sync_issues = check_sequence_structure()
