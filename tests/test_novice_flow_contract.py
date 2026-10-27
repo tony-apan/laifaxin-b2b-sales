@@ -49,36 +49,99 @@ class InstallScreenSingleSourceTest(unittest.TestCase):
 
 
 class InstallScreenShortAndBranchTest(unittest.TestCase):
-    """2026-10-27 二次裁决：第 0 屏压到 ≤6 行，并按本机状态分 A/B/C/D 四支。"""
+    """2026-10-27 终裁：第 0 屏按本机状态分 A/B/C/D；真列表、最多 6 处加粗，上限 9 行。"""
 
     def setUp(self):
         self.block = _blocks("S0-install-report.md")[0]
 
     def test_screen_is_short_and_uses_list_markers(self):
         lines = [l for l in self.block.strip().splitlines() if l.strip()]
-        self.assertLessEqual(len(lines), 8,
-                             "第 0 屏超过 8 行（新用户会懵）：%d 行" % len(lines))
-        # Markdown 会把「单个换行」渲染成空格：连续正文行在真实界面里会糊成一段。
-        # 所以要点必须用 • 起行（渲染器一定逐行显示），数量 ≥4。
-        bullets = [l for l in lines if l.startswith("• ")]
+        self.assertLessEqual(len(lines), 9,
+                             "第 0 屏超过 9 行（新用户会懵）：%d 行" % len(lines))
+        bullets = [l for l in lines if l.startswith("- ")]
         self.assertGreaterEqual(
             len(bullets), 4,
-            "第 0 屏要点必须用 • 起行（否则 Markdown 软换行会糊成一段）：%r" % bullets)
-        for line in lines:
-            self.assertLessEqual(len(line), 46, "第 0 屏单行过长（%d 字）：%s" % (len(line), line))
+            "第 0 屏要点必须用 - 真列表起行：%r" % bullets)
+        self.assertFalse(any(l.startswith("• ") for l in lines),
+                         "第 0 屏不得再用圆点 •")
+
+    def _branch_rows(self):
+        card = (TEMPLATES / "S0-install-report.md").read_text(encoding="utf-8")
+        return [l for l in card.splitlines() if l.startswith("| **")]
+
+    def _rendered(self, detect, reply1, reply2):
+        text = self.block
+        text = text.replace("<A/B/C/D 里的一句>", detect)
+        text = text.replace("<该分支下一步>", reply1)
+        text = text.replace("<该分支另一条路>", reply2)
+        return text
+
+    def test_rendered_branches_fit_and_have_no_placeholders(self):
+        """长度按填完四个分支后的用户屏计算，不能只量带尖括号的骨架。"""
+        self.assertIn("<A/B/C/D 里的一句>", self.block)
+        self.assertIn("<该分支下一步>", self.block)
+        self.assertIn("<该分支另一条路>", self.block)
+        rows = self._branch_rows()
+        self.assertEqual(4, len(rows), "分支对照表应正好 4 行")
+        for row in rows:
+            cells = [c.strip() for c in row.strip("|").split("|")]
+            detect, reply = cells[2], cells[3]
+            for cell in (detect, reply):
+                self.assertNotIn("<", cell, "模拟输出不得留尖括号：%s" % cell)
+                self.assertNotIn(">", cell, "模拟输出不得留尖括号：%s" % cell)
+            # 表里只放动作。模板行已有「- **回 1** ＝」，再写「回 1 ＝」会重复。
+            one, two = [p.strip() for p in reply.split("；")]
+            for action in (one, two):
+                self.assertNotIn("回 1", action, "该回什么只放动作，不要再写回 1：%s" % action)
+                self.assertNotIn("回 2", action, "该回什么只放动作，不要再写回 2：%s" % action)
+            rendered = self._rendered(detect, one, two)
+            self.assertNotIn("<", rendered, "渲染稿不得留尖括号：\n%s" % rendered)
+            self.assertNotIn(">", rendered, "渲染稿不得留尖括号：\n%s" % rendered)
+            self.assertEqual(1, rendered.count("**回 1**"), "回 1 被填重了：\n%s" % rendered)
+            self.assertEqual(1, rendered.count("**回 2**"), "回 2 被填重了：\n%s" % rendered)
+            lines = [l for l in rendered.strip().splitlines() if l.strip()]
+            self.assertLessEqual(len(lines), 9, "渲染后超过 9 行：%s" % cells[0])
+            for line in lines:
+                self.assertLessEqual(
+                    len(line), 46,
+                    "渲染后单行过长（%d 字，%s）：%s" % (len(line), cells[0], line))
 
     def test_screen_offers_exactly_two_options(self):
         self.assertIn("回 1", self.block, "第 0 屏必须给回 1")
-        self.assertIn("回 2", self.block, "第 0 屏必须给回 2（手动办法兜底）")
+        self.assertIn("回 2", self.block, "第 0 屏必须给回 2")
         self.assertNotIn("回 3", self.block, "一屏最多两个选项")
 
+    def test_bold_covers_six_focus_words(self):
+        """加粗最多 6 处，且必须覆盖这 6 个重点。"""
+        bolds = re.findall(r"\*\*([^*]+)\*\*", self.block)
+        self.assertLessEqual(len(bolds), 6, "加粗超过 6 处：%r" % bolds)
+        for word in ("装好了", "我能帮您", "确认激活", "有人回复不会自动停", "回 1", "回 2"):
+            self.assertIn(word, bolds, "必须加粗「%s」：%r" % (word, bolds))
+
+    def test_reply_options_are_their_own_list_lines(self):
+        lines = [l for l in self.block.strip().splitlines() if l.strip()]
+        one = [l for l in lines if l.startswith("- **回 1**")]
+        two = [l for l in lines if l.startswith("- **回 2**")]
+        self.assertEqual(1, len(one), "「回 1」必须单独成一行真列表：%r" % lines)
+        self.assertEqual(1, len(two), "「回 2」必须单独成一行真列表：%r" % lines)
+        cue = [l for l in lines if l.startswith("您选一个回我")]
+        self.assertEqual(1, len(cue), "「您选一个回我」必须单独成行")
+        self.assertLess(lines.index(cue[0]), lines.index(one[0]))
+        self.assertLess(lines.index(one[0]), lines.index(two[0]))
+        detect = [l for l in lines if l.startswith("我查了一下")]
+        self.assertEqual(1, len(detect), "检测句必须单独成行")
+        stop = [l for l in lines if "有人回复不会自动停" in l][0]
+        self.assertNotIn("我查了一下", stop, "检测句不得并进「有人回复」那一行")
+
     def test_branch_table_covers_four_branches(self):
-        card = (TEMPLATES / "S0-install-report.md").read_text(encoding="utf-8")
-        rows = [l for l in card.splitlines() if l.startswith("| **")]
+        rows = self._branch_rows()
         self.assertEqual(4, len(rows), "分支对照表应正好 4 行（A/B/C/D）：%r" % rows)
         for tag, row in zip(("**A ", "**B ", "**C ", "**D "), rows):
             self.assertIn(tag, row, "分支对照表第 %s 行标签不对" % tag)
-            self.assertIn("回 1", row, "分支 %s 没给回 1" % tag)
+            cells = [c.strip() for c in row.strip("|").split("|")]
+            self.assertNotIn("回 1", cells[3], "该回什么只放动作：%s" % cells[3])
+            self.assertNotIn("回 2", cells[3], "该回什么只放动作：%s" % cells[3])
+            self.assertIn("；", cells[3], "两个动作用分号分开：%s" % cells[3])
 
     def test_flow_chart_covers_four_branches(self):
         flow = (ROOT / "specs" / "beginner-flow.md").read_text(encoding="utf-8")
@@ -86,12 +149,15 @@ class InstallScreenShortAndBranchTest(unittest.TestCase):
         self.assertIn("flowchart TD", flow, "分流图不是 mermaid flowchart")
         for node in ("分支A", "分支B", "分支C", "分支D"):
             self.assertIn(node, flow, "流程图缺 %s" % node)
+        chart = flow[flow.index("#### 第 0 屏分流图"):flow.index("#### 检测项")]
+        self.assertIn("B2 --> W", chart, "分支 B 必须先等用户回「登录好了」")
+        self.assertNotIn("B2 --> E", chart, "分支 B 不得直接跳到问昵称")
+        self.assertNotIn("手动", chart, "分流图对用户的选项不得说「手动」")
 
     def test_detection_commands_documented(self):
         flow = (ROOT / "specs" / "beginner-flow.md").read_text(encoding="utf-8")
         for cmd in ("onboard_check.py", "check_login.py", "browser_login.py --probe-only"):
             self.assertIn(cmd, flow, "检测项缺 %s" % cmd)
-
 
 class Step1HonestQuoteTest(unittest.TestCase):
     def setUp(self):
