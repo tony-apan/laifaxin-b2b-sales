@@ -32,7 +32,11 @@ _utf8_stdout()
 
 import argparse
 import json
+import math
 import os
+import time
+
+import save_progress
 import subprocess
 import sys
 from pathlib import Path
@@ -227,6 +231,10 @@ def _cmd_execute(args: Any) -> int:
 
 
 def _cmd_status(args: Any) -> int:
+    if getattr(args, "watch", False) and (not math.isfinite(args.interval) or
+            not 5 <= args.interval <= 10 or args.max_polls <= 0):
+        print("监视参数无效：interval 须为 5–10 秒，max-polls 须为正整数", file=sys.stderr)
+        return 2
     root = Path(args.root) if args.root else TOOLS_DIR.parent
     plan = planlib.load_plan(args.plan)
     task_id = args.task_id
@@ -248,20 +256,77 @@ def _cmd_status(args: Any) -> int:
                           "reason": "无 task_id：人工处置态，无自动回读证据"},
                          ensure_ascii=False))
         return 2
-    response = _http(args.token, args.org, args.timeout,
-                     endpoint="operation/backend-task-status")(planlib.status_payload(task_id))
-    record_id = planlib.record_status(root, record={
-        "project": plan.get("project"), "plan_id": plan.get("plan_id"),
-        "revision": plan.get("revision"),
-        "query_scope_key": (plan.get("query_scope") or {}).get("query_scope_key"),
-        "attempt_id": attempt_id, "task_id": str(task_id),
-        "response": response, "response_sha256": rule_check.canonical_hash(response),
-        "result": "polled",
-    })
-    print(json.dumps({"ok": True, "stage": "status", "record_id": record_id,
-                      "task_id": task_id, "response": response},
-                     ensure_ascii=False, indent=2))
-    return 0
+    watch = getattr(args, "watch", False)
+    baseline = None
+    for poll in range(args.max_polls if watch else 1):
+        try:
+            response = _http(args.token, args.org, args.timeout,
+                             endpoint="operation/backend-task-status")(planlib.status_payload(task_id))
+        except (OSError, subprocess.TimeoutExpired, KeyboardInterrupt) as exc:
+            if not watch:
+                raise
+            print("查询中断或失败：%s" % type(exc).__name__, file=sys.stderr, flush=True)
+            return 2
+        record_id = planlib.record_status(root, record={
+            "project": plan.get("project"), "plan_id": plan.get("plan_id"),
+            "revision": plan.get("revision"),
+            "query_scope_key": (plan.get("query_scope") or {}).get("query_scope_key"),
+            "attempt_id": attempt_id, "task_id": str(task_id),
+            "response": response, "response_sha256": rule_check.canonical_hash(response),
+            "result": "polled",
+        })
+        result = {"ok": True, "stage": "status", "record_id": record_id,
+                  "task_id": task_id, "response": response}
+        if not watch:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0
+        data = response.get("data") if isinstance(response, dict) else None
+        status = data.get("status") if isinstance(data, dict) else None
+        if not isinstance(response, dict) or response.get("success") is not True or status not in ("running", "finished"):
+            result["ok"] = False
+            print("查询失败或平台状态未知，已停止；请核实。", file=sys.stderr, flush=True)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 2
+        saved, total = data.get("finished"), data.get("total")
+        eta = None
+        valid = (save_progress._count(saved) and save_progress._count(total)
+                 and total > 0 and saved <= total)
+        if status == "running" and valid:
+            now = time.monotonic()
+            if baseline is not None:
+                previous, previous_total, previous_time = baseline
+                elapsed = now - previous_time
+                if (total == previous_total and saved > previous and saved < total
+                        and math.isfinite(elapsed) and elapsed > 0):
+                    try:
+                        estimate = elapsed * ((total - saved) / (saved - previous))
+                        if math.isfinite(estimate) and estimate > 0:
+                            eta = estimate
+                    except OverflowError:
+                        pass
+            baseline = (saved, total, now) if math.isfinite(now) else None
+        else:
+            baseline = None
+        line = save_progress.format_progress(saved, total, eta_s=eta)
+        print(line.replace("已存 ", "已处理 "), file=sys.stderr, flush=True)
+        if status == "finished":
+            print("平台报告完成，仍需对账。", file=sys.stderr, flush=True)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0
+        if (save_progress._count(data.get("finished")) and save_progress._count(data.get("total"))
+                and data["total"] > 0 and data["finished"] >= data["total"]):
+            print("等待平台完成并对账。", file=sys.stderr, flush=True)
+        if poll + 1 < args.max_polls:
+            try:
+                time.sleep(args.interval)
+            except KeyboardInterrupt:
+                print("监视已中断。", file=sys.stderr, flush=True)
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+                return 2
+    result["ok"] = False
+    print("已达到轮询上限，平台尚未报告完成。", file=sys.stderr, flush=True)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 2
 
 
 def _cmd_reconcile(args: Any) -> int:
@@ -328,6 +393,9 @@ def main(argv: Optional[list] = None) -> int:
     stat.add_argument("--attempt-id", default=None, dest="attempt_id")
     stat.add_argument("--root", default=None)
     stat.add_argument("--timeout", type=int, default=60)
+    stat.add_argument("--watch", action="store_true", help="有界轮询并播报进度")
+    stat.add_argument("--interval", type=float, default=5)
+    stat.add_argument("--max-polls", type=int, default=120)
     stat.set_defaults(func=_cmd_status)
 
     rec = sub.add_parser("reconcile", help="只消费本 CLI status 记录")

@@ -4,7 +4,7 @@ title: "tools 索引"
 description: "目录索引：tools 下脚本与说明的导航，找现役工具或确认用途时读。"
 type: "index"
 status: "active"
-updated: "2026-10-26"
+updated: "2026-10-27"
 ---
 
 # tools 索引
@@ -65,11 +65,11 @@ updated: "2026-10-26"
 | resolve_schedule.py | schedule-list按--tz/--name解析schedule_id(--list列全部);★schedule_id各账号不同,禁止硬编码,建序列前必跑 | 第 6 步建序列前解析 schedule_id |
 | rule_check.py | S5 真实 payload / plan / 预算的纯函数严格校验（Guard V2 C 组）。 | 第 3 步保存 payload/预算校验 |
 | save_budget.py | 保存预算自动校准（Auto-Cal v11 定稿口径）。 | 第 3 步保存预算校准 |
-| save_company_cli.py | 现役唯一真实保存通道（Guard V2：prepare → confirm → execute → status/reconcile）。 | 第 3 步保存（唯一真实通道） |
+| save_company_cli.py | 现役唯一真实保存通道（Guard V2：prepare → confirm → execute → status/reconcile）；status --watch 有界轮询并输出待对账进度。 | 第 3 步保存（唯一真实通道） |
 | save_first_n.py | front+exclude4区+max3(selectTotal=前N条数;★--approval闸门S5) | 第 3 步 front 保存前 N 条 |
 | save_guard.py | 执行护栏 · save 唯一写入口（v3）。 | 保存链写操作前 |
 | save_plan.py | S5 保存计划与账簿（Guard V2 C 组核心）。 | 第 3 步保存计划与账簿 |
-| save_progress.py | 保存进度播报一行话术（已存/总数/已用点/预计剩余），不联网不写盘。 | 第 3 步保存期间每 5–10 秒播报 |
+| save_progress.py | 格式化可信公司计数；`--eta-seconds` 接受外部可信估算秒数，`--elapsed` 已停用；不联网不写盘。 | 第 3 步保存播报辅助 |
 | search_company.py | 只读搜索 prepare/execute（Guard V2 B 组）。 | 第 2/3 步只读搜索公司 |
 | seed_resolve.py | --id结果id→base-info取域名;只读 | 第 2 步解析样板客户域名 |
 | segment_fields.py | S3/S4 搜索字段守卫（此前被 search_company.py 引用但仓库缺失，2026-10-23 补齐）。 | 第 2/3 步搜索字段守卫 |

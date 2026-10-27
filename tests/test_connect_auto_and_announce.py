@@ -28,8 +28,8 @@ class SaveUXTest(unittest.TestCase):
 
     def test_s6_requires_progress_broadcast(self):
         text = (ROOT / "output-templates" / "S6-count-report.md").read_text(encoding="utf-8")
-        self.assertIn("save_progress.py", text)
-        self.assertIn("不得只发一句静态说明", text)
+        for needed in ("save_company_cli.py status", "--watch", "转播给用户", "数字未知", "不编造扣点"):
+            self.assertIn(needed, text)
 
 
 class AnnounceBeforeActTest(unittest.TestCase):
