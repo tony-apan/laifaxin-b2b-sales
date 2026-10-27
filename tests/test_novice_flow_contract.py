@@ -40,8 +40,11 @@ class InstallScreenSingleSourceTest(unittest.TestCase):
         block = _blocks("S0-install-report.md")[0]
         for banned in ("任务菜单", "只回一个数字", "开始新的获客项目", "6 步"):
             self.assertNotIn(banned, block, f"第 0 屏不该出现「{banned}」")
-        for must in ("装好了", "怎么称呼您", "卖什么产品", "确认激活", "有人回复不会自动停",
-                     "不用装任何东西", "平台额度", "一条消息回两样"):
+        # 2026-10-27 改序：第 0 屏只连接，连接成功前不得问昵称/产品（留给 C1）
+        for banned in ("怎么称呼您", "卖什么产品", "一条消息回两样"):
+            self.assertNotIn(banned, block, f"第 0 屏连接成功前不得先问「{banned}」")
+        for must in ("装好了", "连接", "确认激活", "有人回复不会自动停",
+                     "不用装任何东西", "平台额度", "不搜索", "不扣点"):
             self.assertIn(must, block, f"第 0 屏缺少「{must}」")
 
 
@@ -53,8 +56,10 @@ class Step1HonestQuoteTest(unittest.TestCase):
         self.block = m.group(1)
 
     def test_connection_is_announced_before_step_one(self):
-        self.assertIn("连您的来发信账号", self.block)
-        self.assertIn("3–5 分钟", self.block)
+        # 2026-10-27 改序：连接在第 0 屏已完成，第 1 屏只确认「账号已连好」，不再重复约连接
+        self.assertIn("账号刚才已经连好", self.block)
+        self.assertIn("2 分钟", self.block)
+        self.assertNotIn("连您的来发信账号", self.block, "连接已前移，第 1 屏不得再约连接")
 
     def test_honest_reply_count(self):
         self.assertIn("还要回 8 次", self.block)

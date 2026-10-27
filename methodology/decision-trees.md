@@ -4,7 +4,7 @@ title: "获客双引擎·完整逻辑图（广撒网获询盘→精准背调跟�
 description: "获客双引擎逻辑图：批量获客 S0-S12 铺量拿询盘，询盘后转精准背调与长期跟进。"
 type: "guide"
 status: "active"
-updated: "2026-10-26"
+updated: "2026-10-27"
 created: 2026-08-29
 author: "AI + 运营方"
 related: [RULES.md, specs/threshold-method, specs/domain-scale-sop, specs/sequence-config, specs/operations-sop, specs/data-structure]
@@ -28,7 +28,7 @@ flowchart TD
     subgraph ENTRY["① 安装/学习入口与业务入口分离"]
         START([安装 / 学习 / 新会话]) --> ONB["onboard_check.py<br/>环境自检+扫描旧项目"]
         ONB --> TASK{"安装完成<br/>用户选择做什么?"}
-        TASK -- "开始新获客项目" --> S0["S0 INPUT_GATE<br/>再收昵称+一句话产品<br/>了解产品并判断适配"]
+        TASK -- "开始新获客项目" --> S0["S0 INPUT_GATE<br/>先连平台（已验证会话/专用浏览器）<br/>连接成功后收昵称+一句话产品<br/>了解产品并判断适配"]
         TASK -- "续接旧项目" --> OLD["先选项目<br/>从记录节点继续·不回S0"]
         TASK -- "适配/网站提炼/更新换机/了解流程" --> ROUTE["按SKILL对应路由<br/>不默认进入S0"]
         S0 --> CL{"首次调用平台前<br/>check_login.py<br/>token + 当前orgId有效?"}
@@ -137,7 +137,7 @@ flowchart LR
 
 | 节点 | 名称 | 关键动作 | 确认/凭证 |
 |------|------|---------|----------|
-| S0 | INPUT_GATE | 纯个人昵称+一句话产品→了解产品并判断适配；首次平台调用前再验证token+当前orgId | Gate0 必填 |
+| S0 | INPUT_GATE | 先连平台并验证token+当前orgId→连接成功后问纯个人昵称+一句话产品→了解产品并判断适配 | Gate0 必填 |
 | S1 | PATH_PENDING | 有网址→A；无→B | 路径判定 |
 | S2 | SEGMENT_PENDING | 推演4客群+五维+推荐 | 用户确认+审查① |
 | S3 | SEED_PENDING | query_en搜第一页→id取域名→域名keyword扩量 | 用户确认+审查② |

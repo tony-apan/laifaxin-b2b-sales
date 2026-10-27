@@ -4,7 +4,7 @@ title: "运营方档案 SOP（AI 主动索取·跨产品复用·换机迁移）"
 description: "运营方公司资料如何渐进索取并写入 .local/operators/，与产品档案分层，签名只用纯昵称。"
 type: "spec"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-27"
 created: 2026-09-04
 author: "AI + 用户对抗完善"
 related: [RULES.md, product-profile-sop.md, migration-handoff.md, ../tools/operator_profile.py]
@@ -18,7 +18,7 @@ audience: AI优先
 
 ## 1. 什么时候主动问
 
-开局按渐进规则只问纯个人昵称 + 一句话产品（目标市场可选），不要催 token。进入 S0a 时，若公司级资料未记录，AI **单独问一次**，不得和 ABCD 方案选择挤在同一轮。完成产品了解与适配判断、首次调用来发信平台前，再按 token 引导一键双取 accesstoken + 当前工作空间 orgId：
+安装过门后先连平台（复用已验证会话/专用浏览器自动连接，连接成功前不问昵称产品）；连接成功后按渐进规则一次问纯个人昵称 + 一句话产品（目标市场可选）。进入 S0a 时，若公司级资料未记录，AI **单独问一次**，不得和 ABCD 方案选择挤在同一轮。连接已在前面完成；仅当自动连接因环境故障失败时，才按 token 引导兜底一键双取 accesstoken + 当前工作空间 orgId：
 
 ```text
 为了以后换电脑或换产品时不用重复问，我可以把您的公司资料存到本机档案（不会上传，也不会进入邮件签名）：

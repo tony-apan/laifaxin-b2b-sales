@@ -42,6 +42,20 @@ class AnnounceBeforeActTest(unittest.TestCase):
         text = (ROOT / "specs" / "novice-flow-contract.md").read_text(encoding="utf-8")
         self.assertIn("先报后做", text)
 
+class EntryOrderConnectFirstTest(unittest.TestCase):
+    """2026-10-27 用户裁决：连接是第一业务动作；连接成功后才问昵称+产品并直出档案。"""
+
+    def test_token_guide_shown_after_install_not_after_profile(self):
+        text = (ROOT / "output-templates" / "T-token-guide.md").read_text(encoding="utf-8")
+        self.assertNotIn("产品档案确认之后", text, "连接卡不得再以档案确认为前置")
+        self.assertIn("安装自检通过后", text, "连接时机=安装自检通过后（第一业务动作）")
+
+    def test_profile_after_connect_and_asks_customer_url(self):
+        profile = (ROOT / "output-templates" / "S0-product-profile.md").read_text(encoding="utf-8")
+        self.assertNotIn("我请您连接来发信账号", profile,
+                         "档案卡不得再说『确认后连接』——连接已在其前完成")
+        self.assertIn("目标客户", profile, "档案展示后须问有没有目标客户网址（客户，不是自己官网）")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -739,14 +739,14 @@ class StepGuidanceTest(unittest.TestCase):
         self.assertNotRegex(block, r'回[「"]?确认[」"]?.{0,14}推演',
                             "档案卡确认后应是『连接平台』，不是直接推演客群")
 
-    def test_portrait_card_orders_profile_before_connect(self):
-        """★对抗审查 F-05：画像方案的下一步顺序须为 建档→连接→推演。"""
+    def test_portrait_card_orders_connect_before_profile(self):
+        """★2026-10-27 改序：连接在开工第一步完成；画像方案顺序=连接(已连)→建档→推演。"""
         block = self.first_block("S0-fit-plan.md")
         i_prof = min([m.start() for m in re.finditer(r"产品/公司资料", block)] or [10**9])
         i_conn = block.find("连接来发信账号")
         i_infer = block.find("平台帮您猜")
-        self.assertLess(i_prof, i_conn, "建档应排在连接之前")
-        self.assertLess(i_conn, i_infer, "连接应排在推演客群之前")
+        self.assertLess(i_conn, i_prof, "连接已前移到开工第一步，应排在建档之前")
+        self.assertLess(i_prof, i_infer, "建档应排在推演客群之前")
 
     def test_failure_card_covers_all_steps(self):
         """失败卡必须覆盖"任何步骤卡住"，不能只管连接。"""

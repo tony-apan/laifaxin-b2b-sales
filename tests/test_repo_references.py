@@ -77,8 +77,11 @@ class FirstScreenPlainLanguageTest(unittest.TestCase):
         block = self._blocks()[0]
         for word in self.BANNED:
             self.assertNotIn(word, block, f"首屏出现黑话「{word}」")
-        for must in ("装好了", "怎么称呼您", "卖什么产品", "确认激活"):
+        # 2026-10-27 改序：第 0 屏只连接，昵称/产品在连接成功后由 C1 询问
+        for must in ("装好了", "连接", "确认激活"):
             self.assertIn(must, block, f"第 0 屏缺少「{must}」")
+        for banned in ("怎么称呼您", "卖什么产品"):
+            self.assertNotIn(banned, block, f"连接成功前第 0 屏不得先问「{banned}」")
         for banned in ("只回一个数字", "6 步", "开始新的获客项目"):
             self.assertNotIn(banned, block, f"第 0 屏不该出现「{banned}」（那是第 1 屏/旧菜单的内容）")
         lines = [l for l in block.splitlines() if l.strip()]

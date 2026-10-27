@@ -52,6 +52,20 @@ class NoviceEdgeCaseTest(unittest.TestCase):
         profile = read("output-templates/S0-product-profile.md")
         self.assertIn("产品照片", profile)
 
+class SegmentAdviceEstimateTest(unittest.TestCase):
+    """2026-10-27 用户裁决：客群建议讲估计周期，不冒充平台统计或成交保证。"""
+
+    def test_segment_card_explains_reply_and_cycle_as_estimate(self):
+        card = read("output-templates/S2-segment-confirm.md")
+        first = card.split("```text", 1)[1].split("```", 1)[0]
+        self.assertIn("初次回复", first, "须分别解释初次回复（询盘观察）")
+        self.assertIn("估计", first, "成交周期只能是估计口径")
+        self.assertIn("不保证", first, "不得写成平台统计或成交保证")
+
+    def test_url_no_reask_rule_in_profile_card(self):
+        profile = read("output-templates/S0-product-profile.md")
+        self.assertIn("已给过", profile, "已给过目标客户网址不再重问，须在卡内写明")
+
 
 if __name__ == "__main__":
     unittest.main()

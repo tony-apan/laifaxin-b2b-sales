@@ -42,6 +42,19 @@ class StepMapTest(unittest.TestCase):
             self.assertNotIn(MERMAID, p.read_text(encoding="utf-8"),
                              "用户可见模板禁止出现 Mermaid: " + p.name)
 
+class EntryOrderDiagramTest(unittest.TestCase):
+    """2026-10-27 用户裁决：流程图入口=先连平台（复用已验证会话/专用浏览器），连上才问两样。"""
+
+    def test_agents_mermaid_connect_before_questions(self):
+        text = (REPO / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertNotIn("只问两样：昵称+产品", text, "第0屏不得再以先问昵称+产品开头")
+        self.assertIn("复用已验证会话", text, "连接优先复用已验证会话")
+
+    def test_step_map_m0_connects_first(self):
+        text = STEP_MAP.read_text(encoding="utf-8")
+        self.assertNotIn("→ 只问昵称+产品", text, "M0 动作不得再是只问昵称+产品")
+        self.assertIn("先连平台", text, "M0/M1 顺序应为先连平台")
+
 
 if __name__ == "__main__":
     unittest.main()

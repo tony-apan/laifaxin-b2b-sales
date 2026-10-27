@@ -4,7 +4,7 @@ title: "节点判据 × API × 脚本 对照表（Node Playbook）"
 description: "S0-S12 每个节点的判据来源/通过条件/API(接口+关键参数+api-reference行号)/脚本命令/产出记录位置——新AI执行时照抄的操作手册"
 type: "spec"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-27"
 created: 2026-08-30
 author: "独立审查agent"
 source: "对 RULES.md + specs/* + lessons/lessons-learned.md + tools/* + db/* 的完整性审查"
@@ -23,7 +23,7 @@ audience: 人+AI
 
 | 规则 | 内容 | 来源 |
 |------|------|------|
-| **流程闸门** | 首次平台调用前，用户在浏览器一键双取并把两行直接粘贴到当前聊天框；主 AI 通过程序化 stdin 运行 `bash tools/gate_check.sh --credentials-stdin --product <项目键>`（★bash 脚本）。缺 token/orgId 一律阻断，不回退；禁止让用户设置变量、`.env` 或执行命令 | `../RULES.md`「凭据唯一交付路径」；脚本 `../tools/gate_check.sh` |
+| **流程闸门** | 安装过门后先连平台（已验证会话/专用浏览器自动连接优先；仅环境失败兜底：用户一键双取并把两行直接粘贴到当前聊天框）；主 AI 通过程序化 stdin 运行 `bash tools/gate_check.sh --credentials-stdin --product <项目键>`（★bash 脚本）。缺 token/orgId 一律阻断，不回退；禁止让用户设置变量、`.env` 或执行命令 | `../RULES.md`「凭据唯一交付路径」；脚本 `../tools/gate_check.sh` |
 | **节点确认** | 高影响节点必须收到**本节点明确确认**；确认原话、参数 JSON/hash、时间写入 `.local/approvals.tsv`（★审批流水：每账号/每 clone 一份，不入 Git） | `../RULES.md` S10（节点确认）；`../RULES.md`「核心铁律」 |
 | **审批硬闸门（工具级）** | 新项目稳定键=`<operator_key>/<product_key>`，确认参数同时绑定当前 product-profile path/version/hash；legacy 项目可暂用旧产品名但不得跨运营方复用。写工具无有效 approval 或项目键不符直接 exit 1；换机历史 approvals 只作审计，未执行写节点与 S12 必须当前对话重新确认 | `../RULES.md` 状态转换与确认；`../tools/approval.py` |
 | **参数变化回退** | 产品、种子、临界N、标签、模板、配额任一变化 → 原确认失效 → 回到对应状态重新确认 | `../RULES.md` S12；`../RULES.md`「核心铁律」 |
@@ -38,7 +38,7 @@ audience: 人+AI
 ## 1. 节点矩阵（S0-S12，每个节点照抄执行）
 
 ### S0 INPUT_GATE + S0a PRODUCT_PROFILE（闸门 + 必填输入 + 产品知识档案）
-- **判据（来源）**：`../RULES.md` S0「开跑只需纯个人昵称 + 一句话产品；禁止开局催 token 或列清单」。卖给谁、卖到哪、自己的官网/产品页/目录全部选填；缺失时 AI 先推荐，不阻断、不冒充用户输入。进入 S0a 后，用户给自己的网址就走独立 `website-profile-sop.md`，先确认角色、生成六区候选、批准补丁后才导入；失败/跳过继续原流程。公司名/官网/邮箱/认证/产能/MOQ/交期/价格带等**用户自己的商业资产可以邀请补充**；潜在买家/客户/联系人联系方式等第三方信息不索要。产品了解与适配完成、首次调用平台前再获取 token + 当前工作空间 orgId。
+- **判据（来源）**：`../RULES.md` S0「先连平台，连接成功后才问纯个人昵称 + 一句话产品；连接成功前不问、不催粘贴 token、不列清单」。卖给谁、卖到哪、自己的官网/产品页/目录全部选填；缺失时 AI 先推荐，不阻断、不冒充用户输入。进入 S0a 后，用户给自己的网址就走独立 `website-profile-sop.md`，先确认角色、生成六区候选、批准补丁后才导入；失败/跳过继续原流程。公司名/官网/邮箱/认证/产能/MOQ/交期/价格带等**用户自己的商业资产可以邀请补充**；潜在买家/客户/联系人联系方式等第三方信息不索要。token + 当前工作空间 orgId 在连接阶段（第一业务动作）取得，连接前不问昵称产品。
 - **AI 内部凭据占位约定**：本文件后续命令中的 `<TOKEN_IN_MEMORY>` / `<ORG_IN_MEMORY>` 只表示主 AI 从聊天框两行中在内存解析出的纯值，不是让用户设置环境变量或执行命令。用户始终只负责浏览器一键复制后直接粘贴到当前聊天框；入口登录/闸门优先走程序化 stdin。
 - **签名与正文边界**：邮件末尾签名区**只能是纯个人昵称**；公司身份/官网/联系邮箱不进入签名。`product-profile.md` 中经用户确认且有字段级来源的认证、产能、MOQ、交期、价格带可用于正文卖点；无来源或仅为推断的具体事实不得写进正文。
 - **通过条件**：①环境 bootstrap check 全绿 ②昵称通过 `profile_utils.validate_nickname` ③token 登录检查 + gate_check 通过 ④项目目录 `runs/<operator_key>/<product_key>/` 已固定 ⑤product-profile 存在且状态为 `confirmed` 或 `declined`（draft 禁止进入 S2）；confirmed 记录 path+content hash，declined 仅允许通用无具体事实文案。
@@ -46,7 +46,7 @@ audience: 人+AI
 - **产出记录**：`.local/operators/<operator_key>.md`（nickname/operator_key，不含 token）；`runs/<operator_key>/<product_key>/product-profile.md`（状态/版本/hash/字段级来源/变更记录）；`.local/approvals.tsv`（S0 gate_ok + profile hash）。
 
 ### S1 PATH_PENDING（路径分支）
-- **★连接平台是独立前置（2026-09-09 用户拍板）**：产品档案确认后，**先**按 `../output-templates/T-token-guide.md` 引导用户浏览器一键双取 → 主 AI 经程序化 stdin 跑 `check_login.py` + `workspace_guard.py --require-verified`（或 `gate_check.sh` 的 `[2b]`）→ 全过后展示 `S0-connect-success.md` 账号状态卡，**才**进入选起点。连接是全流程唯一需要用户动手的一步，必须放在推演/搜索之前（后面都要联网）。
+- **★连接平台是第一业务前置（2026-10-27 改序）**：安装自检通过后，**先**按 `../output-templates/T-token-guide.md` 自动连接（已验证会话/专用浏览器优先，一键双取仅兜底），连接成功后才问昵称+产品 → 主 AI 经程序化 stdin 跑 `check_login.py` + `workspace_guard.py --require-verified`（或 `gate_check.sh` 的 `[2b]`）→ 全过后展示 `S0-connect-success.md` 账号状态卡，**才**进入选起点。连接是全流程唯一需要用户动手的一步，必须放在推演/搜索之前（后面都要联网）。
 - **判据（来源）**：`../RULES.md` S1「有精准网址走快速路径；无网址走标准路径；两者都不能跳过确认」；`../methodology/decision-trees.md` 主逻辑图（A=快速/B=标准）。
 - **通过条件**：路径确定 +（快速路径）确认该网址是**客户方**而非用户自己公司、相关产品、非4区（`specs/operations-sop.md`「四、网址找相似」确认原则；网址确认原则）。
 - **API**：`POST /api/refine/company-list`（keyword=网址，海量搜相似）——见 `specs/api-reference.md` 接口表；`POST /api/domain/base-info`（提炼网址行业/NAICS）——见 `specs/api-reference.md` 接口表；`POST /api/domain/similar-list`（⚠️已弃用——统一走 refine/company-list keyword=域名）——见 `specs/api-reference.md` 接口表。
@@ -174,7 +174,7 @@ audience: 人+AI
 
 | # | 易漏点 | 判据原文要点 | 来源 |
 |---|--------|-------------|------|
-| 1 | **S0 闸门硬条件** | 昵称+一句话产品必填（中英皆可），缺一只问这一项；渐进索取，禁开局列清单；首次平台调用前必须 `gate_check.sh` 通过（token+当前orgId有效、必读文档存在、规则命中）才能开始平台流程 | `../RULES.md` S0；`../methodology/decision-trees.md` Gate0 |
+| 1 | **S0 闸门硬条件** | 连接只读检查先行（安装自检通过后第一动作：已验证会话/专用浏览器自动连接，人工复制仅环境故障兜底）；连接成功后才问昵称+一句话产品（中英皆可），缺一只问这一项；渐进索取，禁开局列清单；正式业务写操作前必须昵称 ack 开工门 + `gate_check.sh` 通过（token+当前orgId有效、必读文档存在、规则命中）才能开始平台流程 | `../RULES.md` S0；`../methodology/decision-trees.md` Gate0 |
 | 2 | **S2 客群推荐维度** | 每个客群写「精准潜在客户：是/否/条件成立时是」并给成交周期/询盘速度/量级/邮箱可得/竞争度/推荐；只打印不代选 | `../RULES.md`「客群输出标准」 |
 | 3 | **S4 临界判定** | 判定=AI 反思「会不会买」语义推理，**不是关键词匹配**；工具词匹配只做趋势初筛；50页跳→三页平均→逐页→跌破往前；临界页人工逐条读完整10条 | `specs/threshold-method.md` 判定标准与阶段章节；L-26 |
 | 4 | **S5 保存前重复检查** | 保存前查 (keyword+seed+阈值+selectTotal+排除4区) 是否曾完成保存，已存则不重存（省额度）——★规则有、脚本缺（防重复保存缺口） | `../RULES.md` S5「重复保存检查」 |
