@@ -294,6 +294,44 @@ class FullFlowSimulationTest(unittest.TestCase):
         audit.write_text("70% 临界 50页 三页平均 逐页 敏感性\n审计通过\n", encoding="utf-8")
         review.write_text("放行\nP0=0\nP1=0\n", encoding="utf-8")
         manifest = self.project_dir / "audit-manifest.json"
+
+        def audit_window_and_rows():
+            # 2026-10-27：正式 live 收口四件套 + 逐行公司级语义表（每页 10 行真实对象）
+            rows = []
+            for page in (369, 370, 371):
+                for i in range(1, 11):
+                    is_match = i <= 7
+                    rows.append({
+                        "page": page,
+                        "company_id": f"c-{page}-{i}",
+                        "company_name": f"公司{page}-{i}",
+                        "summary_zh": f"外贸B2B采购帐篷与露营装备{page}-{i}",
+                        "matched": is_match,
+                        "reason": "卖帐篷与露营装备" if is_match else "纯内容站不采购",
+                    })
+            return {
+                "window": {
+                    "pages": [369, 370, 371],
+                    "page_rows": [
+                        {"page": 369, "matched": 7, "total": 10},
+                        {"page": 370, "matched": 7, "total": 10},
+                        {"page": 371, "matched": 7, "total": 10},
+                    ],
+                    "numerator": 21,
+                    "denominator": 30,
+                    "method": "连续3页（每页≥50%）滑动平均，所有滑动窗口>=70%，覆盖临界页",
+                },
+                "boundary": {
+                    "critical_page": 371, "result": "above",
+                    "next_page": 372, "next_result": "below",
+                    "page_rows": [
+                        {"page": 371, "matched": 7, "total": 10},
+                        {"page": 372, "matched": 5, "total": 10},
+                    ],
+                },
+                "company_rows": rows,
+            }
+
         doc = {
             "project": PROJECT, "profile_sha256": self.sha(self.profile), "seed": SEED,
             "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
@@ -308,8 +346,28 @@ class FullFlowSimulationTest(unittest.TestCase):
         self.assertEqual(before, (self.record.read_bytes(), self.record.stat().st_mtime_ns))
 
         # Test-only clean live fixture: this unit environment never contacts the platform.
-        doc["evidence_mode"] = "live"
-        self.write_json(manifest, doc)
+        # 2026-10-27 反例：live 但缺 window 四件套（历史无四件套不再兼容放行）
+        live_no_window = dict(doc)
+        live_no_window["evidence_mode"] = "live"
+        self.write_json(manifest, live_no_window)
+        self.run_tool("finalize_audit.py", "--record", self.record, "--profile", self.profile, "--project", PROJECT, "--manifest", manifest, expect=2)
+        self.assertEqual(before, (self.record.read_bytes(), self.record.stat().st_mtime_ns))
+
+        # 2026-10-27 反例：live 且四件套齐全，但 company_rows 是 {page,count} 空壳
+        shell = audit_window_and_rows()
+        shell["company_rows"] = [{"page": p, "count": 10} for p in (369, 370, 371)]
+        live_shell = dict(doc)
+        live_shell["evidence_mode"] = "live"
+        live_shell.update(shell)
+        self.write_json(manifest, live_shell)
+        self.run_tool("finalize_audit.py", "--record", self.record, "--profile", self.profile, "--project", PROJECT, "--manifest", manifest, expect=2)
+        self.assertEqual(before, (self.record.read_bytes(), self.record.stat().st_mtime_ns))
+
+        # 正例：live + 四件套 + 逐行公司级语义表 → S4
+        live_doc = dict(doc)
+        live_doc["evidence_mode"] = "live"
+        live_doc.update(audit_window_and_rows())
+        self.write_json(manifest, live_doc)
         self.run_tool("finalize_audit.py", "--record", self.record, "--profile", self.profile, "--project", PROJECT, "--manifest", manifest)
         self.assertIn("status: S4", self.record.read_text(encoding="utf-8"))
 

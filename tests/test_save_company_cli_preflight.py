@@ -97,6 +97,135 @@ class WorkspaceGuardPreflightTest(unittest.TestCase):
                         source.index("save_guard.save_company_v2("))
 
 
+class ConfirmPresentationBindingTest(unittest.TestCase):
+    """TASK-20261027：CLI confirm 必须显式携带 --presentation（卡引用）。
+
+    隐式拿最新卡会把旧确认套进新计划；缺引用直接 E_CARD_REQUIRED，不铸票。
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.plan = self.root / "plan.json"
+        self.plan.write_text(json.dumps({
+            "kind": "save_plan", "plan_id": "p-cc", "revision": 1,
+            "status": "draft", "project": "op/prod",
+            "wire_payload": {"keyword": "seed.example"},
+        }, ensure_ascii=False), encoding="utf-8")
+        self.addCleanup(self.tmp.cleanup)
+
+    def test_confirm_without_presentation_denied_before_confirm(self):
+        args = SimpleNamespace(root=str(self.root), plan=str(self.plan),
+                               quote="确认", quote_ref="ref-1",
+                               presentation=None)
+        with mock.patch.object(cli.planlib, "confirm_plan") as confirm, \
+             mock.patch.object(cli.auth_guard, "authorize_save_plan") as auth:
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                rc = cli._cmd_confirm(args)
+        self.assertEqual(2, rc, buffer.getvalue())
+        out = json.loads(buffer.getvalue())
+        self.assertEqual("E_CARD_REQUIRED", out["code"])
+        confirm.assert_not_called()
+        auth.assert_not_called()
+
+    def test_present_then_confirm_passes_card_ref_through(self):
+        card_ref = "card-" + "0" * 15 + "1"
+        args = SimpleNamespace(root=str(self.root), plan=str(self.plan),
+                               quote="20", quote_ref=card_ref,
+                               presentation=card_ref)
+        confirmed = {"status": "confirmed", "plan_id": "p-cc", "revision": 1,
+                     "project": "op/prod", "selectTotal": 20,
+                     "quote": "20", "quote_ref": card_ref,
+                     "wire_payload": {"keyword": "seed.example"},
+                     "computed": {"estimated_points": "45"},
+                     "confirmed_at": "2026-10-27T00:00:00Z"}
+        render = {"path": str(self.root / "render.json"), "task": "t-cc"}
+        issued = {"ok": True, "ticket_path": str(self.root / "t.json")}
+        with mock.patch.object(cli.planlib, "load_plan",
+                               return_value=confirmed), \
+             mock.patch.object(cli.planlib, "confirm_plan",
+                               return_value=confirmed) as confirm, \
+             mock.patch.object(cli, "_make_render", return_value=render), \
+             mock.patch.object(cli.auth_guard, "authorize_save_plan",
+                               return_value=issued):
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                rc = cli._cmd_confirm(args)
+        self.assertEqual(0, rc, buffer.getvalue())
+        confirm.assert_called_once()
+        kwargs = confirm.call_args.kwargs
+        self.assertEqual(card_ref, kwargs.get("presentation"))
+
+
+class ConfirmNoFalseStateOnAuthDenyTest(unittest.TestCase):
+    """真实 prepare/present/CLI 确认，检查规范计划路径。"""
+
+    def setUp(self):
+        from test_save_confirm_plain import CountCardChainTest
+        self.case = CountCardChainTest()
+        self.case.setUp()
+        self.addCleanup(self.case.doCleanups)
+        self.draft = self.case._prepare()
+        self.card = self.case._present(self.draft)
+        self.args = SimpleNamespace(root=str(self.case.root), plan=str(self.draft),
+                                    quote="20", quote_ref=self.card["card_ref"],
+                                    presentation=self.card["card_ref"])
+        self.path = cli.planlib.plan_path(self.case.root, "plan-cc1", 1)
+
+    def run_confirm(self, result):
+        v, s = self.case._registry_stub()
+        with v, s, mock.patch.object(cli.auth_guard, "authorize_save_plan", return_value=result), \
+             redirect_stdout(io.StringIO()):
+            return cli._cmd_confirm(self.args)
+
+    def test_auth_deny_leaves_no_confirmed_state(self):
+        self.assertEqual(2, self.run_confirm({"ok": False, "code": "DENY", "reason": "deny"}))
+        self.assertNotEqual("confirmed", json.loads(self.path.read_text())["status"])
+        with self.assertRaises(cli.planlib.PlanError):
+            cli.planlib.load_confirmed(self.case.root, "plan-cc1", 1)
+        plan = cli.planlib.load_plan(self.path)
+        http = mock.Mock()
+        v, s = self.case._registry_stub()
+        with v, s:
+            result = cli.save_guard.save_company_v2(payload=plan["wire_payload"], http=http,
+                                                    plan=plan, ticket={}, root=self.case.root)
+        self.assertFalse(result["ok"])
+        http.assert_not_called()
+
+    def test_exceptions_leave_no_executable_plan(self):
+        for target in ("_make_render", "authorize_save_plan", "commit_confirmed"):
+            with self.subTest(target=target):
+                owner = cli if target == "_make_render" else (cli.auth_guard if target == "authorize_save_plan" else cli.planlib)
+                v, s = self.case._registry_stub()
+                with v, s, mock.patch.object(cli.auth_guard, "authorize_save_plan", return_value={"ok": True, "ticket_path": "ticket"}), \
+                     mock.patch.object(owner, target, side_effect=RuntimeError("injected")), \
+                     redirect_stdout(io.StringIO()):
+                    self.assertEqual(2, cli._cmd_confirm(self.args))
+                with self.assertRaises(cli.planlib.PlanError):
+                    cli.planlib.load_confirmed(self.case.root, "plan-cc1", 1)
+
+    def test_different_card_cannot_replace_success(self):
+        ok = {"ok": True, "ticket_path": "ticket"}
+        self.assertEqual(0, self.run_confirm(ok))
+        before = self.path.read_bytes()
+        from test_save_confirm_plain import _CC_NOW
+        other = cli.planlib.present_card(self.case.root, self.draft, now=_CC_NOW["t"] - 60)
+        self.args.presentation = other["card_ref"]
+        self.args.quote_ref = other["card_ref"]
+        self.assertEqual(2, self.run_confirm(ok))
+        self.assertEqual(before, self.path.read_bytes())
+
+    def test_success_commits_confirmed_once(self):
+        ok = {"ok": True, "ticket_path": str(self.case.root / "ticket.json")}
+        self.assertEqual(0, self.run_confirm(ok))
+        before = self.path.read_bytes()
+        self.assertEqual("confirmed", cli.planlib.load_confirmed(self.case.root, "plan-cc1", 1)["status"])
+        self.assertEqual(2, self.run_confirm({"ok": False, "code": "DENY", "reason": "deny"}))
+        self.assertEqual(before, self.path.read_bytes())
+        self.assertEqual("confirmed", cli.planlib.load_confirmed(self.case.root, "plan-cc1", 1)["status"])
+
+
 class StatusAutoTaskIdTest(unittest.TestCase):
     """保存成功后 status 不必手工喂 task_id：从已受理 scope 账本自解析。"""
 

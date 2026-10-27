@@ -378,6 +378,21 @@ _PLAIN_CONFIRM_RE = re.compile(
     r"^\s*(?:确认|确认保存|确定)\s*(?:吧|一下|啦)?\s*[。.!！~～]*\s*$", re.I)
 
 
+def plain_numeric_save_count(quote: Any) -> Optional[int]:
+    """S5 卡上下文里的纯 ASCII 正整数字符串 N（AC1，2026-10-27）。
+
+    只认 strip 后整串为 [1-9][0-9]* 的原话；0/负数/小数/多数字/带单位/
+    疑问/否定/中文数字一律 None（不是保存数量授权）。仅限 S5 保存确认
+    上下文使用（卡面已展示 N 时）；激活等其他动作不得复用本函数。
+    """
+    if not isinstance(quote, str):
+        return None
+    q = quote.strip()
+    if not re.fullmatch(r"[1-9][0-9]*", q):
+        return None
+    return int(q)
+
+
 def is_plain_save_confirm(quote: Any) -> bool:
     """无数字纯确认原话判定（只给 S5 保存确认用，不用于激活）。"""
     if not isinstance(quote, str):

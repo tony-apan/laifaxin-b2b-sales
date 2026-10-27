@@ -4,7 +4,7 @@ title: "来发信获客·规则总纲（唯一真源）"
 description: "所有规则的唯一入口：无论会话长短/换电脑，先读本文件再执行。强制流程+校验清单。"
 type: "rule"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-27"
 created: 2026-08-29
 author: "AI + 用户对抗"
 source: "皮筏艇/电动自行车全程"
@@ -63,8 +63,8 @@ S3 SEED_PENDING:
     ★**入口二选一**（2026-09-09 用户拍板）：①用户已给起点网址（询盘客户/认得的精准买家）→ 直接核对并确认，AI 判定该起点所属客群/客户线请用户确认；②用户没给 → 从已推演的客群里挑精准买家当起点（沿用该客群）。**起点必须关联客群**（S4 匹配率分母/客户线计数/标签命名/模板加权都依赖它）。
     ★种子发现·统一 AI 数据库搜索链（3步）（2026-09-03 用户拍板定稿，2026-10-21 V2 收紧来源绑定）：①**预览**——用当前项目/产品/活跃 generation 已选客群的 query_en **逐字**作关键词搜索第一页 10 条（不 trim/改大小写/折叠空白；每条含权威id/公司名/国家/角色/NAICS/客户类型/置信度/邮箱数/电话/社媒/摘要/匹配分；列表项无域名字段）——按**客户线**评估候选（直采/OEM/拓品三线皆可为锚；S3 不加排除4区 filter，S4/S5 才排除）；②**取域名**——代表买家的 `id` 调公司详情接口（base-info，传 id 即得真实域名+详情），落选择记录；③**找相似**——用**已选候选的域名**作 keyword 继续走主搜索；
     ★不使用相似列表接口；用户自带网址须记录原始来源、规范化域名、同客群关联与确认，不能捏造平台 candidate id）→ 用户确认锚点。随后进入 S4 审计（同一已选域名/来源范围）；S5/S6 必须沿用 S4 审计的同一 keyword/filters/logic/sort 与审计范围保存前 N，不得另换关键词。历史实测“域名/长文本都能保存”只证明 front 保存通路，不代表可任意换词。勿拿公司名当搜索锚（同名多司）；禁翻页收集 id（铁律3）不受影响。
-S4 AUDIT_RUNNING: 只读搜客和AI语义审计；100页跳→**连续3页（每页≥50%）滑动平均**→逐页→跌破往前（执行细则=threshold-probe-spec v3.1）；单页只记抖点，High比例/搜索分数/页1/2/5抽样不能替代窗口证据。完成后必须把审计证据与独立对抗审查报告交 `tools/finalize_audit.py`。manifest须 `evidence_mode=live` 且证据不含模拟/离线/网络桩/占位标记；仅真实证据含连续窗口70%临界且review“放行”无P0/P1时推进S4→S5。simulation只能出报告，禁止推进状态；未收口不能保存
-S5 SAVE_PENDING: 展示 confirmed plan 的 N（selectTotal·家）/E（预计邮箱）/P（预计点）/B（预算）及来源、审计范围、四区 filters、标签实际ID、max_points 来源/版本、重复保存检查；用户原话确认后才保存。`prepare` 只出 draft、`confirm` 才绑定 plan/render/ticket、`execute` 才写；无 confirmed plan 不写；菜单/列表里的数字只是选择，不构成保存授权；保存卡必须先写清家数、预计邮箱数、扣多少额度与预算，用户回含家数的确认原话（如「确认保存 前2000家」）**或卡面已写清 N 家时只回「确认」「确认保存」**都视为授权（`save_plan.py` 校验：原话带数但不同→拒；纯确认原话→把卡面 N 绑定为 `count_bound_by=card` 留痕；只回数字 1 仍不算，S5 不是选单）（AI 必须原样复述这些数字，数字没给全不许让用户回）。用户明确20家且计划成立则允许，AI不得擅自缩量或扩量
+S4 AUDIT_RUNNING: 只读搜客和AI语义审计；100页跳→**连续3页（每页≥50%）滑动平均**→逐页→跌破往前（执行细则=threshold-probe-spec v3.2）；单页只记抖点，High比例/搜索分数/页1/2/5抽样不能替代窗口证据。完成后必须把审计证据与独立对抗审查报告交 `tools/finalize_audit.py`。manifest须 `evidence_mode=live` 且证据不含模拟/离线/网络桩/占位标记；仅真实证据含连续窗口70%临界且review“放行”无P0/P1时推进S4→S5。simulation只能出报告，禁止推进状态；未收口不能保存
+S5 SAVE_PENDING: 展示 confirmed plan 的 N（selectTotal·家）/E（预计邮箱）/P（预计点）/B（预算）及来源、审计范围、四区 filters、标签实际ID、max_points 来源/版本、重复保存检查；用户原话确认后才保存。`prepare` 只出 draft、`confirm` 才绑定 plan/render/ticket、`execute` 才写；无 confirmed plan 不写；菜单/列表里的数字只是选择，不构成保存授权；保存卡必须先写清家数、预计邮箱数、扣多少额度与预算，用户回含家数的确认原话（如「确认保存 前2000家」）**或卡面已写清 N 家时只回「确认」「确认保存」或直接回复卡上家数（纯数字 N，N=卡面值）**都视为授权（`save_plan.py` 校验：原话带数但不同→拒；纯确认或纯数字 N=卡面值→把卡面 N 绑定为 `count_bound_by=card` 留痕，且必须携带 present 产出的卡引用、同计划同 revision、未过期、卡 hash 一致，否则 E_CARD_* 拒；数字≠卡面值是更改请求，须重新 prepare 并重发新卡）（AI 必须原样复述这些数字，数字没给全不许让用户回）。用户明确20家且计划成立则允许，AI不得擅自缩量或扩量
 S6 SAVE_RUNNING: front保存；等任务finished；用标签结果对账（⚠️companySaveCount=任务进度计数(=total=finished)，非去重敏感指标——防重保存/全新增判断一律以 contactSaveCount/家基线对齐为准,2026-08-31补审P2-1）
 S7 TEMPLATE_PENDING: 只生成本地草稿；展示3-8个跨轮模板（★渲染后的收件人视图效果，非HTML源码——用 tools/render_preview.py）+理由；用户确认后才批量创建。★签名铁律（2026-09-04 用户拍板）：**邮件末尾签名区=只有昵称**，禁止公司名/官网/邮箱/职位/认证、宣传语等任何其他内容。★公司名/官网只供 AI 建档/理解企业，不自动进入正文；邮箱不索取（平台不支持绑定自有邮箱）；`product-profile.md` 中经用户确认且有字段级来源的认证/产能/MOQ/交期可用于正文卖点；**价格/折扣/cheap 类表述一律禁止进模板正文**（2026-10-22 用户拍板），只能由买家回复 CTA 关键词 PRICE 后走受控人工回复；无来源或仅为推断的具体事实禁止写入。★客户/联系人邮箱等他人信息不索要
 S8 TEMPLATE_BUILD: 创建后断言变量样式、标题、正文差异、轮次绑定；失败回S7
@@ -239,7 +239,7 @@ runs/INDEX.md          运营方×产品导航卡（生成物，源自 runs.tsv+
 - 以上条目除 P6 四个浏览器抓包脚本与本次 4 个旧脚本（`save_first_n`/`contact_add`/`delete_all_products`/`wait_save_done`，均 `save_guard.require` 无条件封条）外，其余仍为文档层约束、代码层无封条；不得把文档约束描述为代码已物理拦截，也不得把物理封条描述为安全边界（见上一条边界声明）。
 
 ## 📂 子规则（引用，非重复）
-- 临界：`specs/threshold-method.md`（AI反思/连续3页（每页≥50%）窗口/100页跳；执行细则见 threshold-probe-spec v3.1）；执行细则见 `specs/threshold-probe-spec.md` v3（判据仍以 threshold-method 为准）
+- 临界：`specs/threshold-method.md`（AI反思/连续3页（每页≥50%）窗口/100页跳；执行细则见 threshold-probe-spec v3.2）；执行细则见 `specs/threshold-probe-spec.md` v3（判据仍以 threshold-method 为准）
 - 适配：`specs/product-fit.md`（★S0 前置：产品适配度强/条件/弱三档判定+各档打法+弱适配话术）
 - **产品档案**：`specs/product-profile-sop.md`（S0 主动索取→字段级来源→用户确认→版本/hash→回落→S2/S4/S7/S9 复用）
 - **环境准备**：`specs/environment-setup.md`（无 Python 也能启动的 bootstrap + 跨平台依赖复查）

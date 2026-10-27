@@ -16,6 +16,7 @@ draft → confirmed → attempted/uncertain/accepted（GUARD-FIX-V2 §5.2/§5.3�
 from __future__ import annotations
 
 import calendar
+import math
 import hashlib
 import json
 import os
@@ -855,6 +856,171 @@ def load_plan(path: Any) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# 保存确认卡（present → confirm 显式绑定；TASK-20261027-count-card）
+# ---------------------------------------------------------------------------
+
+CARD_TTL_SECONDS = PLAN_TTL_SECONDS  # 卡有效期与 plan TTL 同口径（30 分钟）
+CARD_FIELDS = ("plan_id", "revision", "project", "n", "wire_payload_sha256",
+               "dependency_sha256", "budget_points", "max_points")
+
+
+def card_material(plan: Dict[str, Any],
+                 presented_at: Optional[str] = None,
+                 expires_at: Optional[str] = None) -> Dict[str, Any]:
+    """规范化卡内容材料：绑定字段 + 时间元数据（R2：时间入指纹）。
+
+    时间戳由 present_card 生成并一并纳入内容指纹；改动任意字段（含把
+    expires_at 改远未来）而不重算 content_sha256 都会在校验时被拒。
+    指纹只保内容一致性，不防恶意本机伪造（定位声明同 auth_guard）。
+    """
+    return {
+        "action": "save",
+        "plan_id": plan.get("plan_id"),
+        "revision": plan.get("revision"),
+        "project": plan.get("project"),
+        "n": int(plan.get("selectTotal") or 0),
+        "wire_payload_sha256": plan.get("wire_payload_sha256"),
+        "dependency_sha256": plan.get("dependency_sha256"),
+        "budget_points": plan.get("budget_points"),
+        "max_points": plan.get("max_points"),
+        "presented_at": presented_at,
+        "expires_at": expires_at,
+    }
+
+
+def card_content_hash(plan: Dict[str, Any],
+                      presented_at: Optional[str] = None,
+                      expires_at: Optional[str] = None) -> str:
+    return rule_check.canonical_hash(card_material(plan, presented_at=presented_at,
+                                                   expires_at=expires_at))
+
+
+def _cards_dir(root: Path) -> Path:
+    directory = Path(root) / ".local" / "guard_v2" / "cards"
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def card_path(root: Path, card_ref: str) -> Path:
+    ref = str(card_ref or "").strip()
+    if not re.fullmatch(r"card-[0-9a-f]{16}", ref):
+        _fail("E_CARD_REQUIRED", "card_ref 非法（须 card-<16hex>）")
+    return _cards_dir(root) / ("%s.json" % ref)
+
+
+def _load_card(root: Path, card_ref: str) -> Dict[str, Any]:
+    path = card_path(root, card_ref)
+    if not path.is_file():
+        _fail("E_CARD_UNKNOWN", "确认引用的保存卡不存在：%s" % ref_of(card_ref))
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError:
+        _fail("E_CARD_TAMPERED", "保存卡 JSON 损坏")
+    if not isinstance(doc, dict) or doc.get("kind") != "save_card":
+        _fail("E_CARD_TAMPERED", "保存卡结构非法")
+    return doc
+
+
+def ref_of(card_ref: str) -> str:
+    """引用原文（错误信息用），不做任何变换。"""
+    return str(card_ref or "")
+
+
+def _parse_utc_strict(value: Any, *, what: str) -> float:
+    """R2：严格解析 "%Y-%m-%dT%H:%M:%SZ" UTC 时间。
+
+    缺失/非字符串/空串/非法格式一律 E_CARD_TIME_INVALID（fail-closed），
+    不再退化 deadline=0 跳过校验。
+    """
+    if not isinstance(value, str) or not value.strip():
+        _fail("E_CARD_TIME_INVALID", "%s 缺失或非字符串: %r" % (what, value))
+    try:
+        return float(calendar.timegm(time.strptime(value.strip(),
+                                                   "%Y-%m-%dT%H:%M:%SZ")))
+    except ValueError:
+        _fail("E_CARD_TIME_INVALID", "%s 非法时间: %r" % (what, value))
+    return 0.0  # unreachable（_fail 必抛）
+
+
+def present_card(root: Path, draft_path: Any, *, now: Optional[float] = None) -> Dict[str, Any]:
+    """持久化确认前保存卡，返回用户可读卡面与 card_ref。
+
+    绑定字段（plan/revision/project/N/wire hash/dependency hash/预算）+
+    时间元数据（presented_at/expires_at）一并进内容指纹；不铸票不写平台。
+    R2-AC1：now 非有限拒；卡有效期=min(计划有效期, presented+CARD_TTL)；
+    计划时间非法拒（fail-closed，不再 deadline=0 跳过）。
+    R2-AC3：card_text 只输出白话，内部 ID/hash 只进 JSON metadata。
+    哈希只证明「卡内容与 confirm 时一致」，不证明真人已读、不防恶意本机篡改。
+    """
+    draft = load_plan(draft_path)
+    if draft.get("status") not in ("draft", "confirmed"):
+        _fail("E_PLAN_NOT_CONFIRMED", "plan 状态非法，无法出卡")
+    clock = time.time() if now is None else float(now)
+    if not math.isfinite(clock):
+        _fail("E_CARD_TIME_INVALID", "present now 非有限: %r" % now)
+    presented_at = _now_ts()
+    card_deadline = clock + CARD_TTL_SECONDS
+    plan_expires = draft.get("expires_at")
+    if isinstance(plan_expires, str) and plan_expires.strip():
+        plan_deadline = _parse_utc_strict(plan_expires, what="draft expires_at")
+        card_deadline = min(card_deadline, plan_deadline)
+    if card_deadline <= clock:
+        _fail("E_CARD_EXPIRED", "计划已过期，无法出卡，须重新 prepare")
+    expires_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(card_deadline))
+    material = card_material(draft, presented_at=presented_at,
+                             expires_at=expires_at)
+    content_hash = rule_check.canonical_hash(material)
+    ref = "card-" + content_hash[:16]
+    n = material["n"]
+    if n <= 0:
+        _fail("E_SELECT_TOTAL_INVALID", "卡面 N 必须为正整数")
+    doc = {
+        "schema_version": SCHEMA_VERSION, "kind": "save_card",
+        "card_ref": ref, "content_sha256": content_hash,
+        "card": material,
+        "presented_at": presented_at,
+        "expires_at": expires_at,
+        "note": "hash 只绑定卡内容一致性（含时间元数据），不证明真人已读",
+    }
+    _atomic_write(card_path(root, ref), doc)
+    # R2-AC3：白话卡面。预计扣点只取 computed.estimated_points（不明写未知），
+    # 不把 budget_points 冒充预计扣点、max_points 冒充账户余额。
+    computed = draft.get("computed") or {}
+    est_points = computed.get("estimated_points")
+    est_emails = computed.get("estimated_emails")
+
+    def _clean(v):
+        return v if isinstance(v, str) and v.strip() else None
+
+    def _points_of(value):
+        """budget_points 可能是 {"points": N,...} 或标量；只取数字，取不到=未知。"""
+        if isinstance(value, dict):
+            value = value.get("points")
+        if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+            return None
+        text = str(value).strip()
+        return text if text else None
+
+    points_text = ("约 %s 点（点＝平台用量额度，用一点扣一点，不是人民币；"
+                   "首批实际可能略有出入，以平台为准）" % _clean(est_points)
+                   if _clean(est_points) else "未知")
+    emails_text = ("约 %s 个" % _clean(est_emails)) if _clean(est_emails) else "未知"
+    budget_text = "%s 点" % (_points_of(material["budget_points"]) or "未知")
+    readable = (
+        "【保存确认】\n"
+        "保存家数：**%d 家**\n"
+        "预计邮箱：%s\n"
+        "预计扣点：%s\n"
+        "本次预算上限：%s（超出会拒绝保存）\n"
+        "\n"
+        "确认后我开始保存：这一步只存名单、不发邮件；保存不可一键撤回。\n"
+        "您现在可以：回「确认」，或直接回复卡上家数「%d」；"
+        "要改数量回复新家数，我重发新确认卡（旧卡作废）。\n"
+        "下一步：确认后开始保存，存完向您报实际存了多少。"
+        % (n, emails_text, points_text, budget_text, n))
+    return {"ok": True, "stage": "present", "card_ref": ref,
+            "content_sha256": content_hash, "card_text": readable,
+            "card_path": str(card_path(root, ref))}
 # confirm
 # ---------------------------------------------------------------------------
 
@@ -869,27 +1035,115 @@ def binding_hash(plan: Dict[str, Any]) -> str:
     return rule_check.canonical_hash(material)
 
 
+def _card_numeric_value(quote: str) -> Optional[int]:
+    """纯 ASCII 正整数字符串才视为数字授权候选（AC1）。
+
+    拒 0/负/小数/多数字/疑问/否定/中文数字——这些不是保存数量授权，
+    交回上层按普通原话处理（大多为歧义拒绝）。
+    """
+    return rule_check.plain_numeric_save_count(quote)
+
+
+def _verify_presentation(root: Path, draft: Dict[str, Any], *, quote: str,
+                         now: float, verify_hash: bool = True) -> Dict[str, Any]:
+    """校验确认引用的保存卡：存在、同计划同 revision、未过期、内容一致。
+
+    返回卡文档；任何不一致拒绝（E_CARD_*）。哈希只证内容一致，
+    不证明真人已读，也不防恶意本机篡改（定位声明同 auth_guard）。
+    verify_hash=False 时只做轻校验（存在/同计划/过期），
+    内容 hash 留给依赖重验之后的 _verify_card_content。
+    """
+    doc = _load_card(root, str(quote_ref_of(draft)))
+    card = doc.get("card") or {}
+    for key in ("plan_id", "revision"):
+        if str(card.get(key)) != str(draft.get(key)):
+            _fail("E_CARD_MISMATCH",
+                  "保存卡与计划不一致（%s）：%r != %r，须重新出卡确认"
+                  % (key, card.get(key), draft.get(key)))
+    if card.get("project") != draft.get("project"):
+        _fail("E_CARD_MISMATCH", "保存卡与计划 project 不一致，须重新出卡确认")
+    # R2-AC1：卡时间严格校验——presented/expires 必须存在且合法（fail-closed），
+    # 顺序有效（expires>presented），未过期；非有限 now 拒。
+    if not math.isfinite(float(now)):
+        _fail("E_CARD_TIME_INVALID", "now 非有限: %r" % now)
+    presented = _parse_utc_strict(doc.get("presented_at"), what="卡 presented_at")
+    deadline = _parse_utc_strict(doc.get("expires_at"), what="卡 expires_at")
+    if deadline <= presented:
+        _fail("E_CARD_TIME_INVALID",
+              "卡时间顺序非法：expires(%r) <= presented(%r)"
+              % (doc.get("expires_at"), doc.get("presented_at")))
+    if float(now) > deadline:
+        _fail("E_CARD_EXPIRED", "保存卡已过期，须重新 prepare/present")
+    if verify_hash:
+        _verify_card_content(draft, doc)
+    return doc
+
+
+def _verify_card_content(draft: Dict[str, Any], doc: Dict[str, Any]) -> None:
+    """卡内容一致性：卡文件自 hash 重算 + 与当前计划绑定字段比对。
+
+    卡文件被改而 content_sha256 未同步 → E_CARD_TAMPERED；
+    计划字段变了（换计划/换数量/改预算）套旧卡 → E_CARD_TAMPERED。
+    """
+    stored = doc.get("card") or {}
+    if rule_check.canonical_hash(stored) != doc.get("content_sha256"):
+        _fail("E_CARD_TAMPERED",
+              "保存卡文件内容与其 content_sha256 不一致（卡字段被篡改），须重新出卡")
+    # R2：时间元数据在指纹里——改 expires_at/presented_at 而不重算 hash 必拒；
+    # 重算了也会因与当前计划重算值不一致而拒。
+    expected = card_content_hash(draft, presented_at=stored.get("presented_at"),
+                                 expires_at=stored.get("expires_at"))
+    if doc.get("content_sha256") != expected:
+        _fail("E_CARD_TAMPERED",
+              "保存卡内容 hash 与当前计划不一致（字段或时间被改/换卡），须重新出卡")
+    # 顶层时间与卡体材料时间必须一致（防只改顶层不改卡体）
+    if (str(doc.get("presented_at") or "") != str(stored.get("presented_at") or "")
+            or str(doc.get("expires_at") or "") != str(stored.get("expires_at") or "")):
+        _fail("E_CARD_TAMPERED",
+              "保存卡顶层时间与卡体时间不一致，须重新出卡")
+
+
+def _quote_ref_from_call(quote_ref: str) -> str:
+    return str(quote_ref or "").strip()
+
+
+def quote_ref_of(draft: Dict[str, Any]) -> str:
+    """draft/plan 携带的卡引用（presentation 参数落盘后重读）。"""
+    return str(draft.get("card_ref") or "").strip()
+
+
 def confirm_plan(root: Path, draft: Dict[str, Any], *, quote: str,
-                 quote_ref: str, now: Optional[float] = None) -> Dict[str, Any]:
+                 quote_ref: str, now: Optional[float] = None,
+                 presentation: Optional[str] = None) -> Dict[str, Any]:
     """验证依赖/数量/预算，产出同 binding 的 plan+render+ticket 材料。
 
     auth 票据铸造由调用方（save_company_cli confirm）经 auth_guard.authorize
     执行——本函数只做纯本地验证与 confirmed plan 落盘。
+    presentation：确认引用的保存卡 card_ref（prepare 后 present_card 产出）。
+    纯确认与纯数字 N 都必须携带有效卡引用；数字 N 还必须等于卡面 N。
     """
     if not isinstance(quote, str) or not quote.strip():
         _fail("E_AUTH_COUNT_AMBIGUOUS", "缺确认原话")
     if not str(quote_ref or "").strip():
         _fail("E_AUTH_COUNT_AMBIGUOUS", "缺 quote_ref（只追溯，不证明真人）")
+    card_ref = str(presentation or "").strip()
+    if not card_ref:
+        _fail("E_CARD_REQUIRED",
+              "确认必须携带明确的保存卡引用（present_card 产出的 card_ref）")
+    draft = dict(draft)
+    draft["card_ref"] = card_ref
+    clock = time.time() if now is None else float(now)
+    if not math.isfinite(clock):
+        _fail("E_CARD_TIME_INVALID", "confirm now 非有限: %r" % now)
     if draft.get("status") not in ("draft", "confirmed"):
         _fail("E_PLAN_NOT_CONFIRMED", "plan 状态非法")
-    expires = str(draft.get("expires_at") or "")
-    try:
-        # expires_at 是 UTC；time.mktime 按本地时区解析，Windows/UTC+8 会误判已过期。
-        deadline = calendar.timegm(time.strptime(expires, "%Y-%m-%dT%H:%M:%SZ"))
-    except ValueError:
-        deadline = 0
-    if deadline and (now if now is not None else time.time()) > deadline:
+    # R2：draft 时间严格 fail-closed——缺失/非法不再 deadline=0 放行。
+    deadline = _parse_utc_strict(draft.get("expires_at"), what="draft expires_at")
+    if clock > deadline:
         _fail("E_PLAN_DEPENDENCY_CHANGED", "draft 已过期，须重新 prepare")
+    # 确认前先验卡（轻校验：同计划同 revision、未过期；AC2）。
+    card_doc = _verify_presentation(root, draft, quote=quote, now=clock,
+                                    verify_hash=False)
     wire = draft.get("wire_payload")
     if not isinstance(wire, dict):
         _fail("E_PLAN_PAYLOAD_MISMATCH", "draft 缺 wire_payload")
@@ -906,31 +1160,100 @@ def confirm_plan(root: Path, draft: Dict[str, Any], *, quote: str,
     if rule_check.canonical_hash(current_dependencies) != draft.get("dependency_sha256"):
         _fail("E_PLAN_DEPENDENCY_CHANGED",
               "依赖变化（来源/选择/filters/审计窗口/预算/系数），须重新 prepare")
+    # 依赖未变后，卡内容与当前计划一致才算「确认的就是这张卡」（AC2）。
+    _verify_card_content(draft, card_doc)
     # B2：原话数量必须可确定；歧义/缺失 → E_AUTH_COUNT_AMBIGUOUS（confirm 无 render.fields 路径）。
     # v3（2026-10-27）：卡面已经写清 N 家时，用户只回「确认/确认保存」也算授权——
     # 但必须整句纯确认（不含数字/别的动作词），N 从 plan 绑定并留痕 count_bound_by=card，
     # 保留“原话说了另一个数 → 拒绝”的防漂移检查。
     quoted = rule_check.extract_save_count(quote)
+    numeric = _card_numeric_value(quote)
+    if quoted is None and numeric is not None:
+        # AC1：纯 ASCII 正整数只在已校验 S5 卡上下文里当数量授权；
+        # 数值必须等于卡面 N（上面 _verify_presentation 已校卡与计划一致）。
+        # 「1」与其他数字同规则：等于卡面 N 才过，否则是更改请求，不触发菜单白名单。
+        quoted = numeric
     if quoted is None:
         if not rule_check.is_plain_save_confirm(quote):
             _fail("E_AUTH_COUNT_AMBIGUOUS",
                   "原话未给出可确定的公司数（歧义/缺失），须明确 N 家或只回「确认」后再确认")
         quoted = int(select_total["selectTotal"])
         count_bound_by = "card"
+    elif numeric is not None:
+        count_bound_by = "card"
     else:
         count_bound_by = "quote"
     if quoted != select_total["selectTotal"]:
         _fail("E_AUTH_COUNT_MISMATCH",
-              "原话 %d 家与 plan selectTotal=%d 不一致" % (quoted, select_total["selectTotal"]))
+              "原话 %s 家与 plan/卡面 selectTotal=%d 不一致（这是更改请求，须重新 prepare 并展示新卡）"
+              % (quote, select_total["selectTotal"]))
     confirmed = dict(draft)
     confirmed.update({
-        "status": "confirmed", "quote": quote, "quote_ref": quote_ref,
+        # R2-AC2：先落 confirmed_pending（暂存），CLI 侧 render+authorize 全成功后
+        # 经 commit_confirmed 才置 confirmed；失败走 rollback_uncommitted_confirm。
+        "status": "confirmed_pending", "quote": quote, "quote_ref": quote_ref,
         "confirmed_at": _now_ts(), "binding_sha256": binding_hash(draft),
         "count_bound_by": count_bound_by,
         "count_bound_n": int(select_total["selectTotal"]),
+        "card_ref": str(draft.get("card_ref") or ""),
+        "card_content_sha256": card_doc.get("content_sha256"),
     })
-    _atomic_write(plan_path(root, confirmed["plan_id"], confirmed["revision"]), confirmed)
+    target = plan_path(root, confirmed["plan_id"], confirmed["revision"])
+    if target.exists():
+        existing = json.loads(target.read_text(encoding="utf-8"))
+        if existing.get("status") == "confirmed":
+            if (existing.get("binding_sha256") != confirmed.get("binding_sha256")
+                    or existing.get("card_ref") != confirmed.get("card_ref")
+                    or existing.get("card_content_sha256") != confirmed.get("card_content_sha256")):
+                _fail("E_PLAN_ALREADY_CONFIRMED", "已有成功计划的绑定或卡不同，须新建 revision")
+            return confirmed
+    _atomic_write(target, confirmed)
     return confirmed
+
+
+def commit_confirmed(root: Path, confirmed: Dict[str, Any]) -> Dict[str, Any]:
+    """R2-AC2：确认链全部成功后提交 confirmed plan（幂等）。
+
+    confirm_plan 本身改为暂存（pending 落盘），只有 CLI 侧 render+authorize
+    都成功后才调用本函数真正置 confirmed。幂等：已是同 binding 的 confirmed
+    直接返回，不双写。
+    """
+    if confirmed.get("status") not in ("confirmed_pending", "confirmed"):
+        _fail("E_PLAN_NOT_CONFIRMED", "仅 confirm 产物可提交")
+    target = plan_path(root, confirmed["plan_id"], confirmed["revision"])
+    if target.exists():
+        existing = json.loads(target.read_text(encoding="utf-8"))
+        if existing.get("status") == "confirmed":
+            if (existing.get("binding_sha256") != confirmed.get("binding_sha256")
+                    or existing.get("card_ref") != confirmed.get("card_ref")
+                    or existing.get("card_content_sha256") != confirmed.get("card_content_sha256")):
+                _fail("E_PLAN_ALREADY_CONFIRMED", "已有成功计划的绑定或卡不同，须新建 revision")
+            return {"ok": True, "already": True, "plan_path": str(target)}
+    final = dict(confirmed)
+    final["status"] = "confirmed"
+    _atomic_write(target, final)
+    return {"ok": True, "already": False, "plan_path": str(target)}
+
+
+def rollback_uncommitted_confirm(root: Path, confirmed: Dict[str, Any],
+                                 draft_path: Any = None) -> Dict[str, Any]:
+    """R2-AC2：render/authorize 失败时回滚未提交的 confirm 落盘为 draft。
+
+    只回滚本次链路自己写的 pending 态；不删除任何既有成功状态/凭证/票据。
+    """
+    target = plan_path(root, confirmed.get("plan_id"), confirmed.get("revision") or 1)
+    rolled_back = False
+    if target.exists():
+        doc = json.loads(target.read_text(encoding="utf-8"))
+        if (doc.get("status") == "confirmed_pending"
+                and doc.get("binding_sha256") == confirmed.get("binding_sha256")
+                and doc.get("card_ref") == confirmed.get("card_ref")):
+            reverted = dict(doc)
+            reverted["status"] = "draft"
+            reverted["confirm_rolled_back_at"] = _now_ts()
+            _atomic_write(target, reverted)
+            rolled_back = True
+    return {"ok": True, "rolled_back": rolled_back}
 
 
 def load_confirmed(root: Path, plan_id: str, revision: int) -> Dict[str, Any]:

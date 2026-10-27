@@ -58,7 +58,24 @@ class EvidenceModeTest(unittest.TestCase):
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         }
 
-    def write_audit_manifest(self, mode="live", generated_at=None, audit_text=None):
+    def audit_company_rows(self, per_page=((369, 7), (370, 7), (371, 7))):
+        """逐行公司级语义表：每页 10 行，前 matched 行 matched=True（真实逐行对象，非计数空壳）。"""
+        rows = []
+        for page, matched in per_page:
+            for i in range(1, 11):
+                is_match = i <= matched
+                rows.append({
+                    "page": page,
+                    "company_id": f"c-{page}-{i}",
+                    "company_name": f"公司{page}-{i}",
+                    "summary_zh": f"外贸B2B采购帐篷与露营装备{page}-{i}",
+                    "matched": is_match,
+                    "reason": "卖帐篷与露营装备" if is_match else "纯内容站不采购",
+                })
+        return rows
+
+    def write_audit_manifest(self, mode="live", generated_at=None, audit_text=None,
+                             window=True, company_rows=True):
         audit = self.write_evidence(
             "s4-audit.md",
             audit_text or "70% 临界 50页 三页平均 逐页 敏感性\n审计通过\n",
@@ -77,6 +94,30 @@ class EvidenceModeTest(unittest.TestCase):
                 "review": self.evidence_item(review),
             },
         }
+        # 2026-10-27：正式 live 收口必须带完整四件套 + 逐行公司级语义表
+        if window:
+            doc["run_id"] = "run-2026-10-27-evidence"
+            doc["window"] = {
+                "pages": [369, 370, 371],
+                "page_rows": [
+                    {"page": 369, "matched": 7, "total": 10},
+                    {"page": 370, "matched": 7, "total": 10},
+                    {"page": 371, "matched": 7, "total": 10},
+                ],
+                "numerator": 21,
+                "denominator": 30,
+                "method": "连续3页（每页≥50%）滑动平均，所有滑动窗口>=70%，覆盖临界页",
+            }
+            doc["boundary"] = {
+                "critical_page": 371, "result": "above",
+                "next_page": 372, "next_result": "below",
+                "page_rows": [
+                    {"page": 371, "matched": 7, "total": 10},
+                    {"page": 372, "matched": 5, "total": 10},
+                ],
+            }
+        if company_rows:
+            doc["company_rows"] = self.audit_company_rows()
         self.manifest.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
         return doc
 
@@ -186,6 +227,40 @@ class EvidenceModeTest(unittest.TestCase):
         result = self.run_audit()
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn("status: S4", self.record.read_text(encoding="utf-8"))
+
+    # ---- 2026-10-27 审计边界与公司级证据修复 ----
+
+    def test_audit_live_without_window_rejected_even_if_legacy(self):
+        """历史无四件套 manifest：live 收口明确拒绝（不再兼容放行）。"""
+        self.write_record("S3")
+        self.write_audit_manifest(window=False, company_rows=False)
+        before = (self.record.read_bytes(), self.record.stat().st_mtime_ns)
+        result = self.run_audit()
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertIn("缺 window", result.stdout)
+        self.assert_record_unchanged(before)
+
+    def test_audit_live_without_company_rows_rejected(self):
+        """live 收口缺逐行公司级语义表 → exit 2 且 record 不变。"""
+        self.write_record("S3")
+        self.write_audit_manifest(company_rows=False)
+        before = (self.record.read_bytes(), self.record.stat().st_mtime_ns)
+        result = self.run_audit()
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertIn("缺公司级语义表", result.stdout)
+        self.assert_record_unchanged(before)
+
+    def test_audit_live_count_shell_company_rows_rejected(self):
+        """{page,count} 聚合空壳不得充当公司级语义表。"""
+        self.write_record("S3")
+        doc = self.write_audit_manifest(company_rows=False)
+        doc["company_rows"] = [{"page": p, "count": 10} for p in (369, 370, 371)]
+        self.manifest.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+        before = (self.record.read_bytes(), self.record.stat().st_mtime_ns)
+        result = self.run_audit()
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertIn("空壳", result.stdout)
+        self.assert_record_unchanged(before)
 
     def test_clean_live_verification_advances_to_s11_and_allows_test_inactive_text(self):
         self.write_record("S10")

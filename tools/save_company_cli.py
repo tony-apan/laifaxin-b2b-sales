@@ -173,29 +173,73 @@ def _make_render(root: Path, plan: Dict[str, Any], quote: str) -> Dict[str, Any]
     return {"path": str(path), "task": task}
 
 
+def _cmd_present(args: Any) -> int:
+    """确认前持久化保存卡：输出用户可读卡面 + card_ref（不铸票不写平台）。"""
+    root = Path(args.root) if args.root else TOOLS_DIR.parent
+    try:
+        card = planlib.present_card(root, args.plan)
+    except planlib.PlanError as exc:
+        print(json.dumps({"ok": False, "stage": "present", "code": exc.code,
+                          "reason": exc.reason}, ensure_ascii=False))
+        return 2
+    print(json.dumps({"ok": True, "stage": "present",
+                      "card_ref": card["card_ref"],
+                      "content_sha256": card["content_sha256"],
+                      "card_text": card["card_text"],
+                      "card_path": card["card_path"]},
+                     ensure_ascii=False, indent=2))
+    return 0
+
+
 def _cmd_confirm(args: Any) -> int:
     root = Path(args.root) if args.root else TOOLS_DIR.parent
     draft = planlib.load_plan(args.plan)
+    presentation = str(getattr(args, "presentation", "") or "").strip()
+    if not presentation:
+        print(json.dumps({"ok": False, "stage": "confirm", "code": "E_CARD_REQUIRED",
+                          "reason": "确认必须携带 --presentation <card_ref>（present 产出）；"
+                                    "隐式拿最新卡会把旧确认套进新计划"}, ensure_ascii=False))
+        return 2
+    # 验证并暂存 → render → authorize → 最后提交 confirmed。
+    confirmed = None
+    committed = None
     try:
         confirmed = planlib.confirm_plan(root, draft, quote=args.quote,
-                                         quote_ref=args.quote_ref)
+                                         quote_ref=args.quote_ref,
+                                         presentation=presentation)
+        render = _make_render(root, confirmed, args.quote)
+        final_plan = dict(confirmed)
+        final_plan["status"] = "confirmed"
+        issued = auth_guard.authorize_save_plan(
+            "save", args.quote, confirmed["wire_payload"], plan=final_plan,
+            task=render["task"], root=root)
+        if not issued["ok"]:
+            planlib.rollback_uncommitted_confirm(root, confirmed, args.plan)
+            print(json.dumps({"ok": False, "stage": "confirm", "code": issued["code"],
+                              "reason": issued["reason"]}, ensure_ascii=False))
+            return 2
+        committed = planlib.commit_confirmed(root, confirmed)
     except planlib.PlanError as exc:
+        if confirmed is not None:
+            planlib.rollback_uncommitted_confirm(root, confirmed, args.plan)
         print(json.dumps({"ok": False, "stage": "confirm", "code": exc.code,
                           "reason": exc.reason}, ensure_ascii=False))
         return 2
-    render = _make_render(root, confirmed, args.quote)
-    issued = auth_guard.authorize_save_plan(
-        "save", args.quote, confirmed["wire_payload"], plan=confirmed,
-        task=render["task"], root=root)
-    if not issued["ok"]:
-        print(json.dumps({"ok": False, "stage": "confirm", "code": issued["code"],
-                          "reason": issued["reason"]}, ensure_ascii=False))
+    except Exception as exc:  # render/authorize 真实异常同样回滚
+        if confirmed is not None:
+            planlib.rollback_uncommitted_confirm(root, confirmed, args.plan)
+        print(json.dumps({"ok": False, "stage": "confirm",
+                          "code": "E_CONFIRM_CHAIN_FAILED",
+                          "reason": "确认链失败（%s）" % exc},
+                         ensure_ascii=False))
         return 2
     result = {"ok": True, "stage": "confirm",
-              "plan_path": str(planlib.plan_path(root, confirmed["plan_id"], confirmed["revision"])),
+              "plan_path": str((committed or {}).get("plan_path")
+                               or planlib.plan_path(root, confirmed["plan_id"],
+                                                    confirmed["revision"])),
               "render_path": render["path"],
               "ticket_path": issued["ticket_path"], "task_id": render["task"],
-              "authorize_calls": 1}
+              "authorize_calls": 1, "committed": not committed.get("already")}
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
 
@@ -370,7 +414,13 @@ def main(argv: Optional[list] = None) -> int:
     conf.add_argument("--plan", required=True)
     conf.add_argument("--quote", required=True)
     conf.add_argument("--quote-ref", required=True, dest="quote_ref")
+    conf.add_argument("--presentation", default=None,
+                      help="确认引用的保存卡 card_ref（prepare 后 present 产出；必填）")
     conf.set_defaults(func=_cmd_confirm)
+    card = sub.add_parser("present", help="持久化确认前保存卡（card_ref 供 confirm 显式引用）")
+    card.add_argument("--root", default=None)
+    card.add_argument("--plan", required=True)
+    card.set_defaults(func=_cmd_present)
 
     exe = sub.add_parser("execute", help="重验+scope+auth+一次提交")
     exe.add_argument("--token", default=os.environ.get("LFX_TOKEN", ""))

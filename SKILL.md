@@ -4,7 +4,7 @@ title: "来发信 B2B 获客 · Skill 入口（新 AI/新会话第一份加载�
 description: "技能入口：触发路由、前置、状态机判据、铁律与文件地图；细节指向 RULES 与 specs，禁止跳步。"
 type: "entry"
 status: "active"
-updated: "2026-10-26"
+updated: "2026-10-27"
 name: laifaxin-b2b-sales
 version: 0.6.0
 created: 2026-08-30
@@ -29,7 +29,7 @@ audience: AI优先
 - **新用户第一句先问两样**（`output-templates/S0-opening-questions.md` C1：怎么称呼您 + 一句话产品），**不出菜单、不要数字**；拿到后立刻按 specs/beginner-flow.md 第 1 屏输出「6 步全景 + 当前第几步 + 接下来 + 等你回什么 + 约 10 次回话」，之后**每个阶段级汇报**都带三行（不是每句话）。
 - 只有检测到旧项目才展示 `output-templates/S0-task-menu.md`「有旧项目时」4 项。
 - 用户视角只有 6 步 + 最后发信开关；内部 S0-S12 编号不要对用户说（对照表见 beginner-flow 第八节）。
-- 确认一律给编号（1/2/3，1=同意继续放第一）；两个例外：产品资料回「确认」、保存回「确认」（卡面已写清 N 时；也可「确认保存 前 N 家」）；发信激活要求回「确认激活」四个字。
+- 确认一律给编号（1/2/3，1=同意继续放第一）；两个例外：产品资料回「确认」、保存回「确认」或直接回卡上家数（卡面已写清 N 时，纯数字 N=卡面值；也可「确认保存 前 N 家」）；发信激活要求回「确认激活」四个字。
 - 第 4 步写邮件前主动邀请：有以前效果好的开发信可以截图发我（1-5 张），只学结构/语气；产品事实仍取产品档案；提炼结果写 runs/运营方/产品/email-style.md。
 - 踩坑台账：specs/problems-and-fixes-2026-10-23.md（每踩一坑先记账再改规则）。
 - 🛡 **机器强制（开工门）**：拿到昵称+产品后立刻运行 `python3 tools/startup_gate.py ack --nickname <昵称> --product <产品>`（Windows 把 `python3` 换成 `py`）；未登记或必读文档变化时，**所有写操作（保存链 + 建模板/建序列/加人/激活/标签等 16 个写脚本）都会被机器拒绝**，并给用户白话提示；测试进程只由测试标记放行。
@@ -95,7 +95,7 @@ flowchart TD
 | "我有官网 / 这是我们网站 / 产品页 / 产品目录 / 帮我了解公司和产品 / 优化定位" | **可选独立模块** `specs/website-profile-sop.md` → **先按 D1-D4 四类分流**（自己的网址→六区候选+批准才入档；买家网址→只作 S3 起点；第三方参考→只作分析；归属不明→先问一句）→ `tools/website_profile.py` 校验/准备补丁/批准/正式档案单文件原子写入；失败或跳过不阻断 S0/S0a，不修改线上网站；两类网址同时给时各自独立处理 |
 | "先了解完整流程 / 先看看怎么用 / 暂时不操作" | 只用通俗中文解释 README 的新项目流程图、产品适配、确认节点、默认不发信和询盘后人工跟进；**不索取产品/市场/官网/昵称/token，不执行 S0 或任何平台操作**；讲完停下等用户选择任务 |
 | "我这产品适合跑吗 / 大宗 / 长周期 / 好几年才采购" | 只问卖什么（已有就不重复问），按 `specs/product-fit.md` 强/条件/弱三档做只读判断并如实说明预期；不要求昵称或 token，不自动启动新项目 |
-| "这客户/这批准不准" / "临界在哪" | 状态机 S4 → `specs/threshold-method.md`（连续 3 页（每页≥50%）窗口 + AI 语义反思）+ `specs/threshold-probe-spec.md` v3.1（执行细则：连续3页（每页≥50%）滑窗/报告证据分离/四件套契约）+ `tools/audit_company.py`（⚠️仅趋势初筛，不得用 High 比例/单页/页1·2·5 当正式证据）|
+| "这客户/这批准不准" / "临界在哪" | 状态机 S4 → `specs/threshold-method.md`（连续 3 页（每页≥50%）窗口 + AI 语义反思）+ `specs/threshold-probe-spec.md` v3.2（执行细则：连续3页（每页≥50%）滑窗/报告证据分离/四件套契约）+ `tools/audit_company.py`（⚠️仅趋势初筛，不得用 High 比例/单页/页1·2·5 当正式证据）|
 | "怎么才存了这么点 / 邮箱太少 / 数量对不上" | S6 数量账：`output-templates/S6-count-report.md`——四机制（max3/验真/去重/异步提取）逐项解释；**未知邮箱默认已保存**；<1.0 邮箱/家建议查锚点 |
 | "保存这批 / 前 N 条" | 状态机 S5/S6 → V2 保存链 `tools/save_company_cli.py prepare → confirm → execute`（`status/reconcile` 只读对账）；`confirm` 是唯一铸票点，`execute` 必须持同 binding 的 confirmed plan/render/ticket；旧 `save_first_n.py` 已加物理封条（`save_guard.require`，最早可执行位置），但仍非安全边界（可被删封条/伪造模块绕过）；列入禁用清单，禁止再用。无 confirmed plan 不写；用户回数字/选类型只是选类型，不是保存授权 |
 | "写开发信 / 模板 / 预览" | 状态机 S7 → `tools/gen_templates.py --preview`；S8 生成后必跑 `tools/check_template_diff.py`（模板**自动归入同名分组**，禁散落"未指定目录"）|
@@ -241,7 +241,7 @@ flowchart TD
 | 档案（多公司多产品） | `runs/<运营方>/<产品>/`（operation-record/reflection/evidence/**product-profile**/verify-*）+ `runs/_template/` + 本地运行记录（不入 Git）|
 | 问题与教训 | 本地问题登记（`db/issues.tsv`，本地数据不入 Git，open 即待办）/ `lessons/lessons-learned.md`（L-01~L-61；L-44 起为脱敏抽象条目，随库分发）/ `review-cycle.md`（旁观者审查）|
 
-> ⚠️ **执行纪律**：写操作必须带 `--approval <id> --project <operator_key>/<product_key>`；凭证仅 `confirm+confirmed` 可用，并须与工具按实际参数重算的hash一致。modify/pending/backfilled不可授权。S5 另须 confirmed plan/render/ticket 同 binding；菜单/列表数字不等于授权，但保存卡写清家数/邮箱数/额度消耗后，用户回复「确认」（卡面已写清 N 家时）或含家数的原话（如「确认保存 前 2600 家」）都是保存授权；只回「1」不算，卡面数字必须与 plan 一致，纯确认会绑定卡面 N 并留痕 count_bound_by=card。
+> ⚠️ **执行纪律**：写操作必须带 `--approval <id> --project <operator_key>/<product_key>`；凭证仅 `confirm+confirmed` 可用，并须与工具按实际参数重算的hash一致。modify/pending/backfilled不可授权。S5 另须 confirmed plan/render/ticket 同 binding；菜单/列表数字不等于授权，但保存卡写清家数/邮箱数/额度消耗后，用户回复「确认」、直接回卡上家数（纯数字 N=卡面值）或含家数的原话（如「确认保存 前 2600 家」）都是保存授权；confirm 必须携带 present 产出的卡引用（同计划/同 revision/未过期/卡 hash 一致）；卡面数字必须与 plan 一致，纯确认与纯数字都会绑定卡面 N 并留痕 count_bound_by=card，数字≠卡面值须重新 prepare 重发新卡。
 >
 > ⚠️ **写入口纪律（2026-10-21 V2）**：旧 8 个写脚本 + 5 个删库脚本为禁用清单（**除 P6 四个抓包脚本外，`save_first_n`/`contact_add`/`delete_all_products`/`wait_save_done` 也已加物理封条（`save_guard.require`，最早可执行位置）；但仍非安全边界（可被删封条/伪造模块绕过）**，见 RULES 边界声明），禁止再调用；保存只走 `save_company_cli.py` 的 prepare/confirm/execute 计划链，无 confirmed plan 不写；**实际票据分层**：S5 保存=save_guard V2 plan/render/ticket，S10 加人=auth_guard `authorize_write(action="sequence")`，模板/序列/激活=approval.py 审批凭证（S12 另加原话校验），**不是** authorize_write。保存成功按 S6 数量账与 `status/reconcile` 对账汇报；旧 `report_text` 校验约定保留为历史，新链路若返回 render 绑定则按其校验，禁止手写 sha。
 >

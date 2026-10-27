@@ -859,18 +859,33 @@ def authorize_save_plan(action: Any, quote: Any, payload: Any, *,
                      "count=%r 与 selectTotal=%r 不一致" % (count, select_total), root)
     from rule_check import extract_save_count, is_plain_save_confirm  # noqa: WPS433 - 延迟导入避免环
     quoted_count = extract_save_count(quote)
-    if quoted_count is None:
+    # AC1（2026-10-27）：S5 当前展示计划上下文里，纯 ASCII 正整数字符串 N
+    # 也是数量授权（用户明确允许只回数字）；只在 confirmed plan 自带卡面
+    # 绑定（confirm_plan 已验卡）时成立，裸数字仍拒。
+    numeric_n = None
+    if isinstance(quote, str) and re.fullmatch(r"[1-9][0-9]*", quote.strip()):
+        numeric_n = int(quote.strip())
+    card_bound = (plan.get("count_bound_by") == "card"
+                  and plan.get("count_bound_n") == select_total)
+    if quoted_count is None and numeric_n is None:
         # v3（2026-10-27）：卡面已写清 N 家、用户只回「确认」时，
-        # confirmed plan 必须自带卡面绑定（count_bound_by=card 且 count_bound_n=selectTotal），才放行。
-        card_bound = (plan.get("count_bound_by") == "card"
-                      and plan.get("count_bound_n") == select_total
-                      and is_plain_save_confirm(quote))
+        # confirmed plan 必须自带卡面绑定，才放行。
+        plain_bound = card_bound and is_plain_save_confirm(quote)
         # B2：数量歧义/缺失默认拒；例外=卡面绑定，或代词+render.fields 明确对象。
-        if not card_bound and not (_has_pronoun(quote) and _fields_have_object(fields)):
+        if not plain_bound and not (_has_pronoun(quote) and _fields_have_object(fields)):
             return _deny(action, quote, "E_AUTH_COUNT_AMBIGUOUS",
                          "原话未给出可确定的公司数（歧义/缺失），须明确 N 家或给明确对象",
                          root)
-    elif quoted_count != select_total:
+        card_bound = plain_bound
+    elif quoted_count is not None and numeric_n is not None and quoted_count != numeric_n:
+        return _deny(action, quote, "E_AUTH_COUNT_MISMATCH",
+                     "原话同时含带单位数量与裸数字且不一致：%d vs %d" % (quoted_count, numeric_n),
+                     root)
+    elif numeric_n is not None and numeric_n != select_total:
+        return _deny(action, quote, "E_AUTH_COUNT_MISMATCH",
+                     "原话 %d 家与 plan selectTotal=%d 不一致" % (numeric_n, select_total),
+                     root)
+    elif quoted_count is not None and numeric_n is None and quoted_count != select_total:
         return _deny(action, quote, "E_AUTH_COUNT_MISMATCH",
                      "原话 %d 家与 plan selectTotal=%d 不一致" % (quoted_count, select_total),
                      root)

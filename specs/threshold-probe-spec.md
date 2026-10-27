@@ -1,16 +1,16 @@
 ---
-doc_id: "spec-threshold-probe-v31"
-title: "S4-A 临界点探测执行规范 v3.1"
-description: "单判据(连续3页（每页≥50%）滑动平均)、四件套证据契约、封数目标、防偷懒"
+doc_id: "spec-threshold-probe-v32"
+title: "S4-A 临界点探测执行规范 v3.2"
+description: "单判据(连续3页（每页≥50%）滑动平均)、四件套证据契约、公司级语义表机器校验、防偷懒"
 type: "rule"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-27"
 created: "2026-10-22"
-version: "3.1"
-supersedes: ["threshold-probe-spec v1", "v2", "v-final(576行)", "v3(140行)"]
+version: "3.2"
+supersedes: ["threshold-probe-spec v1", "v2", "v-final(576行)", "v3(140行)", "v3.1"]
 ---
 
-# S4-A 临界点探测执行规范 v3.1
+# S4-A 临界点探测执行规范 v3.2
 
 > 依据：RULES.md S4 行；CORE-POINTS.md 铁律 2/4/5、L155；specs/threshold-method.md；tools/finalize_audit.py 契约。
 > **判据主从**：与 threshold-method 冲突时以 threshold-method 为准，本文件只做执行细则。
@@ -21,7 +21,7 @@ supersedes: ["threshold-probe-spec v1", "v2", "v-final(576行)", "v3(140行)"]
 |---|---|
 | 窗口 | **连续 3 页（每页≥50%）滑动平均**（每连续 3 页（每页≥50%）合计 matched/total ≥70%） |
 | 达标带 | **已采样覆盖区**内、从第 1 页起所有连续 3 页（每页≥50%）窗口都 ≥70% 的最长前缀；未采样页标 UNKNOWN，**不得声称全带合格** |
-| **临界页** | **达标带末页** = 首个 <70% 滑动窗口的**前一窗口末页**（= 该窗口起点 + 3；跌破即止，**不取跌破后的反弹窗口**，真源 threshold-method L81-83） |
+| **临界页** | **达标带末页** = 首个 <70% 滑动窗口的**前一窗口末页**（3 页窗口下 = 该窗口起点 + 1；跌破即止，**不取跌破后的反弹窗口**；首个窗口即跌破时无前一实测达标窗口，**不得定界**；真源 threshold-method L81-83） |
 | 单页读数 | 仅作披露与说明，**不得单独定界** |
 
 依据：CORE-POINTS 铁律 2「正式边界用连续 3 页（每页≥50%）滑动平均」。
@@ -69,6 +69,7 @@ filters=[{"property":"country_code","operator":"exclude","value":"","values":["C
 ### 3.3 边界带加密（关键步骤，v3 缺失）
 找到疑似边界后，**在边界处补测至连续 6 页**（相邻两批 3 页，或补 1 批 3 页），逐页得到 matched/total。
 这 6 页用于：① 算所有连续 3 页（每页≥50%）滑动窗口；② 取**首个跌破窗口之前最后一个 ≥70% 窗口的末页**作临界页（从低页往高页扫描，遇首个 <70% 窗口即止；该窗口之后的所有反弹窗口**一律不得定界**，例：371-375=70%、375-379=74% 均为反弹）。
+> 注：6 页是**采样加密策略**，不是收口 manifest 的窗口长度——收口 window 只须 ≥3 页且覆盖临界页（§4.4）；首个窗口即跌破时无前一实测达标窗口，**不得定界**（机器校验拒绝）。
 
 ### 3.4 终止条件（四出口）
 1. **找到边界**：从低页往高页扫描，**首个** <70% 的连续 3 页（每页≥50%）窗口，其前一窗口 ≥70% → 取前一窗口末页为临界页
@@ -80,7 +81,7 @@ filters=[{"property":"country_code","operator":"exclude","value":"","values":["C
 ### 3.5 尾页/空页
 末页 <10 条按实际条数计；窗口需满 3 个有效页，不足 3 页 → UNKNOWN，不得定界；空页与 total 对账后判 UNKNOWN，**不得按 0% 进窗口**
 
-## 4. 输出：四件套（v3.1 按 finalize_audit.py 契约重写）
+## 4. 输出：四件套（v3.2 按 finalize_audit.py 契约重写；含公司级语义表机器校验）
 
 ### 4.1 用户报告（可 emoji，不得作为证据提交）
 列：页 / 抽样家数 / 严谨达标率 / 宽松达标率 / 严谨标记 / 宽松标记
@@ -97,15 +98,18 @@ filters=[{"property":"country_code","operator":"exclude","value":"","values":["C
 - `临界`
 - `敏感性`
 
-**已实测通过的 audit.md 骨架**（date 2026-10-22，check_file 返回空=通过）：
+**已实测通过的 audit.md 骨架**（2026-10-27 按现行 3 页契约自洽改写；旧 5 页骨架见 §10 历史案例）：
 ```
 # S4-A 临界点探测审计证据
 run_id: <run_id>
 口径：真源与历史对照为 50页跳；本版按用户 2026-10-22 指示执行 100 页一跳。判据为连续3页（每页≥50%）滑动平均（三页平均为历史判据，本版不采用）。
 阈值 70% 为达标线。
 | 页 | matched | total |   ← 逐页证据（须覆盖临界页）
-（逐页证据见上表；numerator=36 denominator=50）
-连续3页（每页≥50%）滑动窗口 369-371=70% 达标；370-372=63% 跌破。
+| 369 | 7 | 10 |
+| 370 | 7 | 10 |
+| 371 | 7 | 10 |
+（逐页证据见上表；numerator=21 denominator=30）
+连续3页（每页≥50%）滑动窗口 369-371=70% 达标；370-372=63.3% 跌破。
 临界页 = 371。敏感性：临界页±5页对应池容量 3660-3760 家。
 ```
 review.md 骨架（同样已实测通过）：标题 + `结论：放行` + `P0=0` + `P1=0` + 边界核对一行。
@@ -113,18 +117,31 @@ review.md 骨架（同样已实测通过）：标题 + `结论：放行` + `P0=0
 禁止出现：❌、P0/P1 非零形式、FAILED、测试/占位/mock/stub/todo/未核验 等非实时标记、否定结论词（不放行/未放行/尚未通过）。
 跌破用文字 `below`，达标 `above`，未测 `unknown`。
 
-### 4.2b 公司级语义审计表（强制，缺此项不得收口）
+### 4.2b 公司级语义审计表（强制，机器校验；缺此项不得收口）
 
-`finalize_audit` 只校验窗口数字与字面词，**不校验语义审计**。为符合 RULES:64「AI 语义审计」，audit.md 必须另附逐公司判定表：
+**2026-10-27 起 `finalize_audit` 机器校验公司级语义表**（manifest 的 `company_rows`/`semantic_rows`），
+不再只校验窗口数字与字面词。规范字段（等价字段名 `company_id→companyId/id`、`company_name→companyName/name`、`summary_zh→summaryZh/summary/description_zh`、`matched→is_buyer/will_buy`、`reason→reason_zh/note` 兼容）：
+
+```json
+{"page": 369, "company_id": "c-369-1", "company_name": "Acme Outdoor",
+ "summary_zh": "外贸B2B，批发帐篷与露营装备", "matched": true, "reason": "卖帐篷与露营装备"}
+```
+
+机器校验规则（校验只证明**字段自洽**，不宣称证明 AI 理解或描述真实性）：
+- 必须逐公司一行真实对象；`{page,count}` 聚合空壳与 `{页:条数}` 计数映射**拒绝**
+- 已判定行（matched=true/false）必须有非空 company_id / company_name / summary_zh（中文）/ reason
+- **正负判定一致要中文**（R2 2026-10-27）：matched=true **与** matched=false 的行，summary_zh 都必须含中文——非空英文描述不得作为任何判定行的依据（exit 2）；缺中文描述或身份不全的行只能 `matched: null`（未知），**不得计为匹配**
+- 每页行数必须等于该页 page_rows.total；每页 matched=true 行数必须等于该页 page_rows.matched
+- 重复 company_id、页外行（page 不在 window 页码内）一律拒绝
+
+audit.md 仍须另附人类可读的逐公司判定表（与 manifest 对齐）：
 
 | 页 | 公司 id | 公司名 | 角色 | 客户线 | 会不会买 | 理由(≤20字) |
 |---|---|---|---|---|---|---|
-| 367 | ... | ... | Retailer | 直采 | 是 | 卖帐篷与露营装备 |
+| 369 | c-369-1 | ... | Retailer | 直采 | 是 | 卖帐篷与露营装备 |
 
-约束：
-- 每页行数必须等于该页 `returned` 条数；全表行数 = Σ page_rows.total
 - review.md 必须核对「每页行数 == page_rows.total」并写明
-- 无此表的 audit.md 视为**未做语义审计**，即使 rc=0 也不得进入 S5
+- 缺 company_rows 的 manifest 视为**未做语义审计**，finalize_audit 直接 exit 2，不得进入 S5
 
 ### 4.3 独立审查文件（review.md，禁止 ❌/非实时标记）
 必须包含：`放行`、`P0=0`、`P1=0`（工具校验），并逐项核对边界块。
@@ -141,26 +158,28 @@ review.md 骨架（同样已实测通过）：标题 + `结论：放行` + `P0=0
   "source_ref": {"keyword": "...", "filters": ["CN","TW","HK","MO"], "pageSize": 10, "queryIds": ["..."]},
   "query_scope": {"keyword": "...", "filters": "...", "logic": "and", "sort": "..."},
   "window": {
-    "pages": [367,368,369,370,371],
-    "numerator": 36,
-    "denominator": 50,
+    "pages": [369,370,371],
+    "numerator": 21,
+    "denominator": 30,
     "method": "连续3页（每页≥50%）滑动平均，所有滑动窗口>=70%，覆盖临界页",
     "page_rows": [
-      {"page":367,"matched":9,"total":10},
-      {"page":368,"matched":6,"total":10},
-      {"page":369,"matched":8,"total":10},
-      {"page":370,"matched":8,"total":10},
-      {"page":371,"matched":5,"total":10}
+      {"page":369,"matched":7,"total":10},
+      {"page":370,"matched":7,"total":10},
+      {"page":371,"matched":7,"total":10}
     ]
   },
-  "boundary": {"critical_page": 371, "result": "above", "next_page": 372, "next_result": "below", "page_rows": [{"page":371,"matched":5,"total":10},{"page":372,"matched":5,"total":10}]},
+  "boundary": {"critical_page": 371, "result": "above", "next_page": 372, "next_result": "below", "page_rows": [{"page":371,"matched":7,"total":10},{"page":372,"matched":5,"total":10}]},
+  "company_rows": [
+    {"page":369,"company_id":"c-369-1","company_name":"公司369-1","summary_zh":"外贸B2B采购帐篷与露营装备369-1","matched":true,"reason":"卖帐篷与露营装备"},
+    {"page":369,"company_id":"c-369-2","company_name":"公司369-2","summary_zh":"外贸B2B采购帐篷与露营装备369-2","matched":false,"reason":"纯内容站不采购"}
+  ],
   "evidence": {
     "audit":  {"status":"pass", "path":"audit.md",  "sha256":"<file sha256>"},
     "review": {"status":"pass", "path":"review.md", "sha256":"<file sha256>"}
   }
 }
 ```
-约束：pages 必须连续整数步长 1 且 ≥3；page_rows 与 pages 等长且 page 对齐；numerator/denominator 必须等于 page_rows 合计；**所有**连续 3 页（每页≥50%）窗口 ≥70%；numerator*10 ≥ denominator*7。
+约束：pages 必须连续整数步长 1 且 ≥3；page_rows 与 pages 等长且 page 对齐；numerator/denominator 必须等于 page_rows 合计；**所有**连续 3 页（每页≥50%）窗口 ≥70%；numerator*10 ≥ denominator*7。**critical_page 口径（2026-10-27）**：有跌破时 = 首个 <70% 窗口起点+1（前一实测达标窗口末页），首个窗口即跌破（无前一实测达标窗口）时不得定界；无跌破时只认最后一个完整实测窗口末页，不得无依据前移（旧「末页-1」写法已删除）。缺 window 或缺 company_rows（逐行语义表）均 exit 2；历史无四件套 manifest 不再兼容放行。company_rows 逐行规范与校验规则见 §4.2b。
 
 ## 5. 本步骤边界（**不涉及邮箱/点数**）
 
@@ -218,7 +237,7 @@ S4-A **只产出两样东西**：
 ## 9. UNKNOWN 清单
 跨会话页码稳定性；本 org 的 e 与 p；380 页单页 70% 属边界值；「有独立站」判断（字段缺失）。
 
-## 10. 实测记录（**混合 run：粗筛来自早期批次，366–380 来自重测；非单轮 live。正式 S4 收口须按 §3 重跑一次 ≤60 次单轮**）
+## 10. 实测记录（**历史案例，数字保留原始值不改写**；混合 run：粗筛来自早期批次，366–380 来自重测；非单轮 live。正式 S4 收口须按 §3 重跑一次 ≤60 次单轮。本节页码为 5 页窗口时期的写法示例，仅作多页实测参考，**现行收口契约以 §4.4 的 3 页自洽示例为准**）
 
 - 3 页粗筛段（每段 30 家，**宽口径批次，与严谨列不同源，仅参考**）：100=97% 200=87% 300=83% 400=93% 500=90% 600=93% 700=90% 800=80% 900=80%
 - 页级 matched/10（严谨）：366=8 367=9 368=6 369=8 370=8 371=5 372=5 373=6 374=9 375=10 376=8 377=8 378=5 379=6 380=7

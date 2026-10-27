@@ -2,22 +2,30 @@
 # -*- coding: utf-8 -*-
 """S4 审计收口：审计证据+对抗审查均存在且通过后，推进 operation-record 到 S4。
 
-★审计窗口机器校验（2026-10-23 P0 修复）：在写 finalized 产物（record → S4）之前，
-除字面词 + 文件 hash 门禁外，再按 specs/threshold-probe-spec.md §4.4 四件套契约校验
-audit-manifest.json 的 window（并读取 boundary 的逐页数据）：
+★审计窗口机器校验（2026-10-27 审计边界与公司级证据修复）：在写 finalized 产物
+（record → S4）之前，除字面词 + 文件 hash 门禁外，再按 specs/threshold-probe-spec.md
+§4.4 四件套契约校验 audit-manifest.json 的 window / boundary / 公司级语义表：
 
   1. window 必须有逐页数据 page_rows（兼容 rows / pages 为 {page,matched,total} 列表的写法）；
-  2. pages 必须是连续页（页码 +1 递增；从第 1 页起时取最长连续前缀，断页后的尾段不参与核验）；
-  3. 每个连续 5 页窗口 matched 之和 / total 之和 ≥ 70%（total 按实际返回数，尾页不足 10 条时照实计算）；
-  4. critical_page = 首个 <70% 窗口起点 + 3（即该窗口末页 = 前一达标窗口末页）；
-     没有跌破窗口时，critical_page 取最后一个完整 5 页窗口末页（兼容页面末页 -1 写法）；
-  5. 每页 page_rows 须含 page/matched/total 且 matched ≤ total，numerator/denominator 与逐页合计一致；
-  6. 可选公司级语义表（company_rows / semantic_rows）行数须与 page_rows.total 对齐。
+     窗口长度 = WINDOW_SIZE（现行 3 页）；空页、不足 3 页、页码不连续均失败；
+  2. 三页合计 matched/total ≥ 70% 且每页 ≥ 50%（total 按实际返回数，尾页不足 10 条照实计）；
+  3. critical_page：有跌破时 = 首个 <70% 窗口起点 + WINDOW_SIZE - 2（前一实测达标窗口末页），
+     且首个窗口即跌破（无前一实测达标窗口）时不得定界；无跌破时只认最后一个完整实测
+     窗口末页，不得无依据前移（旧「末页-1 兼容」已删除）；
+  4. 每页 page_rows 须含 page/matched/total 且 matched ≤ total，numerator/denominator 与逐页合计一致；
+  5. 公司级语义表（manifest.company_rows / semantic_rows）为正式 live 收口必需：
+     必须是逐行真实对象 [{page, company_id, company_name, summary_zh, matched, reason}, ...]
+     （等价字段名见 SEMANTIC_FIELD_ALIASES），拒绝 {page,count} 聚合空壳与 {页:条数} 计数映射；
+     已判定行（matched=true/false）必须有非空公司 id/名称/中文描述/理由；
+     缺中文或身份行只能 matched=null（未知），不得计为匹配；
+     每页 total 行数与 matched=true 行数必须与 page_rows 重算相等；
+     重复 company_id、页外行一律拒绝。该校验只证明字段自洽，不宣称证明 AI 理解或真实性。
 
 校验失败：打印中文原因并 exit 2（不写 record、不抛 traceback）。
-兼容说明：window 与四件套其余字段（run_id/source_ref/query_scope/boundary）全缺的历史
-manifest 按兼容模式放行并打印告警；一旦 manifest 声明了其中任一字段，缺 window 即 exit 2。
-"""
+兼容边界（2026-10-27 收紧）：正式 live 收口必须带完整 window 四件套与逐行公司级语义表，
+历史无四件套 manifest 一律拒绝（不再兼容放行）；只读离线历史诊断请另行使用，不得借道本 CLI
+推进 live。""",
+
 
 def _utf8_stdout():
     """Windows 控制台/管道默认 GBK：输出 emoji 会抛 UnicodeEncodeError；显式改 UTF-8。"""
@@ -130,33 +138,78 @@ def _window_ratios(rows, size=WINDOW_SIZE):
     return stats
 
 
-def _semantic_counts(semantic):
-    """解析可选公司级语义表：列表（逐条带 page，或用 count 聚合）或 {页: 条数/行列表}。"""
-    errors, counts = [], {}
-    if isinstance(semantic, list):
-        for index, item in enumerate(semantic, 1):
-            if not isinstance(item, dict) or "page" not in item:
-                errors.append(f"公司级语义表第{index}条缺 page（须逐条带页号）")
-                continue
-            page = item.get("page")
-            count = item.get("count")
-            if count is None:
-                counts[page] = counts.get(page, 0) + 1
-            elif _is_int(count):
-                counts[page] = counts.get(page, 0) + count
-            else:
-                errors.append(f"公司级语义表第{page}页 count 须为整数")
-    elif isinstance(semantic, dict):
-        for page, value in semantic.items():
-            if isinstance(value, list):
-                counts[page] = len(value)
-            elif _is_int(value):
-                counts[page] = value
-            else:
-                errors.append(f"公司级语义表第{page}页条数无法识别（须为整数或行列表）")
-    else:
-        errors.append("公司级语义表字段须为列表或 {页:条数} 对象")
-    return counts, errors
+SEMANTIC_FIELD_ALIASES = {
+    "page": ("page",),
+    "company_id": ("company_id", "companyId", "id"),
+    "company_name": ("company_name", "companyName", "name"),
+    "summary_zh": ("summary_zh", "summaryZh", "summary", "description_zh"),
+    "matched": ("matched", "is_buyer", "will_buy"),
+    "reason": ("reason", "reason_zh", "note"),
+}
+
+
+def _semantic_field(row, field):
+    for key in SEMANTIC_FIELD_ALIASES[field]:
+        if key in row:
+            return row[key]
+    return None
+
+
+def _semantic_rows(semantic):
+    """校验公司级语义表为逐行真实对象，拒绝 {page,count} 空壳与计数映射。
+
+    返回 (rows, errors)：rows = [{page, company_id, company_name, summary_zh,
+    matched, reason}]（matched: True/False/None）。
+    """
+    errors = []
+    if not isinstance(semantic, list):
+        return None, ["公司级语义表须为逐行对象列表（每页每公司一行）"]
+    rows, seen_ids = [], {}
+    pages = set()
+    for index, item in enumerate(semantic, 1):
+        label = f"公司级语义表第{index}行"
+        if not isinstance(item, dict):
+            errors.append(f"{label}不是对象（须为逐行对象，非计数）")
+            continue
+        page = _semantic_field(item, "page")
+        if not _is_int(page) or page < 1:
+            errors.append(f"{label}缺 page 或页码无效（须为 ≥1 整数）")
+            continue
+        pages.add(page)
+        cid = str(_semantic_field(item, "company_id") or "").strip()
+        cname = str(_semantic_field(item, "company_name") or "").strip()
+        summary = str(_semantic_field(item, "summary_zh") or "").strip()
+        matched = _semantic_field(item, "matched")
+        reason = str(_semantic_field(item, "reason") or "").strip()
+        if "count" in item and "matched" not in item:
+            errors.append(f"{label}是 {{page,count}} 聚合空壳：语义表必须逐公司一行，"
+                          "不得用计数冒充逐行证据")
+            continue
+        if matched is not None and not isinstance(matched, bool):
+            errors.append(f"{label} matched 只能为 true/false/null（未知）")
+            continue
+        if matched is not None and not (cid and cname and summary and reason):
+            errors.append(f"{label}已判定（matched={str(matched).lower()}）但公司 id/名称/"
+                          "中文描述/理由有空缺：缺中文或身份行只能 matched=null（未知），"
+                          "不得强判")
+            continue
+        if matched is None and not reason:
+            errors.append(f"{label} matched=null（未知）必须给 reason 说明（如缺中文描述）")
+            continue
+        if matched is not None and summary and not re.search(r"[\u4e00-\u9fff]", summary):
+            errors.append(f"{label} summary_zh 非中文：正负判定（matched={str(matched).lower()}）"
+                          "都必须以平台返回的中文公司描述为依据，英文描述不得作为判定行依据")
+            continue
+        if cid and cid in seen_ids:
+            errors.append(f"{label} company_id={cid} 与第{seen_ids[cid]}行重复（重复 id 拒绝）")
+            continue
+        if cid:
+            seen_ids[cid] = index
+        rows.append({"page": page, "company_id": cid, "company_name": cname,
+                     "summary_zh": summary, "matched": matched, "reason": reason})
+    if not errors and not rows:
+        errors.append("公司级语义表为空：每页每公司须一行（行数 = Σ page_rows.total）")
+    return rows, errors
 
 
 SOURCE_LINEAGE_FIELDS = ("platform_product_id", "generation_id", "segment_id", "keyword")
@@ -182,18 +235,15 @@ def validate_audit_window(manifest):
     errors, warnings = [], []
     window = manifest.get("window")
     if not isinstance(window, dict):
-        if any(key in manifest for key in CONTRACT_KEYS):
-            errors.append("缺 window：manifest 已声明四件套其他字段，必须给出 window"
-                          "（pages/page_rows/numerator/denominator），否则无法核验连续5页窗口与临界页")
-        else:
-            warnings.append("audit manifest 未提供 window 四件套（window/run_id/source_ref/query_scope/boundary 均缺）："
-                            "本次按历史兼容模式放行，窗口与临界页未做机器核验，不得声称已核验。")
+        errors.append("缺 window：正式 live 收口必须给出 window 四件套"
+                      "（pages/page_rows/numerator/denominator），否则无法核验连续3页窗口与临界页；"
+                      "历史无四件套 manifest 不再兼容放行（2026-10-27 收紧）")
         return errors, warnings
 
     raw_rows, rows_label = _pick_rows(window, "window")
     if raw_rows is None:
         errors.append("window 缺逐页数据：须提供 page_rows（或 rows）[{page,matched,total}]，"
-                      "否则无法核验连续5页窗口")
+                      "否则无法核验连续{WINDOW_SIZE}页窗口")
         return errors, warnings
     rows, row_errors = _normalize_rows(raw_rows, rows_label)
     errors.extend(row_errors)
@@ -219,7 +269,8 @@ def validate_audit_window(manifest):
         pages = row_pages
 
     if len(pages) < WINDOW_SIZE:
-        errors.append(f"window.pages 仅 {len(pages)} 页，连续 5 页滑动窗口至少要 5 页")
+        errors.append(f"window.pages 仅 {len(pages)} 页，连续 {WINDOW_SIZE} 页滑动窗口至少要 {WINDOW_SIZE} 页"
+                      f"（空页/不足{WINDOW_SIZE}页不得定界）")
         return errors, warnings
 
     prefix = _contiguous_prefix(pages)
@@ -230,7 +281,7 @@ def validate_audit_window(manifest):
         pages = prefix
         rows = rows[:len(prefix)]
         if len(pages) < WINDOW_SIZE:
-            errors.append(f"第1页起最长连续前缀仅 {len(pages)} 页，不足 5 页无法核验窗口")
+            errors.append(f"第1页起最长连续前缀仅 {len(pages)} 页，不足 {WINDOW_SIZE} 页无法核验窗口")
             return errors, warnings
     elif len(prefix) != len(pages):
         errors.append(f"window.pages 非连续：第{prefix[-1]}页后跳到第{pages[len(prefix)]}页（页码须 +1 递增）")
@@ -256,10 +307,10 @@ def validate_audit_window(manifest):
         page_ratio = row["matched"] * 100.0 / row["total"] if row["total"] else 0.0
         if page_ratio < WINDOW_PAGE_FLOOR:
             errors.append(f"第{row['page']}页达标率 {page_ratio:.1f}% < {WINDOW_PAGE_FLOOR}%"
-                          f"（3 页窗口的单页下限）：单页崩盘不能靠窗口平均掩盖")
+                          f"（{WINDOW_SIZE} 页窗口的单页下限）：单页崩盘不能靠窗口平均掩盖")
     for stat in _window_ratios(rows):
         if stat["ratio"] < WINDOW_THRESHOLD:
-            errors.append(f"连续5页窗口 {stat['start']}–{stat['end']} 达标率 {stat['ratio']:.1f}% < "
+            errors.append(f"连续{WINDOW_SIZE}页窗口 {stat['start']}–{stat['end']} 达标率 {stat['ratio']:.1f}% < "
                           f"{WINDOW_THRESHOLD}%（matched={stat['matched']}，total={stat['total']}）：审计窗口不达标")
 
     boundary = manifest.get("boundary")
@@ -297,38 +348,64 @@ def validate_audit_window(manifest):
         while end + 1 < len(ordered) and ordered[end + 1] == ordered[end] + 1:
             end += 1
         run_rows = [timeline[page] for page in ordered[start:end + 1]]
-        first_drop = next((stat for stat in _window_ratios(run_rows) if stat["ratio"] < WINDOW_THRESHOLD), None)
+        window_stats = _window_ratios(run_rows)
+        first_drop = next((stat for stat in window_stats if stat["ratio"] < WINDOW_THRESHOLD), None)
         if first_drop is not None:
-            expected = first_drop["start"] + WINDOW_SIZE - 2
-            if critical != expected:
-                errors.append(
-                    f"critical_page={critical} 与窗口证据不符：首个<70%窗口 "
-                    f"{first_drop['start']}–{first_drop['end']}（{first_drop['matched']}/{first_drop['total']}"
-                    f"={first_drop['ratio']:.1f}%）要求 critical_page={expected}（该窗口起点+3=前一达标窗口末页）")
+            drop_index = window_stats.index(first_drop)
+            if drop_index == 0:
+                errors.append(f"首个连续{WINDOW_SIZE}页窗口 {first_drop['start']}–{first_drop['end']} 即 <70%"
+                              f"（{first_drop['matched']}/{first_drop['total']}={first_drop['ratio']:.1f}%）："
+                              "无前一实测达标窗口，不能定界（critical_page 无依据）")
+            else:
+                expected = first_drop["start"] + WINDOW_SIZE - 2
+                if critical != expected:
+                    errors.append(
+                        f"critical_page={critical} 与窗口证据不符：首个<70%窗口 "
+                        f"{first_drop['start']}–{first_drop['end']}（{first_drop['matched']}/{first_drop['total']}"
+                        f"={first_drop['ratio']:.1f}%）要求 critical_page={expected}"
+                        f"（该窗口起点+{WINDOW_SIZE - 2}=前一实测达标窗口末页）")
         else:
-            valid = {pages[-1]}
-            if len(pages) >= WINDOW_SIZE + 1:
-                valid.add(pages[-1] - 1)  # 兼容「pages 末页 -1」写法（6 页样本的两窗口末页均合法）
-            if critical not in valid:
-                errors.append(f"critical_page={critical} 与窗口证据不符：无<70%跌破窗口时须取"
-                              f"最后一个完整5页窗口末页（{pages[-1]}）")
+            if critical != pages[-1]:
+                errors.append(f"critical_page={critical} 与窗口证据不符：无<70%跌破窗口时只认"
+                              f"最后一个完整实测窗口末页（{pages[-1]}），不得无依据前移")
 
     semantic = manifest.get("company_rows", manifest.get("semantic_rows"))
     if semantic is None:
         semantic = window.get("company_rows", window.get("semantic_rows"))
-    if semantic is not None:
-        counts, semantic_errors = _semantic_counts(semantic)
-        errors.extend(semantic_errors)
-        if not semantic_errors:
-            totals = {row["page"]: row["total"] for row in rows}
-            for page, total in totals.items():
-                actual = counts.get(page)
-                if actual is None:
-                    actual = counts.get(str(page))
-                if actual is None:
-                    errors.append(f"公司级语义表缺第{page}页行（page_rows.total={total}）")
-                elif actual != total:
-                    errors.append(f"公司级语义表第{page}页行数={actual} 与 page_rows.total={total} 不一致")
+    if semantic is None:
+        errors.append("缺公司级语义表：正式 live 收口必须提供逐行公司级语义表"
+                      "（company_rows=[{page,company_id,company_name,summary_zh,matched,reason}]），"
+                      "不得只交窗口计数")
+        return errors, warnings
+    semantic_rows, semantic_errors = _semantic_rows(semantic)
+    errors.extend(semantic_errors)
+    if semantic_errors:
+        return errors, warnings
+    totals = {row["page"]: row["total"] for row in rows}
+    matched_declared = {row["page"]: row["matched"] for row in rows}
+    page_rows_actual = {}
+    matched_actual = {}
+    offpage = []
+    for row in semantic_rows:
+        page = row["page"]
+        if page not in totals:
+            offpage.append(row)
+            continue
+        page_rows_actual[page] = page_rows_actual.get(page, 0) + 1
+        if row["matched"] is True:
+            matched_actual[page] = matched_actual.get(page, 0) + 1
+    if offpage:
+        first = offpage[0]
+        errors.append(f"公司级语义表存在页外行（如 page={first['page']}，不在 window 页码内）：页外行拒绝")
+    for page, total in totals.items():
+        actual = page_rows_actual.get(page, 0)
+        if actual != total:
+            errors.append(f"公司级语义表第{page}页行数={actual} 与 page_rows.total={total} 不一致")
+        matched_exp = matched_declared[page]
+        matched_got = matched_actual.get(page, 0)
+        if matched_got != matched_exp:
+            errors.append(f"公司级语义表第{page}页 matched=true 行数={matched_got} "
+                          f"与 page_rows.matched={matched_exp} 不一致")
     return errors, warnings
 
 
@@ -377,7 +454,7 @@ def main():
         if age.total_seconds() < -300 or age.total_seconds() > 72 * 3600: raise ValueError("超过72小时或来自未来")
     except Exception as exc:
         print(f"❌ audit manifest时间无效/过期: {exc}"); return 2
-    # ★P0：写 finalized 产物前先做窗口机器校验（连续页 / 连续5页≥70% / 临界页公式 / page_rows 对齐）
+    # ★P0：写 finalized 产物前先做窗口机器校验（连续页 / 连续{WINDOW_SIZE}页≥70% / 临界页公式 / page_rows 对齐）
     window_errors, window_warnings = validate_audit_window(manifest)
     for warning in window_warnings:
         print("⚠️ " + warning)
@@ -386,7 +463,8 @@ def main():
             print("❌ 审计窗口校验失败: " + error)
         return 2
     errors = []
-    for key, label, words in (("audit", "审计证据", ("70%", "逐页")),  # 2026-10-23 三审H：现行口径=100页跳/连续5页窗口（validate_audit_window 已校验），旧「50页/三页平均/临界」不再作必需项
+    # 2026-10-23 三审H（历史注记：当时口径为 5 页窗口；2026-10-27 v3 起现行口径=3 页窗口，见 WINDOW_SIZE）
+    for key, label, words in (("audit", "审计证据", ("70%", "逐页")),
                               ("review", "对抗审查", ("放行", "P0=0", "P1=0"))):
         item = (manifest.get("evidence") or {}).get(key)
         if not isinstance(item, dict) or item.get("status") != "pass": errors.append(label + " manifest非pass"); continue

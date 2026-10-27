@@ -4,7 +4,7 @@ title: "新用户全流程·逐模块逻辑与流程图（唯一索引）"
 description: "安装完成→开工门→6步主线→5个写闸门→激活的完整逻辑；每模块含 Mermaid 源码、输入/动作/判定/失败出口/用户回什么/可跳规则。"
 type: "spec"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-27"
 created: 2026-10-23
 author: "AI + 用户对抗"
 tags: [流程图, mermaid, 逐模块逻辑, 跳步规则, 70%临界]
@@ -13,7 +13,7 @@ audience: 人+AI
 
 # 🗺️ 新用户全流程·逐模块逻辑（唯一索引）
 
-> **真源优先级**：状态机=S0–S12 编号以 `RULES.md` 为准；临界判据以 `specs/threshold-probe-spec.md` v3.1 为准；本文件=把两者与各模板串成「每步读哪份文档、怎么判、失败去哪、能不能跳」。
+> **真源优先级**：状态机=S0–S12 编号以 `RULES.md` 为准；临界判据以 `specs/threshold-probe-spec.md` v3.2 为准；本文件=把两者与各模板串成「每步读哪份文档、怎么判、失败去哪、能不能跳」。
 > **本文件供 AI 读 Mermaid 源码文本**，不放任何 `output-templates/`（那些是给用户看的屏，禁止出现 Mermaid）。
 
 ## 0. 70% 的唯一适用范围（★先看这条）
@@ -122,7 +122,7 @@ flowchart LR
 - **可跳**：❌ 不可跳（无种子=无法审计）。
 
 ### M7 审计与临界（S4）★70% 唯一出处
-- **读**：`specs/threshold-method.md`（方法论 v2）、`specs/threshold-probe-spec.md`（v3.1 执行细则，冲突以此为准）、`output-templates/S4-audit-running.md`、`tools/audit_company.py`、`tools/finalize_audit.py`。
+- **读**：`specs/threshold-method.md`（方法论 v2）、`specs/threshold-probe-spec.md`（v3.2 执行细则，冲突以此为准）、`output-templates/S4-audit-running.md`、`tools/audit_company.py`、`tools/finalize_audit.py`。
 - **动作**：100 页跳 → 前后 3 页 → 连续 3 页（每页≥50%）滑动窗口 → 跌破即停往前 → 窗口二分 → 临界页。
 - **判定**：唯一判据=3 页窗口 ≥70%；单页只披露；未采样=UNKNOWN；**不得用 High 比例/搜索分数/页1·2·5抽样替代窗口证据**。
 - **失败**：证据非 live / 有模拟标记 / 审查未放行 → 禁止推进 S4→S5。
@@ -133,7 +133,7 @@ flowchart TD
   A["1 → 101 → 201 …（100页跳）"] --> B["下降带附近看前后3页"]
   B --> C["连续3页（每页≥50%）窗口 matched/total ≥70% ?"]
   C -- "≥70%" --> D["达标带继续往后"] --> C
-  C -- "<70%（首跌）" --> E["停：临界页 = 前一窗口末页（窗口起点+3）"]
+  C -- "<70%（首跌）" --> E["停：临界页 = 首个跌破窗口的前一实测达标窗口末页（3 页窗口下为跌破窗口起点+1）"]
   E --> F["在 [最后≥70窗口, 首个<70窗口] 二分<br/>步长 100→50→25→10→5→1"]
   F --> G{"相邻窗口一上一下？"}
   G -- "是" --> H["定临界页 → 保存前 N 页"]
@@ -220,4 +220,4 @@ flowchart LR
 ## 5. 修订记录
 
 - **2026-10-23**：新建本文件；统一「100 页跳 + 前后 3 页 + 3 页滑动窗口 + 跌破往前 + 窗口二分」为 S4 唯一流程；明确 70% 不适用于客群推演；把 S6/S7 合成一次确认；补全 12 模块的输入/动作/判定/失败/可跳。
-- 待同步：`RULES.md` 与 `INDEX.md` 中仍写「50 页跳」的两处，本文件与 threshold-probe-spec v3.1 均按 **100 页跳** 执行。
+- 待同步：`RULES.md` 与 `INDEX.md` 中仍写「50 页跳」的两处，本文件与 threshold-probe-spec v3.2 均按 **100 页跳** 执行。
