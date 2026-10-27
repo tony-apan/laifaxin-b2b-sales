@@ -50,6 +50,51 @@ class DemoResidualTest(unittest.TestCase):
         self.assertNotIn("只回「1」我不动手", section)
 
 
+class AgentEntrySummaryTest(unittest.TestCase):
+    def test_entry_node_preserves_graph_and_branch_choices(self):
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        graph = re.search(r"```mermaid\n(.*?)```", agents, re.S).group(1)
+        node = re.search(r'A\(\[安装完成\]\) --> B\["(.*?)"\]', graph).group(1)
+        self.assertIn("B --> V{", graph)
+        for phrase in ("找海外买家", "写开发信", "排跟进", "回 1", "回 2", "复用", "换账号", "自动连接", "两行"):
+            self.assertIn(phrase, node)
+        for banned in ("激活", "回复不会自动停", "额度", "不菜单", "不数字"):
+            self.assertNotIn(banned, node)
+        self.assertIn("有人回复不自动停", graph.split("B --> V", 1)[1])
+        self.assertRegex(graph, r'V -- "通过" --> Q\["[^"\n]*昵称[^"\n]*产品[^"\n]*已提供[^"\n]*"\] --> R\["[^"\n]*登记开工必读[^"\n]*"\] --> G\{')
+        self.assertRegex(graph, r'V -- "未通过" --> VF\{"[^"\n]*原因[^"\n]*"\}')
+        self.assertRegex(graph, r'VF -- "契约允许重试且尚有次数" --> VR\["[^"\n]*"\] --> V')
+        self.assertRegex(graph, r'VF -- "不可自动处理/需确认/未知/次数用尽" --> VS\(\["[^"\n]*停止[^"\n]*唯一下一步[^"\n]*"\]\)')
+        self.assertNotRegex(graph, r'(?m)^\s*VS\s*--')
+        self.assertNotRegex(graph, r'V -- "未通过"[^\n]*--> Q')
+        self.assertRegex(graph, r'G -- "否" --> GX\["[^"\n]*"\] --> Q')
+        self.assertRegex(graph, r'G -- "是" --> C\[')
+        self.assertNotRegex(graph, r'G -- "否"[^\n]*--> B')
+
+    def test_step_three_waits_for_choice_and_checks_session(self):
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        step = re.search(r"(?m)^3\. (.*)$", agents).group(1)
+        for phrase in ("只读探测", "S0-install-report.md", "回 1", "回 2", "用户选择", "实际校验", "连接成功前不问昵称和产品"):
+            self.assertIn(phrase, step)
+        self.assertLess(step.index("回 1"), step.index("用户选择"))
+        self.assertLess(step.index("用户选择"), step.index("实际校验"))
+
+
+    def test_other_entries_describe_branch_choice(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        entry = next(line for line in skill.splitlines() if line.startswith("- **新用户第一业务动作"))
+        for phrase in ("只读探测", "回 1", "回 2", "用户选择", "实际校验", "连接成功后"):
+            self.assertIn(phrase, entry)
+        self.assertNotIn("人工复制仅环境故障兜底", entry)
+        self.assertLess(entry.index("回 1"), entry.index("用户选择"))
+        start = (ROOT / "START-HERE.md").read_text(encoding="utf-8")
+        choice = next(line for line in start.splitlines() if line.startswith("0. "))
+        for phrase in ("回 1", "回 2", "检测分支", "继续", "换账号", "不扣点"):
+            self.assertIn(phrase, choice)
+        for banned in ("电脑开不了浏览器", "账户钥匙"):
+            self.assertNotIn(banned, choice)
+
+
 class InstallScreenSingleSourceTest(unittest.TestCase):
     def test_first_screen_is_byte_identical(self):
         flow = (ROOT / "specs" / "beginner-flow.md").read_text(encoding="utf-8")
