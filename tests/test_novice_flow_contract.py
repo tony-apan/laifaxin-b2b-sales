@@ -54,10 +54,18 @@ class InstallScreenShortAndBranchTest(unittest.TestCase):
     def setUp(self):
         self.block = _blocks("S0-install-report.md")[0]
 
-    def test_screen_is_at_most_six_lines(self):
+    def test_screen_is_short_and_uses_list_markers(self):
         lines = [l for l in self.block.strip().splitlines() if l.strip()]
-        self.assertLessEqual(len(lines), 6,
-                             "第 0 屏超过 6 行（新用户会懵）：%d 行" % len(lines))
+        self.assertLessEqual(len(lines), 8,
+                             "第 0 屏超过 8 行（新用户会懵）：%d 行" % len(lines))
+        # Markdown 会把「单个换行」渲染成空格：连续正文行在真实界面里会糊成一段。
+        # 所以要点必须用 • 起行（渲染器一定逐行显示），数量 ≥4。
+        bullets = [l for l in lines if l.startswith("• ")]
+        self.assertGreaterEqual(
+            len(bullets), 4,
+            "第 0 屏要点必须用 • 起行（否则 Markdown 软换行会糊成一段）：%r" % bullets)
+        for line in lines:
+            self.assertLessEqual(len(line), 46, "第 0 屏单行过长（%d 字）：%s" % (len(line), line))
 
     def test_screen_offers_exactly_two_options(self):
         self.assertIn("回 1", self.block, "第 0 屏必须给回 1")
