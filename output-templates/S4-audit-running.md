@@ -4,7 +4,7 @@ title: "S4 审计进行中（过程话术）"
 description: "审计过程话术：逐批播报进度与语义反思，长耗时环节安抚用户时用。"
 type: "template"
 status: "active"
-updated: "2026-10-27"
+updated: "2026-10-23"
 ---
 
 # S4 审计进行中（过程话术）
@@ -27,6 +27,7 @@ updated: "2026-10-27"
 - 100页跳→前后3页→连续3页（每页≥50%）滑动窗口→跌破往前；临界=首个<70%窗口的前一窗口末页（细则=threshold-probe-spec v3.2）；判定=AI 语义反思"会不会买"，不是关键词匹配
 - **★审计只读中文描述（2026-10-25 收口）**：`audit_company.py` 已强制语义模式，`--match-words/--mode` 不再参与判定；AI 必须先读每条的“中文描述”，直接判断是不是本产品潜在买家。缺中文的条目明确标记“无法据此判断”，不得拿英文摘要顶替。
 - **★按客群客户线审计（铁律 7d）**：标题写「<客群名>（第 i/K 批）」；匹配率以**本客群客户线**为分子（threshold-method §一 计数规则）——如批发商档只把直采线渠道商计入该池，OEM/拓品线索单列计数、不进本池保存范围（同节 边界裁决）。多客群分批时每批独立审计，禁止跨客群混算
+- **★一页公司全明细报告**：需要给用户看某页（候选页/临界页）完整明细时，用 `tools/company_page_report.py`：`collect --keyword "<query_en 长句>" --page <N> --credentials-stdin --out <来源.json>` 取单页列表+逐家真实官网（原始 id→详情接口，不猜域名），AI 逐行读 summary_zh 写判定 JSON（绑定 source_sha256、逐行 company_id、中文理由与建议；缺中文只能 matched=null；无 score），再 `render --source <来源.json> --judgments <判定.json> --page-kind 临界页 --out <报告.md>`；报告页码与实际条数照实（不足 10 按 actual；>10 属平台异常，工具 exit 2 不截断；平台 total 与本页实际条数分开），不制造 window 精准率，判断只来自 AI 语义反思，工具不关键词代判；工具 3xx 重定向一律就地拒绝不外发凭据、四区 CN/TW/HK/MO 必排除（scope_sha256 绑定真实查询范围，render 重验；详情 id/company_id/_id 任一别名矛盾即 id_mismatch，不嫁接网址）
 - 每页判定表留痕（公司/角色/客户线/理由）；边界案例做敏感性检查
 - 正式推进 S4 必须生成 `evidence_mode:"live"` 的 audit-manifest，并绑定真实线上审计/独立review文件hash；模拟、离线、网络桩、占位只能输出演练报告，禁止据此保存或推进状态
 - 未完成不能保存；结果是名单筛选阈值，非客户质量保证

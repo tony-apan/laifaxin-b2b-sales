@@ -93,5 +93,6 @@ updated: "2026-10-27"
 | website_profile.py | 无网络:角色分类+六区候选校验+批准补丁+单档案原子导入;失败不阻断主线 | 第 1 步可选网站资料增强 |
 | website_profile_utils.py | stdlib schema/来源host/第三方联系/patch hash/原子写 | 网站资料增强工具函数 |
 | workspace_guard.py | ★工作空间落点校验（fail-closed）——防"给了企业 orgId 却写进个人空间"。 | 保存/建模板/加人前核对落点 |
+| company_page_report.py | 一页公司全明细只读报告：collect 抓单页列表+逐家 id→真实域名详情，render 校验 AI 判定后渲染一页 Markdown（不关键词评分）。 | 第 2 步给用户看某页完整明细 / AI 逐家判断买家时 |
 | check_doc_links.py | 文档引用与目录索引核验脚本：Markdown 链接、反引号 .md 路径、代码内 .md 名、INDEX 覆盖。 | 改文档/索引后或交付前 |
 | email_style_gate.py | email-style.md 机器闸门：只允许称呼/开场/段落/CTA/签名五项；价格/联系方式/认证/承诺出现即拒（生成模板前强制）。 | 第 4 步旧开发信提炼后 |

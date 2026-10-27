@@ -28,6 +28,7 @@ updated: "2026-10-27"
 | test_approval_numeric_quotes.py | 确认卡回数字的审批回归：S7/S9/S10 放行「1」，S5/S12 仍要求原话。 | 改审批确认词判定时 |
 | test_audit_tools_fixes.py | 探针/审计工具的 P1 回归：四区 filters、--domains 走 refine、loose 匹配率、错误上抛（P1-3/P1-4） | 改 S2/S3/S4 搜索与审计工具后 |
 | test_beginner_flow_links.py | 新手入口链接纪律测试（2026-10-23）。 | 改 specs/beginner-flow.md 或新手入口链接后 |
+| test_company_page_report.py | 一页公司全明细只读链回归：真实 CLI collect→AI 判定→render + 本地 loopback 替身（凭据零 argv、只读 API 白名单、安全反例全拒）。 | 改 company_page_report.py 的采集/渲染/判定校验后 |
 | test_compliance_evidence_mode.py | S7/S8/S11/S12 合规证据模式：live-only 与 fail-closed 契约 | 改 S7/S8/S11/S12 合规证据校验后 |
 | test_confirm_numbering.py | 确认点一律回数字（2026-10-23 用户要求：只回数字就能继续）。 | 改确认点话术或确认闸门后 |
 | test_contact_add_ticket_gate.py | P0-A S10 票据门回归测试（静态红队：票据门曾经失效）。 | 改 S10 加人票据门后 |

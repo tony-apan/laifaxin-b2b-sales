@@ -47,6 +47,7 @@ updated: "2026-10-23"
 
 - **★样板必须是域名**（AI 数据库搜索链三步：query_en 搜第一页 → 代表买家 id→base-info 取域名 → 域名作 keyword 扩量）；禁用 similar-list；勿拿公司名当锚（同名多司）。
 - **★搜索词必须用买家类型 query_en 长句，禁用单关键词（2026-09-09 真机实测）**：实测用单词 `paddle` 搜第一页 10 条，只有 1 条是体育用品零售商，其余是金融科技/CMS/内容出版（同名公司污染）；改用买家类型 query_en 长句后，第一页出现 `Saturn Rafts`（分销商，10 邮箱）、`The Boat People`（专业零售商，5 邮箱）等真实渠道商。**规则：样板客户发现一律用 `segments/<ID>.md` 里的 `query_en` 完整长句作 keyword，禁止用产品词/单词**；若首页质量仍差，换买家类型 query_en 或先核对买家类型选得对不对。
+- **★给用户看某页完整名单（一页公司全明细）**：`python3 tools/company_page_report.py collect --keyword "<买家类型 query_en 长句>" --page <N> --credentials-stdin --out <来源.json>`（凭据 stdin 两行，或 `--from-session`）→ 工具按列表页逐条原始 id 调详情接口取每家真实官网域名（禁止拿公司名猜域名），产出脱敏来源 JSON（schema `company-page-source/1`，完整中文描述，整体 source_sha256，详情失败行网址=未知、不弃整页）；AI 逐行读中文描述写判定 JSON（绑定 source_sha256 与逐行 company_id；matched=true/false 必须配中文理由+建议；缺中文描述只能 matched=null；禁止夹带 score 类评分）→ `python3 tools/company_page_report.py render --source <来源.json> --judgments <判定.json> --page-kind 候选页 --out <报告.md>` 渲染一页全明细。判断一律 AI 读中文描述，工具不做关键词评分、不代判。
 - **优先主动引导**（2026-09-09 用户拍板）：连接平台成功后先问一次"有没有询盘客户或认得的精准买家官网"，有就走入口一。**不得**像旧版那样"用户没网址就自动走标准路径、不追问"。
 - 展示候选锚时必须带：域名/国家/角色/邮箱数/推荐+不选理由。
 - 用户没给网址 → 走推演路径，但**已问过一次就不再重复追问**。
