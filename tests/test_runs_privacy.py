@@ -14,8 +14,9 @@ P0-4 之后靠 .gitignore 挡；2026-10-27 三轮独立审查先后证明前几�
    runs/<运营方>/ 目录，后者能在本地 pre-commit 抓到 !tony/ 这类定点放行。
 3) 清单层：索引里的 runs 文件必须与 EXPECTED_TRACKED 逐字一致；合法新增模板要显式登记，
    报错文案区分「模板新增」与「疑似真实档案」。
-4) 内容层：进仓的 runs 文件里不得出现非示例域名的邮箱（模板当前零 @），
-   堵住「把客户资料填进模板再提交」这条最可能的误操作。
+4) 内容层（只查邮箱）：进仓 runs 文件（读索引内容）不得出现非保留示例域名的邮箱，
+   堵住「把客户邮箱填进模板/INDEX 再提交」这条最可能的误操作；公司名/电话/混淆写法
+   不在覆盖内（见文末边界）。
 5) 环境层：只清空 core.excludesFile（-c core.excludesFile=），避免用户全局 *.md 规则假红，
    同时保留用户已配置的 safe.directory；git 缺失或报错一律 FAIL，不用跳过把护栏静默关掉；
    只有本目录不是独立 git 仓库（发布包/被 vendored 进外层仓）才 skip。
@@ -247,7 +248,11 @@ class RunsPrivacyGuardTest(unittest.TestCase):
                     if not any(low == d or low.endswith("." + d) for d in EXAMPLE_DOMAINS):
                         leaks.append(f"{rel}:{lineno} 域名 {domain}")
         self.assertEqual([], unreadable, f"读不到索引内容（无法验证，按失败处理）：{unreadable}")
-        self.assertEqual([], leaks, f"进仓的 runs 文件里出现疑似真实联系邮箱：{leaks}")
+        self.assertEqual(
+            [], leaks,
+            "进仓的 runs 文件里出现疑似真实联系邮箱：" + "; ".join(leaks)
+            + "（模板/示例请只用 example.com / example.org / example.net / laifa.xin 占位）",
+        )
 
 
 if __name__ == "__main__":
