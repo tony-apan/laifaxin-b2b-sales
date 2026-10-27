@@ -41,8 +41,11 @@ from evidence_validation import find_non_live_marker
 from profile_utils import ensure_same_project_paths, profile_gate
 from update_run_state import read_meta, record_matches_project, require_state, update_frontmatter
 
-WINDOW_SIZE = 5
+# v3（2026-10-27 用户裁决）：窗口从连续 5 页改 3 页，省约 40% 消耗；
+# 同时加“每页不低于 50%”下限，防 3 页窗口被单页崩盘拉低后误判。
+WINDOW_SIZE = 3
 WINDOW_THRESHOLD = 70  # 百分比
+WINDOW_PAGE_FLOOR = 50  # 单页达标率下限（百分比）
 CONTRACT_KEYS = ("run_id", "source_ref", "query_scope", "boundary")
 
 
@@ -249,6 +252,11 @@ def validate_audit_window(manifest):
         if denominator <= 0 or numerator * 10 < denominator * 7:
             errors.append(f"窗口合计 {numerator}/{denominator} 低于 70% 达标线")
 
+    for row in rows:
+        page_ratio = row["matched"] * 100.0 / row["total"] if row["total"] else 0.0
+        if page_ratio < WINDOW_PAGE_FLOOR:
+            errors.append(f"第{row['page']}页达标率 {page_ratio:.1f}% < {WINDOW_PAGE_FLOOR}%"
+                          f"（3 页窗口的单页下限）：单页崩盘不能靠窗口平均掩盖")
     for stat in _window_ratios(rows):
         if stat["ratio"] < WINDOW_THRESHOLD:
             errors.append(f"连续5页窗口 {stat['start']}–{stat['end']} 达标率 {stat['ratio']:.1f}% < "
@@ -291,7 +299,7 @@ def validate_audit_window(manifest):
         run_rows = [timeline[page] for page in ordered[start:end + 1]]
         first_drop = next((stat for stat in _window_ratios(run_rows) if stat["ratio"] < WINDOW_THRESHOLD), None)
         if first_drop is not None:
-            expected = first_drop["start"] + 3
+            expected = first_drop["start"] + WINDOW_SIZE - 2
             if critical != expected:
                 errors.append(
                     f"critical_page={critical} 与窗口证据不符：首个<70%窗口 "

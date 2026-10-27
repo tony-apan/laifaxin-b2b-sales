@@ -61,13 +61,13 @@ audience: 人+AI
 | D6 | `docs/11-replay-script.md` 仍写 authorize_write(action="sequence"/"activate") | `docs/11-replay-script.md:281,284` | ⚠️ 历史演练脚本，保留原文；以本表 §0 为准 |
 | D7 | `version_check.py` 57 个脚本中唯一未被任何文档引用 | `ls tools/*.py` | ✅ 已补进 tools/README |
 | D8 | `step-map.md` 未把各模块「真实 API」写进每节 | `specs/step-map.md` | ⚠️ 仅 M11 节有「API 见 module-api-map」；其余节待补（2026-10-23 复核） |
-| D9 | `finalize_audit.py` 不校验 window/5页窗口/临界页；RULES/probe-sop 门禁描述被夸大 | `tools/finalize_audit.py:validate_audit_window` | ✅ **已修并测**：连续页/5页窗≥70%/临界页=首跌窗起点+3/语义表对齐，失败 exit 2 |
+| D9 | `finalize_audit.py` 不校验 window/3页窗口/临界页；RULES/probe-sop 门禁描述被夸大 | `tools/finalize_audit.py:validate_audit_window` | ✅ **已修并测**：连续页/5页窗≥70%/临界页=首跌窗起点+3/语义表对齐，失败 exit 2 |
 | D10 | `save_company_cli` 缺 `workspace_guard.preflight`（RULES:203 声称内置） | 旧版无 import | ✅ **已修并测**：execute 在 save_company_v2 之前 preflight，阻断 exit 2 且写入 0 次 |
 | D11 | 旧保存脚本无物理封条，但文档称「无条件封条」 | save_first_n/contact_add/delete_all_products/wait_save_done 已调用 | ✅ **已修并测**：4 脚本最早可执行位置封条（含 dry-run），--help/import 不受影响；README/RULES 口径同步 |
 | D12 | `save_company_cli` 文档命令参数（--project/--audit-manifest/--ticket）不存在 | 实际 argparse `--request-file/--ticket-file` | ✅ **已修**：SKILL/operations-sop 改真实参数；新增 `specs/save-offline-input.md` 最小 schema 与样例 |
 | D13 | `find_critical/find_threshold` filters=[]，不排四区 | `find_critical.py:19`、`find_threshold.py:19` | ✅ **已修并测**：两工具统一四区 filters |
 | D14 | `audit_company` loose 恒 100%、吞 HTTP 异常、`--domains` 走 similar-list | `audit_company.py:224,248,96-100,122` | ✅ **已修并测**：loose 按总条数算、401/403/422 立即报错 exit 2、5xx 重试≤2、--domains 走 company-list |
-| D15 | 判据三套并存（50页+三页 / 100页+三页 / 100页+5页）；预算 51/60/50 三值 | threshold-method 旧段落、probe §7、S4 模板旧句 | ✅ 已统一（100页/5页窗口；method 加历史注记；预算「单轮≤60，采样≤51」） |
+| D15 | 判据三套并存（50页+三页 / 100页+三页 / 100页+5页）；预算 51/60/50 三值 | threshold-method 旧段落、probe §7、S4 模板旧句 | ✅ 已统一（100页/3页窗口；method 加历史注记；预算「单轮≤60，采样≤51」） |
 | D16 | 模板 48=12×4 无断言；价格禁令缺 cheap/FOB/CIF；`check_template_diff` 未接入 | `gen_templates.py:106-118,209-213,684` 等 | ✅ **已修并测**：12×4 fail-fast（含生成后复核）、NO_PRICE_RE 硬门（claims 不得放行）、建后自动 diff fail-closed |
 | D17 | S10 票据门失效（`authorize_write` 返回值被丢弃，无票仍写） | `contact_add_authorized.py:226-227`；`save_guard.py:243-244` | ✅ **已修并测**：无票/坏票 exit 2 且写调用 0 次；好票恰好 1 次写；`--auth-ticket` 非 dry-run 必填 |
 | D18 | 激活口令代码只认「激活」；flow 拒绝时 return 0 | `activate_sequence.py:114-141`；`flow_orchestrator.py:154-156` | ✅ **已修并测**：两处必须含「确认激活」；拒绝 exit 2；仅说激活→零联网拒绝 |

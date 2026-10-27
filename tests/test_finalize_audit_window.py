@@ -157,6 +157,24 @@ class FinalizeAuditWindowTest(unittest.TestCase):
         self.assertIn("70%", result.stdout)
         self.assertEqual(before, self.record.read_bytes())
 
+    # ---- 2b) 3 页窗口合计达标、但单页 <50% 仍被拒（v3 双条件）----
+    def test_single_page_below_floor_rejected(self):
+        window = self.window_doc()
+        window.update({
+            "pages": [1, 2, 3],
+            "page_rows": [{"page": 1, "matched": 10, "total": 10},
+                          {"page": 2, "matched": 10, "total": 10},
+                          {"page": 3, "matched": 3, "total": 10}],
+            "numerator": 23,
+            "denominator": 30,
+        })
+        self.write_manifest(window=window, boundary=self.boundary_doc(critical=2))
+        before = self.record.read_bytes()
+        result = self.run_audit()
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertIn("单页下限", result.stdout)
+        self.assertEqual(before, self.record.read_bytes())
+
     # ---- 3) 临界页 != 首个<70%窗口起点+3 被拒 ----
     def test_critical_page_not_first_drop_start_plus_three_rejected(self):
         self.write_manifest(boundary=self.boundary_doc(critical=370))

@@ -22,7 +22,8 @@ class StepMapTest(unittest.TestCase):
         self.assertIn("70% 只用于", text)
         self.assertIn("客群推演（S2）没有 70% 指标", text)
         self.assertIn("100 页 1 跳", text)
-        self.assertIn("连续 5 页", text)
+        self.assertIn("连续 3 页", text)
+        self.assertIn("每页≥50%", text, "3 页窗口必须带单页下限，防回退到 5 页")
 
     def test_agents_points_to_step_map_and_has_mermaid(self):
         text = (REPO / "AGENTS.md").read_text(encoding="utf-8")

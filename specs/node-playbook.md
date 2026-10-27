@@ -87,7 +87,7 @@ audience: 人+AI
 - **脚本（语义专用，2026-10-25 收口）**：
   - `python3 tools/audit_company.py --query <种子> --pages 1,50,100,...,1000 --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> --product <产品> --semantic`
   - 临界页用同工具 `--semantic --pages <前后三页>`，AI 逐条读中文描述后汇总；`find_threshold.py` / `find_critical.py` 是关键词历史工具，**禁止用于 S4 定界**。
-  - ★语义判定（逐条读描述）仍由 AI/独立 subagent 完成并两两印证（L-26）；**窗口/临界页/语义表自 2026-10-23 起由 `finalize_audit.py` 机器校验**（连续页、5 页窗口≥70%、临界页=首跌窗起点+3、语义表行数对齐）。
+  - ★语义判定（逐条读描述）仍由 AI/独立 subagent 完成并两两印证（L-26）；**窗口/临界页/语义表自 2026-10-23 起由 `finalize_audit.py` 机器校验**（连续页、3 页窗口≥70%、临界页=首跌窗起点+3、语义表行数对齐）。
 - **产出记录**：审计证据 + 独立 review 均落项目目录；`audit-manifest.json` 必须声明 `evidence_mode:"live"`，绑定 project/profile_sha256/seed/generated_at 与两文件 path+sha256+pass。simulation/mock/stub/离线/网络桩/占位证据只能演练，`finalize_audit.py` 必须拒绝推进 S4；证据正文含非实时标记也拒。
 
 ### S5 SAVE_PENDING（保存参数确认）

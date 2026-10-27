@@ -16,7 +16,7 @@ audience: AI优先
 
 # 🧭 来发信 B2B 获客 · Skill 入口
 
-> **一句话定位**：把"产品 → 推演客群/找种子 → 已选域名搜相似 → 连续 5 页窗口找 70% 边界 → 按确认计划保存前 N → 差异化模板（默认48）→ 12 步序列 → contact-add → 不激活待确认"整条外贸获客流水线，做成**判据明确 + 工具硬闸门 + 全程留痕**的可执行流程。
+> **一句话定位**：把"产品 → 推演客群/找种子 → 已选域名搜相似 → 连续 3 页（每页≥50%）窗口找 70% 边界 → 按确认计划保存前 N → 差异化模板（默认48）→ 12 步序列 → contact-add → 不激活待确认"整条外贸获客流水线，做成**判据明确 + 工具硬闸门 + 全程留痕**的可执行流程。
 > **本文件只做路由与判据摘要**；执行任何步骤前先读 `RULES.md`（唯一真源）及指向的 specs，禁止凭记忆跳步。
 > **★定位话术**：本系统=**批量获客/广撒网拿询盘**，不是精准开发——"广撒网铺量拿询盘；人或 AI 助手发现回复后须立即打‘询盘’标签，邮件序列才会停发；之后由您人工背调和精准跟进"。
 > **★用户展示话术=照模板**（把用户当小白）：每环节给用户看什么/怎么说，照 `output-templates/S<节点>-*.md` 填充输出（人话+链接+具体核对点）；平台页面直达链接见下方路由表。
@@ -95,7 +95,7 @@ flowchart TD
 | "我有官网 / 这是我们网站 / 产品页 / 产品目录 / 帮我了解公司和产品 / 优化定位" | **可选独立模块** `specs/website-profile-sop.md` → **先按 D1-D4 四类分流**（自己的网址→六区候选+批准才入档；买家网址→只作 S3 起点；第三方参考→只作分析；归属不明→先问一句）→ `tools/website_profile.py` 校验/准备补丁/批准/正式档案单文件原子写入；失败或跳过不阻断 S0/S0a，不修改线上网站；两类网址同时给时各自独立处理 |
 | "先了解完整流程 / 先看看怎么用 / 暂时不操作" | 只用通俗中文解释 README 的新项目流程图、产品适配、确认节点、默认不发信和询盘后人工跟进；**不索取产品/市场/官网/昵称/token，不执行 S0 或任何平台操作**；讲完停下等用户选择任务 |
 | "我这产品适合跑吗 / 大宗 / 长周期 / 好几年才采购" | 只问卖什么（已有就不重复问），按 `specs/product-fit.md` 强/条件/弱三档做只读判断并如实说明预期；不要求昵称或 token，不自动启动新项目 |
-| "这客户/这批准不准" / "临界在哪" | 状态机 S4 → `specs/threshold-method.md`（连续 5 页窗口 + AI 语义反思）+ `specs/threshold-probe-spec.md` v3.1（执行细则：连续5页滑窗/报告证据分离/四件套契约）+ `tools/audit_company.py`（⚠️仅趋势初筛，不得用 High 比例/单页/页1·2·5 当正式证据）|
+| "这客户/这批准不准" / "临界在哪" | 状态机 S4 → `specs/threshold-method.md`（连续 3 页（每页≥50%）窗口 + AI 语义反思）+ `specs/threshold-probe-spec.md` v3.1（执行细则：连续3页（每页≥50%）滑窗/报告证据分离/四件套契约）+ `tools/audit_company.py`（⚠️仅趋势初筛，不得用 High 比例/单页/页1·2·5 当正式证据）|
 | "怎么才存了这么点 / 邮箱太少 / 数量对不上" | S6 数量账：`output-templates/S6-count-report.md`——四机制（max3/验真/去重/异步提取）逐项解释；**未知邮箱默认已保存**；<1.0 邮箱/家建议查锚点 |
 | "保存这批 / 前 N 条" | 状态机 S5/S6 → V2 保存链 `tools/save_company_cli.py prepare → confirm → execute`（`status/reconcile` 只读对账）；`confirm` 是唯一铸票点，`execute` 必须持同 binding 的 confirmed plan/render/ticket；旧 `save_first_n.py` 已加物理封条（`save_guard.require`，最早可执行位置），但仍非安全边界（可被删封条/伪造模块绕过）；列入禁用清单，禁止再用。无 confirmed plan 不写；用户回数字/选类型只是选类型，不是保存授权 |
 | "写开发信 / 模板 / 预览" | 状态机 S7 → `tools/gen_templates.py --preview`；S8 生成后必跑 `tools/check_template_diff.py`（模板**自动归入同名分组**，禁散落"未指定目录"）|
@@ -182,7 +182,7 @@ flowchart TD
 | S1 PATH_PENDING | **连接平台为独立前置**：档案确认后先按 `T-token-guide.md` 走三层连接。连上后只问一句：「您手上有熟悉或问过价的买家网址吗？有就发我；没有也行，我先帮您找买家类型。」有网址→快速路径 A；无→标准路径 B **自动选择，不追问**（用户随时可补网址切换） |
 | S2 SEGMENT_PENDING | **两条路径都推演**；★**客群只能逐条来自本次平台返回**，记录来源接口/调用成功状态/返回条数；success=false、异常超时、成功但列表空、只拿到旧客群 → **不推进客群状态、不执行依赖客群的 S3+ 动作、不本地补条**，给一句"平台这次没推出来，我稍后重试，或您稍等再点一次"。★质量补推：空/与已否定或已选重复/明显跑偏 → 可主动再推一轮（最多 2 轮），补推前先说"我按…理解推的，这次结果不太贴，我再试一次"，补推不改用户已确认的用途；仍差则给三个出口。★**多客群分批**（铁律7d）：选中≥2个必须提示分开做并告知 K×48 模板+K 序列（默认48=12轮×4），一个客群走完 S3→S10 再做下一个；推演 4 客群，逐个判"会不会采购"+周期/询盘/量级/邮箱/竞争度，给推荐，用户确认（★档案=**推理档案** inference-product-add；推演描述用 `tools/product_desc.py` 固定四段+档案①-③白名单（④目标客群不参与，只留本地备注），用途不写档案；★展示条数=本次返回条数，历史遗留不混入；★用途与推演来源写 operation-record 可复现；★客群推演**优先读 product-profile.md** 的产品线/客群/卖点，推得更准）|
 | S3 SEED_PENDING | ★入口二选一：有起点网址→确认并判定其客群；没有→从已推演客群挑精准买家。**起点必须关联客群**。AI 数据库搜索链三步：①当前轮 query_en **逐字**搜第一页（25字段/条，含 id、无 domain；同一 generation/segment）②代表买家 id→`domain/base-info` 取域名并落选择记录 ③**已选域名**作 keyword 走主搜扩量（禁 similar-list）→用户确认锚点；随后 S4 审计（同一域名/来源范围）、S5/S6 按 S4 的同一 keyword/filters/logic/sort 保存，不另换词 |
-| S4 AUDIT_RUNNING | 只读+AI 语义反思找 70% 边界：100页跳→前后3页→**连续5页滑动窗口**→逐页；单页只记抖点，High比例/搜索分数/页1/2/5抽样不是窗口证据。按三条客户线留痕。正式收口须 `evidence_mode=live` 并绑定真实线上审计+独立review hash；模拟/离线/网络桩/占位只能出演练报告，禁止推进S4或保存 |
+| S4 AUDIT_RUNNING | 只读+AI 语义反思找 70% 边界：100页跳→前后3页→**连续3页（每页≥50%）滑动窗口**→逐页；单页只记抖点，High比例/搜索分数/页1/2/5抽样不是窗口证据。按三条客户线留痕。正式收口须 `evidence_mode=live` 并绑定真实线上审计+独立review hash；模拟/离线/网络桩/占位只能出演练报告，禁止推进S4或保存 |
 | S5 SAVE_PENDING | 展示 confirmed plan：N（家）/E（邮箱）/P（点）/B（预算）及来源、连续窗口边界、四区 filters、标签实际ID、max_points 来源/版本、重复保存检查；用户原话确认后才保存（→confirmed plan/render/ticket）。`prepare` 不出写、`execute` 才写；无 plan 不写；不擅自缩量；用户明确20家且计划成立则允许。**保存前自动校准**：`tools/save_budget.py probe` 只读余额 → `begin` 执行前确认 → `settle` 取样（finished 后稳定读数，仅 preliminary）→ `carry` 结转（late 加回；执行前+结转后两次确认才 confirmed）→ `plan` 用冻结预算算 [N_cons,N_est] 区间；无历史先 **100 家一次探针**（单独确认；拿到单价/联系人率后直接按预算推导 N 全量，不再 1/10/50 逐档）；未结清批次按批窗口计入预算并冻结；平台不返回点数消耗，禁止臆造系数 |
 | S6 SAVE_RUNNING | front 保存；等任务 status:finished；用 `status` 按本 plan/attempt/task_id 只读回读，`reconcile` 只消费本 CLI 生产记录；用标签结果/contactSaveCount 对账。★完成后主动出示**数量账**（S6-count-report.md：max3/验真/去重/异步四机制；历史 1.4~2.1 邮箱/家属正常，<1.0 查锚点）。结果不明保留锁，不盲目重试 |
 | S7 TEMPLATE_PENDING | 只生草稿，展示默认 4 个、用户主动要多看最多 8 个**渲染后视图**+理由，确认后才批量创建。★邮件末尾签名区只有纯个人昵称，禁止公司名/官网/邮箱/职位/认证/宣传语。★正文卖点只可使用当前 confirmed product-profile 中有字段级来源的事实（认证/产能/MOQ/交期等；价格/折扣禁止写入），计划绑定 profile hash 并逐句 claims 校验；declined 档案只用无具体事实通用表达。生成模板前按 P1 留存模板读取回执，详见 [specs/sequence-config.md](specs/sequence-config.md) |
@@ -232,7 +232,7 @@ flowchart TD
 
 | 类别 | 文件 |
 |------|------|
-| 规则（唯一真源） | `RULES.md` → `specs/environment-setup.md`（零Python依赖准备）/ `specs/migration-handoff.md`（换机续接）/ `specs/operator-profile-sop.md`（公司级资料主动索取/跨产品复用）/ `specs/product-profile-sop.md`（产品资料提炼/确认/版本/hash/复用）/ `specs/website-profile-sop.md`（独立可选网站增强）/ `specs/product-fit.md`（适配三档）/ `specs/threshold-method.md`（连续5页窗口/语义复核）/ `specs/domain-scale-sop.md`（query_en→已选域名→同审计范围保存）/ `specs/sequence-config.md`（模板+序列） |
+| 规则（唯一真源） | `RULES.md` → `specs/environment-setup.md`（零Python依赖准备）/ `specs/migration-handoff.md`（换机续接）/ `specs/operator-profile-sop.md`（公司级资料主动索取/跨产品复用）/ `specs/product-profile-sop.md`（产品资料提炼/确认/版本/hash/复用）/ `specs/website-profile-sop.md`（独立可选网站增强）/ `specs/product-fit.md`（适配三档）/ `specs/threshold-method.md`（连续3页（每页≥50%）窗口/语义复核）/ `specs/domain-scale-sop.md`（query_en→已选域名→同审计范围保存）/ `specs/sequence-config.md`（模板+序列） |
 | 流程逻辑 | `methodology/decision-trees.md`（A/B 路径图）/ `INDEX.md`（导航）/ `MD-METADATA.md`（文档元数据规范）|
 | 环境/迁移 SOP | `specs/environment-setup.md`（零 Python bootstrap）/ `specs/migration-handoff.md`（换机备份/恢复/续节点） |
 | 当前状态 | `runs/<operator_key>/<product_key>/operation-record.md`（流程节点）+ 同目录 `product-profile.md`（资料状态/版本/hash）；`.local/` 只存运营方档案与审批流水，不是当前节点真源 |

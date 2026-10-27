@@ -36,8 +36,8 @@ audience: 人+AI
 | **入口** | README | `README.md` | 百科快速导览 | ✅ |
 | **Skill入口** | SKILL.md | `SKILL.md` | ★触发场景路由表+S0-S12一句话判据+铁律摘要（新AI第一读） | ✅ |
 | **节点手册** | node-playbook | `specs/node-playbook.md` | ★节点判据×API×脚本对照表（执行照抄） | ✅ |
-| **方法-临界** | threshold-method | `specs/threshold-method.md` | AI反思/100页跳/连续5页窗口/找70%临界；逐模块逻辑与跳步规则见 step-map | ✅ |
-| **执行-临界探测** | threshold-probe-spec | `specs/threshold-probe-spec.md` | S4-A 执行细则 **v3.1**：连续5页滑窗/报告证据分离/四件套契约 | ✅ |
+| **方法-临界** | threshold-method | `specs/threshold-method.md` | AI反思/100页跳/连续3页（每页≥50%）窗口/找70%临界；逐模块逻辑与跳步规则见 step-map | ✅ |
+| **执行-临界探测** | threshold-probe-spec | `specs/threshold-probe-spec.md` | S4-A 执行细则 **v3.1**：连续3页（每页≥50%）滑窗/报告证据分离/四件套契约 | ✅ |
 | **逐模块API** | module-api-map | `specs/module-api-map.md` | ★M0–M12 入口脚本×真实API×关键参数×写入门禁×要点（文档=代码核验） | 现行 |
 | **判定-适配度** | product-fit | `specs/product-fit.md` | ★S0 前置：强/条件/弱适配三档（买家盘×决策链×周期×渠道层）+各档打法 | ✅ |
 | **SOP-环境准备** | environment-setup | `specs/environment-setup.md` | ★零 Python bootstrap：跨平台探测→自动安装→复查 | ✅ |
