@@ -37,6 +37,8 @@ import os
 import re
 import secrets
 import stat
+import hashlib
+import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -904,6 +906,75 @@ def check(action: Any, quote: Any, payload: Any, *, task: Optional[str] = None,
     if result.get("ok"):
         result["ticket"] = issued["ticket"]
     return result
+
+
+def bundle_plan_hash(doc: Dict[str, Any]) -> str:
+    """联合计划 hash：覆盖项目/org/S9配置/S10批次/依赖文件 hash。"""
+    return canonical_hash({k: doc.get(k) for k in ("project", "org_sha256", "s9", "s10", "deps")})
+
+
+def authorize_bundle_contact(bundle: Dict[str, Any], payload: Dict[str, Any], *,
+                             root: Optional[Any] = None) -> Dict[str, Any]:
+    """联合确认下的 S10 加人票据：不接受调用者自报 bool，全部在内部对 bundle 验证后才调用 authorize。
+
+    验证：计划 hash 未变；确认记录存在且卡文件 sha 与确认时一致；建序列机器回执与计划一致且已回读 inactive；
+    payload 恰为 {seqId=回执seq, tags=计划唯一标签, views=[]}。动作固定 sequence，不涉及激活/S12。
+    """
+    def deny(why: str) -> Dict[str, Any]:
+        return _fail("E_BUNDLE_DENIED", why)
+    if not isinstance(bundle, dict) or bundle.get("status") not in ("confirmed", "partial"):
+        return deny("联合计划未确认")
+    if bundle.get("plan_hash") != bundle_plan_hash(bundle):
+        return deny("联合计划已被改动")
+    conf = bundle.get("confirmation") or {}
+    card = Path(str(conf.get("card_path") or ""))
+    try:
+        card_sha = hashlib.sha256(card.read_bytes()).hexdigest()
+        card_doc = json.loads(card.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return deny("确认卡缺失")
+    if card_sha != conf.get("card_sha256") or card_doc.get("plan_hash") != bundle["plan_hash"]:
+        return deny("确认卡与联合计划不符")
+    quote = conf.get("quote")
+    if not isinstance(quote, str) or not quote.strip() or any(w in quote for w in ("激活", "发送", "发信")):
+        return deny("缺少有效确认原话")
+    rc = bundle.get("receipt") or {}
+    steps = bundle.get("steps") or {}
+    seq = steps.get("seq_id")
+    if not seq or rc.get("seq_id") != seq or rc.get("plan_hash") != bundle["plan_hash"] or rc.get("readback_status") != "inactive":
+        return deny("建序列回执/回读与计划不符")
+    s10 = bundle.get("s10") or {}
+    if payload != {"seqId": seq, "tags": s10.get("tags"), "views": []}:
+        return deny("加人参数与联合计划不符")
+    return authorize("sequence", quote, payload, root=root, action_verified=True)
+
+
+def release_bundle_payload_after_zero(bundle: Dict[str, Any], payload: Dict[str, Any], *,
+                                      root: Optional[Any] = None) -> Dict[str, Any]:
+    """仅当联合计划记录了"平台回读本序列联系人数=0"的证据时，释放该 payload 的已消费标记，
+    允许为同一 binding 重新铸一张精确新票。其余情况（含不确定）一律拒绝。"""
+    if not isinstance(bundle, dict) or bundle.get("kind") != "sequence_contact_bundle":
+        return _fail("E_BUNDLE_DENIED", "不是联合计划")
+    if bundle.get("plan_hash") != bundle_plan_hash(bundle):
+        return _fail("E_BUNDLE_DENIED", "联合计划已被改动")
+    steps = bundle.get("steps") or {}
+    seq = steps.get("seq_id"); rb = steps.get("contact_readback") or {}
+    rc = steps.get("contact_receipt") or {}
+    if bundle.get("status") != "partial":
+        return _fail("E_BUNDLE_DENIED", "联合计划不是部分完成态")
+    if steps.get("contact") == "done":
+        return _fail("E_BUNDLE_DENIED", "加人已完成，无需续发")
+    # ★只允许"写前被拒"(rejected 且从无 sending 阶段)的零写路径；发送后结果不确定(sending)绝不释放
+    if steps.get("contact_state") != "rejected" or rc.get("phase") == "sending":
+        return _fail("E_BUNDLE_DENIED", "上次加人非写前被拒（发送后结果不确定），不得仅凭回读释放重放")
+    if not seq or rb.get("seq") != seq or rb.get("count") != 0:
+        return _fail("E_BUNDLE_DENIED", "没有该序列联系人数为0的回读证据，不得续发")
+    if (bundle.get("receipt") or {}).get("seq_id") != seq:
+        return _fail("E_BUNDLE_DENIED", "序列身份与建序列回执不符")
+    if payload != {"seqId": seq, "tags": (bundle.get("s10") or {}).get("tags"), "views": []}:
+        return _fail("E_BUNDLE_DENIED", "加人参数与联合计划不符")
+    _unlink_quietly(payload_ok_path("sequence", canonical_hash(payload), root))
+    return {"ok": True, "code": None, "reason": "released after zero-write rejection readback"}
 
 
 def _load_json_arg(json_text: Optional[str], file_path: Optional[str],

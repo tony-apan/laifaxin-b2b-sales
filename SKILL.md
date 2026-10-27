@@ -102,7 +102,7 @@ flowchart TD
 | "怎么才存了这么点 / 邮箱太少 / 数量对不上" | S6 数量账：`output-templates/S6-count-report.md`——四机制（max3/验真/去重/异步提取）逐项解释；**未知邮箱默认已保存**；<1.0 邮箱/家建议查锚点 |
 | "保存这批 / 前 N 条" | 状态机 S5/S6 → V2 保存链 `tools/save_company_cli.py prepare → confirm → execute`（`status/reconcile` 只读对账）；`confirm` 是唯一铸票点，`execute` 必须持同 binding 的 confirmed plan/render/ticket；旧 `save_first_n.py` 已加物理封条（`save_guard.require`，最早可执行位置），但仍非安全边界（可被删封条/伪造模块绕过）；列入禁用清单，禁止再用。无 confirmed plan 不写；用户回数字/选类型只是选类型，不是保存授权 |
 | "写开发信 / 模板 / 预览" | 状态机 S7 → `tools/gen_templates.py --preview`；S8 生成后必跑 `tools/check_template_diff.py`（模板**自动归入同名分组**，禁散落"未指定目录"）|
-| "建序列 / 跟进计划" | 主 AI 内部调用 `build_sequence.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> ...`；内存占位不得让用户设置变量或执行命令。其余参数：序列名、tmap、profile、record、纯昵称、项目键、S9审批 |
+| "建序列 / 跟进计划" | 主 AI 内部调用 `build_sequence.py --token <TOKEN_IN_MEMORY> --org <ORG_IN_MEMORY> ...`；内存占位不得让用户设置变量或执行命令。其余参数：序列名、tmap、profile、record、纯昵称、项目键、S9审批 ；联合(一次确认两动作)走 `tools/sequence_contact_bundle.py` |
 | "加联系人 / 进序列" | 现役写通道 = `tools/contact_add_authorized.py`（开工门 + S10 审批 + `auth_guard` sequence 票据 + 时序守卫）；也可由用户自己在平台页面加，AI 只回读核对；旧 `contact_add.py` 仅作流程核对，已加物理封条（`save_guard.require`，最早可执行位置），但仍非安全边界（可被删封条/伪造模块绕过）；禁止直接 curl 写端点 |
 | "激活 / 发信" | S12唯一凭证出口：项目必须已真实收口S11 → compliance-check `evidence_mode=live`且五项72h真实证据 → 用户在聊天里回「确认激活 <序列名>」→ 主AI用 `flow_orchestrator --resume-s12 --confirm "<用户原话>"` 只签绑定凭证（不联网/不激活）→ 主AI调用activate并真实回读active。普通flow末尾不得签S12；approval grant也禁止S12。★两条路：①用户聊天回「确认激活」→ AI 执行 ②**用户自己去** https://app.laifaxin.com/marketing/sequences 核对并手动开开关 → 回来告知 → AI 用 `activate_sequence.py --sync-manual` 只读核对 active 并同步本地（不写平台、不需审批凭证）|
 | "验证这批对不对" | `tools/verify_exclude.py`（排除4区）/ `tools/verify_sequence.py`（12步）/ `tools/check_template_diff.py`（差异≥30%）|

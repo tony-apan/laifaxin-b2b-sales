@@ -722,16 +722,15 @@ class StepGuidanceTest(unittest.TestCase):
                             "S12 不得声称回复会自动停发（事实错误）")
 
     def test_s9_does_not_merge_contact_add_into_sequence_confirmation(self):
-        """★对抗审查 F-01（P0）：S9 不得把"加客户"说成同一句确认就做，
-        否则架空 S10 的独立确认闸门（RULES: 人数对账且用户确认后才 contact-add）。"""
+        """A方案(TASK-20261027): S9 卡可与加人合并为一次确认,但必须显式声明两件事与激活边界。"""
         block = self.first_block("S9-sequence-confirm.md")
-        self.assertRegex(block, r"再确认一次|单独.{0,4}确认|另.{0,4}确认",
-                         "S9 须说明加客户前会再确认一次（不得一次确认做到底）")
-        # ★复审 F-11R2 补禁止式：只查存在会被"保留再确认一次 + 同时说会加人"绕过
-        self.assertRegex(block, r"这一步不加入任何客户|不加入任何客户",
-                         "S9 须明确本步不加客户")
-        self.assertNotRegex(block, r"确认之后[^。]{0,10}(?:把客户加进去|加进客户|加入客户)",
-                            "S9 不得把加客户并进建序列同一步（架空 S10 确认闸门）")
+        # ★A方案(TASK-20261027, 用户已授权): 一次确认可同时批准建计划+加人, 但必须:
+        #   ①显式列出两件事 ②声明激活边界(另行"确认激活") ③说明批次/配置变更卡作废
+        self.assertRegex(block, r"①|两件事")
+        self.assertRegex(block, r"确认激活")
+        self.assertRegex(block, r"作废")
+        self.assertNotRegex(block, r"确认激活[^。]{0,20}(?:马上|立即|自动)发信",
+                            "联合卡不得暗示确认后立即发信")
 
     def test_profile_card_next_step_is_connect_not_inference(self):
         """★对抗审查 F-04：档案卡不得说"确认后带您推演客群"（应先连接平台）。"""

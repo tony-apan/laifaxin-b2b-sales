@@ -65,8 +65,8 @@ updated: "2026-10-27"
 | 5 | 选起点 | **回 1**（或给买家网址） | `S3-seed-confirm` | |
 | 6 | 存客户前 | **回「确认」**（或「确认保存 前 N 家」） | `S5-save-confirm` | `save_plan.confirm_plan`：原话带数→按数校验；纯确认原话→绑定卡面 N 并留痕 `count_bound_by=card`；只回数字 1 仍拒（S5 不是选单） |
 | 7 | 本地样稿 4 封 | **回 1** = 认可，直接建 48 个模板（不再单独确认模板） | `S7-template-confirm` | `gen_templates.py:753` 单次 S7 审批即可（工具按 `--state S7…` 接受用户回「1」作为认可）；删掉旧「④回1、⑤再回1」 |
-| 8 | 建序列前 | **回 1** | `S9-sequence-confirm` | 只保留「回 1/2」一种回法，删「回复确认建序列」 |
-| 9 | 加人前（对账完） | **回 1** | `S10-contacts-confirm` | `contact_add_authorized.py` 独立 S10 审批 + auth_guard 票据；RULES:71 对账后才加人；不可与第 8 合并 |
+| 8 | 建序列+加人（联合卡，A方案） | **回 1** | `S9-sequence-confirm`（联合卡；对账明细见 `S10-contacts-confirm`） | 一次回复同时确认两件事；执行走 sequence_contact_bundle.py，两动作分别绑定审批/票据；激活仍单独「确认激活」 |
+| 9 | （并入第 8 联合卡）加人对账明细页 | 不用回 | `S10-contacts-confirm` | 联合链内 contact_add_authorized.py 仍独立 S10 审批 + auth_guard 票据 + 时序守卫；对账一致才加 |
 | 10 | 激活前 | **回「确认激活」** | `S12-activation-confirm` | 含糊应答/否定句一律拒绝 |
 
 不能省的写闸门：保存客户、建序列、加人、激活——各自本节点确认；建模板由第 ④ 步样稿确认覆盖（第 ⑤ 步自动，不另索回），AI 不得代答或打包授权。

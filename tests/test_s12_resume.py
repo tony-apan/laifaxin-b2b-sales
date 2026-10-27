@@ -336,9 +336,8 @@ class ResumeS12Test(unittest.TestCase):
     def test_ordinary_flow_with_complete_s12_params_and_tty_only_records_pending(self):
         code, output, answered = self.run_ordinary_tty()
         self.assertEqual(0, code, output)
-        # 6 次确认 = S2客群 + S3种子 + S5保存 + S7模板 + S9序列 + S10联系人
-        # （2026-09-09 方案B：快速路径也推演客群，故比旧版多一次 S2 确认）
-        self.assertEqual(6, answered, output)
+        # 5 次确认 = S2客群 + S3种子 + S5保存 + S7模板 + S9+S10联合卡（TASK-20261027 A方案：两动作一次用户确认）
+        self.assertEqual(5, answered, output)
         rows = [row for row in self.approval_rows() if row["state"] == "S12_激活"]
         self.assertEqual(1, len(rows), output)
         self.assertEqual("decision_pending", rows[0]["decision"])

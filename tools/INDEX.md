@@ -31,6 +31,8 @@ updated: "2026-10-27"
 | bootstrap.sh | 零Python探测/自动安装/复查(macOS/Linux/WSL/Git Bash) | 新电脑首次准备环境（macOS/Linux） |
 | browser_login.py | Isolated Chromium login connector. Standard library only, Python 3.9+. | 浏览器登录连接器调试 |
 | build_sequence.py | 校验纯昵称+profile+tmap.meta hash/status+稳定项目键;运行时解析tz/notSentTags;12步 | 第 6 步建序列前 |
+| platform_http.py | ★进程内平台 HTTP：凭据只在内存/stdin，固定 api_base_url，拒 3xx 外带；测试 base 仅测试票据有效且 loopback 时接受，否则请求前拒绝（不回生产）。 | 联合链/任何不想让 token 进子进程 argv 的调用 |
+| sequence_contact_bundle.py | ★S9+S10 联合确认 CLI（prepare/present/confirm/execute[--manifest]/finalize）：一次人类回复批准两动作、分别参数绑定；卡文件+依赖重验+机器回执+作用域锁；不激活、不铸 S12。 | 第 6 步联合建序列+加人 |
 | check_login.py | 用户聊天框直贴两行;主AI经--credentials-stdin;orgId独立必填不回退;urllib内存header;失效给教程 | 连平台或登录校验前 |
 | check_rules.sh | 默认离线检查规则/项目/问题;在线登录校验由主AI经--credentials-stdin传两行凭据 | 交付前离线规则检查 / 排障 |
 | check_template_diff.py | Jaccard相似度≤0.70(差异≥30%);★逐模板template-info取真实html(templates-list不含html) | 第 4/5 步模板差异检查 |

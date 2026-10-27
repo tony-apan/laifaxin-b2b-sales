@@ -76,6 +76,7 @@ updated: "2026-10-27"
 | test_s11_closure_gate.py | S11 收口证明闸门：只认 finalize_run 写的收口字段，手写/过期/坏 sha 一律拒绝。 | 改 S11 收口字段或 S12 签发/激活前校验后 |
 | test_workspace_verified_gate.py | 工作空间未判定必须 fail-closed（exit 5），仅测试进程放行。 | 改 workspace_guard.preflight 后 |
 | test_sequence_closure_hardening.py | 任务A 回归测试：闭合序列 / 激活 / verify 三处加固（2026-10-23）。 | 改序列闭合/激活/verify 加固后 |
+| test_sequence_contact_bundle.py | S9+S10 联合确认全链回归：本地 loopback 平台替身；卡/依赖重验/票据/续接/凭据 stdin-only/激活 0 调用，及 R2：测试 base 票据无效 fail-closed、sequence-summary 人数回读、S11 自动 finalize_run 接线等 31 项。 | 改 sequence_contact_bundle.py / platform_http.py / auth_guard bundle 函数后 |
 | test_startup_gate.py | 开工必读闸门：6 文档 sha256+会话+ack 机器强制 | 改开工必读/6 文档哈希登记后 |
 | test_step_map.py | 锁定「逐模块逻辑 + 流程图」索引的存在与关键口径，防止以后被删/被改回旧口径。 | 改 step-map/流程图索引后 |
 | test_subject_per_variant.py | 标题逐变体差异化测试（2026-09-18 用户实测后立）。 | 改邮件主题逐变体规则后 |

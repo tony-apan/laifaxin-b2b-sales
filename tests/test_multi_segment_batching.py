@@ -114,8 +114,8 @@ class BatchOwnershipInCardsTest(unittest.TestCase):
         ("output-templates/S4-audit-running.md", "批", "客群名"),
         ("output-templates/S5-save-confirm.md", "本批客群", "标签"),
         ("output-templates/S7-template-confirm.md", "批", "客群名"),
-        ("output-templates/S9-sequence-confirm.md", "批", "客群名"),
-        ("output-templates/S10-contacts-confirm.md", "批", "客群名"),
+        ("output-templates/S9-sequence-confirm.md", "批", "买家类型"),
+        ("output-templates/S10-contacts-confirm.md", "批", "买家类型"),
     )
 
     def test_cards_show_batch_ownership(self):

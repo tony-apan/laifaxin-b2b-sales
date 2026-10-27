@@ -42,8 +42,9 @@ from workspace_guard import preflight
 import save_guard
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--token", required=True, help="accesstoken 完整串（token中段是用户UID）")
-ap.add_argument("--org", required=True, help="当前工作空间ID=localStorage独立orgId键（企业必填；禁止拿token第2段代替）")
+ap.add_argument("--credentials-stdin", action="store_true", help="凭据只经 stdin 进程内传递（不进 argv）")
+ap.add_argument("--token", default="", help="accesstoken 完整串（token中段是用户UID）")
+ap.add_argument("--org", default="", help="当前工作空间ID=localStorage独立orgId键（企业必填；禁止拿token第2段代替）")
 ap.add_argument("--seq", required=True, help="序列id")
 ap.add_argument("--tags", required=True, help="联系人标签id(逗号分隔)")
 ap.add_argument("--task", required=True, help="保存任务id(refine/company-save 返回)——★必填:时序铁律,无任务id=无法确认finished,拒绝执行")
@@ -54,8 +55,16 @@ ap.add_argument("--project", required=True, help="稳定项目键=<operator_key>
 ap.add_argument("--timeout", type=int, default=900, help="等保存任务最大秒数")
 ap.add_argument("--dry-run", action="store_true", help="只打印 payload/时序检查,不写")
 ap.add_argument("--auth-ticket", default="", help="★S10 写票据文件路径 .local/auth/ticket-<nonce>.json")
+ap.add_argument("--receipt-file", default="", help="联合流程：写前/写后阶段回执 json")
 ap.add_argument("--allow-count-mismatch", action="store_true", help="已停用：仅保留参数兼容旧脚本；数量不等一律 fail-closed")
 args = ap.parse_args()
+if args.credentials_stdin:
+    if args.token or args.org: print("❌ --credentials-stdin 不能与 --token/--org 混用"); sys.exit(2)
+    import platform_http
+    args.token, args.org = platform_http.read_stdin_credentials(sys.stdin)
+    platform_http.install_workspace_probe(args.token, args.org)
+elif not args.token or not args.org:
+    print("❌ 缺 --token/--org（或用 --credentials-stdin）"); sys.exit(2)
 # ★P0-A 票据门(静态红队): 非 dry-run 一律必须有写票据——缺失时在**任何联网之前**拒绝,
 #   绝不"先查一圈平台再发现没票"; 坏票/哈希不符在写入前由 save_guard 校验并拒绝。
 if not args.dry_run and not str(args.auth_ticket or "").strip():
@@ -149,10 +158,13 @@ def api(path, p, t=40):
     except Exception as _lfx_gate_exc:
         __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
         raise SystemExit(2)
-    cmd = ["curl","-sSL","-m","35","-X","POST",f"https://web.laifaxin.com/api/{path}",
-           "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
-           "-H", f"uid: {args.org}","-d",json.dumps(p)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t, encoding="utf-8", errors="replace")
+    if args.credentials_stdin:
+        r = __import__("types").SimpleNamespace(stdout=platform_http.post(path, p, args.token, args.org, t))
+    else:
+        cmd = ["curl","-sSL","-m","35","-X","POST",f"https://web.laifaxin.com/api/{path}",
+               "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
+               "-H", f"uid: {args.org}","-d",json.dumps(p)]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=t, encoding="utf-8", errors="replace")
     try: return json.loads(r.stdout)
     except:
         print("  ⚠️ 接口无返回——可能是网络不通（这不是配置问题），稍等重试；反复出现看 平台接口间歇空(已知)。")
@@ -359,7 +371,14 @@ if not isinstance(authz, dict) or not authz.get("ok"):
           "(payload={\"seqId\":...,\"tags\":[...],\"views\":[]})")
     sys.exit(2)
 print(f"✅ S10 写票据校验通过: action=sequence | payload_hash={str(authz.get('payload_hash') or '')[:12]}... | http_calls=0")
+def _rcpt(doc):
+    if args.receipt_file:
+        with open(args.receipt_file, "a", encoding="utf-8") as _f:
+            _f.write(json.dumps(doc) + "\n")
+_rcpt({"phase": "sending", "seq": args.seq})
 r = api("sequences/contact-add", payload, t=120)
+_rcpt({"phase": "result", "seq": args.seq, "success": bool(r.get("success")), "add": (r.get("data") or {}).get("add") if isinstance(r.get("data"), dict) else None,
+       "estimated": estimated_add, "contactSaveCount": _saved})
 data = r.get("data", {}) if isinstance(r.get("data"), dict) else {}
 add = data.get("add")
 if r.get("success"):

@@ -166,6 +166,9 @@ flowchart LR
 - **顺序铁律**：**S6 数量账与 S7 模板确认合成一次确认**（用户确认样稿即代表数量与模板一起确认），不要拆成两个来回。
 - **可跳**：❌ 不可跳（未确认样稿不得批量建 48 个模板）。
 
+### M10+M11 序列+加人（S9+S10 联合卡，第3/4写闸门合并确认）
+- **联合确认（A方案,用户已授权）**：一次回复确认建序列+加人，走 `tools/sequence_contact_bundle.py`（present 出卡→confirm 引用卡→execute）；两动作分别参数绑定/审批/票据，加人失败保持部分完成先回读核对；激活仍是第5写闸门。
+
 ### M10 序列（S9，第3写闸门）
 - **读**：`output-templates/S8-template-building.md`、`S9-sequence-confirm.md`、`specs/sequence-config.md`。
 - **动作**：展示 12 步跟进计划（间隔/内容/给谁）→ 用户确认 → 建序列 → 校验（步骤数/模板绑定）。

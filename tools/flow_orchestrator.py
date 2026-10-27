@@ -617,24 +617,17 @@ else:
 # ---------- S8 TEMPLATE_BUILD ----------
 print("●S8 TEMPLATE_BUILD: 生成差异化模板(默认12轮×4=48个,用 gen_templates.py; ★须带 S7 的 --approval id; 生成后跑 check_template_diff 断言差异)")
 
-# ---------- S9 SEQUENCE_PENDING（执行参数含序列名/发送昵称/org，向导不全，永远pending） ----------
-print("●S9 SEQUENCE_PENDING: 展示12步/时区/上限/notSentTags；实际全参数齐后另行绑定审批")
-S9_SCHEMA = '{"project":"...","org_sha256":"...","name":"<序列名>","from_name":"<纯昵称>","profile":{...},"tmap":{"sha256":"..."},"rules":{...}}'
-kind9, ans9 = ask("S9_序列配置", "以上序列配置方向确认?（这里只记录意向，不签执行凭证）")
+# ---------- S9+S10 联合确认（TASK-20261027：一次人类回复，两动作分别参数绑定） ----------
+print("●S9+S10 SEQUENCE+CONTACT_BUNDLE: 一次联合卡同时确认建序列+加人; 执行走 tools/sequence_contact_bundle.py")
+print("  ★联合CLI: prepare(锁定配置+依赖+S5批次) → present(出白话卡) → confirm(必须引用该卡) → execute")
+print("  ★build_sequence 的 S9 审批与 contact_add_authorized 的 S10 审批+票据在联合链内分别铸造, 两个动作仍各自参数绑定; 不激活、不铸 S12")
+BUNDLE_CMD = "python3 tools/sequence_contact_bundle.py prepare --project <键> --org <orgId> --record <operation-record.md> --tmap <tmap.json> --profile <product-profile.md> --name <计划名> --from-name <纯昵称> --s5-plan <S5 confirmed plan> --task <保存任务id> --expected-contacts <人数>"
+kind9, ans9 = ask("S9_S10_联合确认", "联合卡(建序列+加人)方向确认?（这里只记录意向；执行前须 present 出卡并由用户引用卡确认）")
 if kind9 == "modify":
     _record_modify_once("S9_序列配置", ans9, node_params({}))
 else:
-    record("S9_序列配置", "decision_pending", ans9, node_params({}))
-    print("  ⚠️ 仅记录pending；build_sequence执行前按全部实际参数用approval.py grant")
-    print(f"     参数JSON结构: {S9_SCHEMA}")
-
-# ---------- S10 CONTACT_PENDING (★绑定实际seq/tags/task, schema与contact_add.py逐字段一致) ----------
-print("●S10 CONTACT_PENDING: 保存finished+标签>0+序列inactive+对账 → 确认后 contact-add(views:[])")
-S10_SCHEMA = '{"project":"...","org_sha256":"...","seq":"...","tags":[...],"task":"..."}'
-tags10 = sorted({t.strip() for t in (args.contact_tags or "").split(",") if t.strip()})
-s10_params = {"project": STATE["project"], "org_sha256": hashlib.sha256(str(args.org).encode()).hexdigest(), "seq": args.seq, "tags": tags10, "task": args.task}
-s10_missing = [n for n, v in (("seq", args.seq), ("tags(--contact-tags)", tags10), ("task", args.task)) if not v]
-confirm_bound("S10_加联系人", "确认加入联系人? 输入'确认加入' (只读对账后)", s10_params, s10_missing, S10_SCHEMA)
+    record("S9_S10_联合确认", "decision_pending", ans9, node_params({}))
+    print("  ⚠️ 仅记录pending；执行按联合CLI: " + BUNDLE_CMD)
 
 # ---------- S11 READY_INACTIVE ----------
 print("\n●S11 READY_INACTIVE: ⚠️本脚本仅向导,写操作须另行执行(见各步骤提示)")

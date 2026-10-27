@@ -36,8 +36,9 @@ from verify_sequence import check_sequence as _check_sequence
 from workspace_guard import preflight
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--token", required=True, help="accesstoken 完整串（token中段是用户UID）")
-ap.add_argument("--org", required=True, help="当前工作空间ID=localStorage独立orgId键（企业必填；禁止拿token第2段代替）")
+ap.add_argument("--credentials-stdin", action="store_true", help="凭据只经 stdin 进程内传递（不进 argv）")
+ap.add_argument("--token", default="", help="accesstoken 完整串（token中段是用户UID）")
+ap.add_argument("--org", default="", help="当前工作空间ID=localStorage独立orgId键（企业必填；禁止拿token第2段代替）")
 ap.add_argument("--name", required=True, help="序列名，规范 [产品]-[语言]-[轮数]轮[每轮封数]封-[策略]（可选 -S04 档位后缀）；其中「12轮4封」必须与本批实际变体数一致，否则拒绝（如 产品-英语-12轮4封-多轮开发）")
 ap.add_argument("--tmap", required=True, help="gen_templates --out 产出的 name→id 映射 json（数量=12轮×每轮变体数，默认48；有序）;同目录须有 <tmap>.meta.json")
 ap.add_argument("--profile", required=True, help="当前产品档案路径；须与 tmap.meta 的 profile_sha256/status 一致")
@@ -48,8 +49,16 @@ ap.add_argument("--per-domain", type=int, default=5, help="单家上限(默认5)
 ap.add_argument("--record", default="", help="项目operation-record；12步全部完成后推进S9,next=S10")
 ap.add_argument("--approval", default="", help="★绑定profile+tmap+序列规则的S9审批凭证id")
 ap.add_argument("--project", required=True, help="稳定项目键=<operator_key>/<product_key>；须与profile一致")
+ap.add_argument("--receipt-file", default="", help="联合流程：create 成功后原子写入机器回执 json")
 ap.add_argument("--dry-run", action="store_true", help="只打印将执行的 payload,不写")
 args = ap.parse_args()
+if args.credentials_stdin:
+    if args.token or args.org: print("❌ --credentials-stdin 不能与 --token/--org 混用"); sys.exit(2)
+    import platform_http
+    args.token, args.org = platform_http.read_stdin_credentials(sys.stdin)
+    platform_http.install_workspace_probe(args.token, args.org)
+elif not args.token or not args.org:
+    print("❌ 缺 --token/--org（或用 --credentials-stdin）"); sys.exit(2)
 if not args.dry_run and not args.record:
     print("❌ 正式建序列必须带 --record <operation-record.md>，否则换机状态无法推进"); sys.exit(2)
 if not args.dry_run:
@@ -173,10 +182,13 @@ def api(path, p, t=60, exit_on_fail=True):
     except Exception as _lfx_gate_exc:
         __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
         raise SystemExit(2)
-    cmd = ["curl","-sSL","-m","55","-X","POST",f"https://web.laifaxin.com/api/{path}",
-           "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
-           "-H", f"uid: {args.org}","-d",json.dumps(p)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=t, encoding="utf-8", errors="replace")
+    if args.credentials_stdin:
+        r = __import__("types").SimpleNamespace(stdout=platform_http.post(path, p, args.token, args.org, t))
+    else:
+        cmd = ["curl","-sSL","-m","55","-X","POST",f"https://web.laifaxin.com/api/{path}",
+               "-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
+               "-H", f"uid: {args.org}","-d",json.dumps(p)]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=t, encoding="utf-8", errors="replace")
     try:
         d = json.loads(r.stdout)
         if d.get("success") is False:
@@ -187,7 +199,8 @@ def api(path, p, t=60, exit_on_fail=True):
             d["_error"] = msg
         return d
     except SystemExit: raise
-    except:
+    except BaseException as _api_exc:
+        if type(_api_exc).__name__ == "TestBaseError": raise  # 配置/票据错误不得伪装成"接口无返回"
         if exit_on_fail:
             print("  ⚠️ 接口无返回——可能是网络不通（这不是配置问题，不用改参数），稍等重试；反复出现再看 平台接口间歇空(已知)。")
         return {}
@@ -265,6 +278,10 @@ seq_id = data.get("id") or data.get("_id") or (data if isinstance(data, str) els
 if not re.fullmatch(r"[0-9a-f]{24}", str(seq_id)):
     print(f"❌ sequence-create 失败: {str(r)[:120]}"); sys.exit(1)
 print(f"✅ 序列已建: {seq_id}")
+if args.receipt_file:
+    _rp = Path(args.receipt_file); _tmp = _rp.with_name(_rp.name + ".tmp")
+    _tmp.write_text(json.dumps({"kind": "build_receipt", "seq_id": seq_id, "name": args.name}), encoding="utf-8")
+    __import__("os").replace(_tmp, _rp)
 r = api("sequences/sequence-save", {"id": seq_id, "name": args.name, "schedule_id": sched_id, "others": others, "rules": rules}, exit_on_fail=False)
 if not r.get("success"):
     print("❌ 规则保存失败: " + str(r.get("_error") or r.get("message") or str(r)[:90]))
