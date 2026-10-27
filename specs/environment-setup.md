@@ -16,7 +16,7 @@ audience: AI优先
 # 🧰 环境就绪 SOP（AI 执行·零 Python 前提）
 
 > **一句话**：本仓库的引导脚本 `onboard_check.py` 是 Python 写的，但**装 Python 这件事不能依赖 Python**——所以环境就绪的起点是 `tools/bootstrap.sh`（bash）或 `tools/bootstrap.ps1`（PowerShell），两者都只用操作系统自带的能力，**全新电脑没有 Python 也能跑**。
-> **给谁看**：AI（执行者）。所有命令由 AI 复制执行；只有需要用户输 sudo 密码或点图形安装器时才提示用户。
+> **给谁看**：AI（执行者）。所有命令由 AI 执行；需要 sudo 或交互时立即停止，不等待输入。
 > **Windows 验证边界**：`bootstrap.ps1` 已完成静态结构/参数检查，但当前开发环境无 Windows/pwsh，尚未在全新 Windows 实机完成 `CheckOnly→Install→复查→onboard`；执行失败时按本 SOP E2/E3 使用官方安装兜底，不得宣称 Windows 已实测。
 
 ## 0. bootstrap 悖论（为什么需要这两个脚本）
@@ -38,6 +38,8 @@ audience: AI优先
 > 不确定时先跑 `uname -s`（bash）或 `$PSVersionTable.PSVersion`（PowerShell）再决定。Windows 用户没有 Git Bash 也**不需要先装它**：`bootstrap.ps1` 会用 winget 装 Git for Windows（自带 bash/grep/awk）。
 
 ## 2. 标准流程：check-only → install → 复查 → onboard_check
+
+仅当 check-only 确认缺失全部属于白名单 python3、curl、bash、grep、awk、git，且适用包管理器可非交互运行、无需 sudo 或其他交互时，才执行一次 install，再执行一次 check-only；通过后运行 onboard_check。无法确认条件即停。无管理器、需 sudo/交互、安装失败或复查失败立即停，按具体缺项给唯一下一步（例如请用户从官方来源安装该缺项）；不自动重试、不无限等待。
 
 ### 2.1 Windows PowerShell（含无 Git Bash/无 WSL 的全新电脑）
 
@@ -65,10 +67,10 @@ py tools\onboard_check.py
 # ① 只探测（第一次永远先跑这个）
 bash tools/bootstrap.sh --check-only
 
-# ② 有缺失 → 安装（自动选择 brew/apt-get/dnf/yum/pacman/apk；需要 sudo 时正常使用 sudo）
+# ② 有缺失 → 安装（自动选择 brew/apt-get/dnf/yum/pacman/apk；仅已确认无需 sudo 和交互时执行）
 bash tools/bootstrap.sh --install
 
-# ③ 安装后复查（脚本已刷新命令缓存；sudo 装完通常立即可见）
+# ③ 安装后复查（仅安装成功后复查）
 bash tools/bootstrap.sh --check-only
 
 # ④ 全绿后，用脚本输出的 python_cmd 跑自检引导（python3/python 之一）
@@ -102,11 +104,11 @@ AI 规则：**以 bootstrap 输出的 `python_cmd` 为准**，后续所有命令
 | 级别 | 现象（脚本行为） | AI 处置 |
 |---|---|---|
 | **E0 参数错**（exit 2） | 未知参数 / 同时给两个模式开关 | 修正命令重跑；这是 AI 自己的调用错误，不惊动用户 |
-| **E1 装后仍缺**（install 后 exit 1，`missing` 非空） | 包管理器装了但探测仍失败 | 按脚本提示：新开一次终端（PATH 刷新）后重跑 check-only；Windows 里 `python_cmd` 可能已是全路径，直接用全路径跑 onboard_check；仍失败→E2 路径 |
+| **E1 装后仍缺**（install 后 exit 1，`missing` 非空） | 包管理器装了但探测仍失败 | 立即停，针对缺项给唯一下一步，不自动重试 |
 | **E2 无法自动安装**（`install_result=no_pm`/`no_winget`） | macOS 无 brew / Git Bash 无包管理器 / Linux 无已知包管理器 / Windows 无 winget | 脚本已打印官方下载地址：AI 把地址+勾选项（Add python to PATH）讲给用户，用户图形界面安装后 AI 重跑 check-only 复查；**不自动安装 Homebrew**；Windows 无 winget 可从 Microsoft Store 装 "App Installer" 后重试 |
 | **E3 执行策略阻挡**（仅 PowerShell） | "running scripts is disabled…" | 改用 `powershell -NoProfile -ExecutionPolicy Bypass -File ...` 一次性形式；**不改系统策略、不提权** |
-| **E4 sudo 需要密码/失败** | `sudo` 等待输入或报错 | Linux/WSL 正常现象：告知用户在终端输入密码，或让用户先手动 `sudo -v`；失败（无 sudo 权限）→ 转 E2 官方包/用户级安装 |
-| **E5 网络失败** | curl/winget/包管理器下载超时 | 先重试一次；仍失败换网络/镜像源后重试；明确告知用户是网络问题，不是脚本或 token 问题 |
+| **E4 sudo 需要密码/失败** | `sudo` 等待输入或报错 | 立即停，针对缺项给用户一个官方安装途径；不请求密码、不运行 sudo |
+| **E5 网络失败** | curl/winget/包管理器下载超时 | 立即停，告知用户检查网络这一唯一下一步 |
 | **E6 版本不可用** | python 存在但 `--version` 非 `Python 3`（如 Python 2） | 视为缺失，走 install 装新版；并存时 Windows 用 `py -3`、Unix 用 `python3` |
 
 ## 6. 完成就绪后

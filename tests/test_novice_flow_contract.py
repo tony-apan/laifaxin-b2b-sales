@@ -255,12 +255,13 @@ class InstallScreenShortAndBranchTest(unittest.TestCase):
         blocks = re.findall(r"```[a-zA-Z]*\n(.*?)```", fail, re.S)
         self.assertTrue(blocks, "安装没通过缺用户话术块")
         block = blocks[0]
-        for must in ("有个东西没装好", "不是您的问题", "我来处理", "您什么都不用做"):
+        for must in ("有个东西没装好", "不是您的问题", "确认能否安全处理"):
             self.assertIn(must, block, "安装没通过缺少「%s」" % must)
         self.assertNotIn("组件", block, "安装没通过不得对用户说「组件」")
         for banned in ("装好了", "回 1", "回 2", "环境", "参数", "手动"):
             self.assertNotIn(banned, block, "安装没通过不得出现「%s」" % banned)
-        self.assertIn("先自己重试一次", fail)
+        self.assertIn("非交互", fail)
+        self.assertIn("复查失败", fail)
         self.assertIn("唯一下一步", fail)
 
 class Step1HonestQuoteTest(unittest.TestCase):

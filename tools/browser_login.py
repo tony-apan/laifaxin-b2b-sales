@@ -25,8 +25,8 @@ MAGIC = 'laifaxin-browser-login-v1'
 MAX_MESSAGE = 1024 * 1024
 PLAYWRIGHT_INSTALL = 'python -m venv .venv && .venv/bin/pip install playwright && .venv/bin/python -m playwright install chromium'
 MANUAL_STEPS = (
-    '① 二层降级优先：在 web.laifaxin.com 页面按 F12 打开控制台，粘贴一键命令取参',
-    '② 仍不行→三步手动兜底：打开 https://web.laifaxin.com → 登录 → 按 F12 粘贴同一一键命令',
+    '① 打开 https://web.laifaxin.com 并登录；② 确认目标工作空间；③ 打开控制台；④ 粘贴完整一键命令并回车',
+    '复制结果后交给可信 AI，必须实际校验登录和工作空间',
     '取参统一走 web.laifaxin.com（机器/人工相同）；app.laifaxin.com 是你登录查看平台实际情况的入口，两域同一后台',
     '如遇登录态互踢以实际为准并报错（跨域有效性 UNVERIFIED，首次真实登录时冒烟验证）',
     '只允许剪贴板粘贴 + session_store（0600/0700），禁止手写文件；不得回显完整 token',
@@ -34,16 +34,16 @@ MANUAL_STEPS = (
 
 DETAIL = {
     0: '连接与工作空间校验通过。',
-    10: '还没有读到完整登录信息，窗口仍开着，登录完成后可用 --resume 继续取参，或关掉窗口后重跑；也可用 --clean --force 清理。',
+    10: '还没有读到完整登录信息；登录完成后可恢复取参，必须实际校验登录和工作空间。',
     11: '浏览器环境不可用（无可用 Chrome/Edge、Playwright 缺失、启动失败或 CDP 连接失败）。请' + '；'.join(MANUAL_STEPS[:2]) + '；跨域有效性 UNVERIFIED（首次真实登录时冒烟验证）',
-    12: '平台不认这把钥匙，或平台或网络临时问题：请确认页面登录态（F5 刷新）后重新取参；同一份反复重试无意义。',
+    12: '登录或平台校验未通过，停止并核查具体原因。',
     13: '缺少工作空间编号（orgId）：请在来发信页面右上角确认目标空间后一键双取，不要手敲。',
-    14: '上次窗口还开着，请先完成那次操作；可用 --resume 继续，或 --clean --force 清理本工具窗口。若窗口已不可用：' + '；'.join(MANUAL_STEPS[:2]) + '；跨域有效性 UNVERIFIED（首次真实登录时冒烟验证）',
-    15: '疑似多账号或工作空间不符：请退出多余账号、确认右上角目标空间后重新一键双取；仍不符请报错人工处理。',
+    14: '检测到锁，请先核查已有窗口；不自动清锁。',
+    15: '账号或工作空间冲突，停止并请用户确认目标空间，不自动继续。',
     20: '参数不合法，仅支持来发信 HTTPS 子域名与有效选项；仍不行：' + '；'.join(MANUAL_STEPS[:2]) + '；跨域有效性 UNVERIFIED（首次真实登录时冒烟验证）',
     21: '专用目录不安全，请使用仓库 .local 下的本工具目录；仍不行：' + '；'.join(MANUAL_STEPS[:2]) + '；跨域有效性 UNVERIFIED（首次真实登录时冒烟验证）',
     22: '窗口关了，需要时我再开。',
-    23: '本次操作中断或校验程序异常，请稍后重试。',
+    23: '本次操作中断或校验程序异常，停止并核查原因。',
     24: '登录信息格式不完整：请重新一键双取（accesstoken 与 orgId 两行一起），不要手敷。',
     25: '平台没给判定依据：请重新一键双取；仍不行请报错人工处理。',
     26: 'Playwright 环境未就绪。安装命令：' + PLAYWRIGHT_INSTALL + '；' + '；'.join(MANUAL_STEPS[:2]) + '；跨域有效性 UNVERIFIED（首次真实登录时冒烟验证）',

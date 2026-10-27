@@ -23,6 +23,7 @@ updated: "2026-10-27"
 | 文件 | 说明 | 什么时候读 |
 |---|---|---|
 | __init__.py | 测试包初始化文件（一次性票据注入） | 无需读；仅测试包初始化 |
+| test_install_recovery_contract.py | 安装恢复与登录分流文案契约回归 | 修改恢复指引后 |
 | gate_env.py | 测试放行一次性票据：生产入口只认票据，不认裸 LFX_GATE_TEST_MODE | 改测试放行/门禁隔离后 |
 | test_agent_pitfalls.py | agent-pitfalls.json 契约：结构/引用/与 approval.py 一致/与踩坑文档条数一致 | 改排障库、审批确认语义或踩坑文档后 |
 | test_approval_numeric_quotes.py | 确认卡回数字的审批回归：S7/S9/S10 放行「1」，S5/S12 仍要求原话。 | 改审批确认词判定时 |
