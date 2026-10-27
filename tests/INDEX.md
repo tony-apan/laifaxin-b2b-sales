@@ -65,7 +65,7 @@ updated: "2026-10-27"
 | test_render_html_preview.py | HTML 预览渲染测试：加粗标记不泄漏、CTA 段独立标注、变量替换正确。 | 改 HTML 预览渲染后 |
 | test_repo_layout.py | 仓库目录布局纪律测试（防「影子副本」回退）。 | 改仓库目录布局后 |
 | test_repo_references.py | 仓库自洽性：文档引用的工具/模板必须真实存在（2026-10-23 新手实测暴露）。 | 改文档引用/模板位置后 |
-| test_runs_privacy.py | 隐私护栏（五层）：`.gitignore` 只许 `runs/*` 全挡，再放行 `runs/INDEX.md` 与 `runs/_template`（任意其它放行规则、行首空白、runs 下嵌套 .gitignore 均判红）；`git check-ignore --no-index`（隔离 info/exclude）+ 本地真实 runs 目录探针；进仓 runs 文件必须与 20 项模板清单逐字一致，且索引内容不含非示例域名邮箱。 | 改 `.gitignore`、runs 布局、模板清单或发布打包后 |
+| test_runs_privacy.py | 隐私护栏（五层）：`.gitignore` 只许 `runs/*` 全挡，再放行 `runs/INDEX.md` 与 `runs/_template`（任意其它放行规则、行首空白、runs 下嵌套 .gitignore 均判红）；`git check-ignore --no-index`（隔离 info/exclude）+ 本地真实 runs 目录探针；进仓 runs 文件必须与 20 项模板清单逐字一致，且索引内容不含非示例域名邮箱（内容层只查邮箱；公司名/电话/混淆写法不在覆盖内）。 | 改 `.gitignore`、runs 布局、模板清单或发布打包后 |
 | test_runtime_cards.py | 执行卡就位测试：全新 checkout 必须自带 runtime/cards，保存链才可用。 | 改执行卡或 runtime/cards 后 |
 | test_s10_precheck.py | S10 加人前只读预检回归（任务C）：人数为 0 / 标签缺失 → 中文 exit 2 且不写平台。 | 改 S10 加人前预检后 |
 | test_s12_adversarial.py | S12 激活凭证链 · 对抗模拟测试（2026-09-17 用户要求"模拟对抗"后固化）。 | 改 S12 激活凭证链后 |

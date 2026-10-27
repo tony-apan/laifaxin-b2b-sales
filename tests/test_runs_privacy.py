@@ -28,6 +28,7 @@ P0-4 之后靠 .gitignore 挡；2026-10-27 三轮独立审查先后证明前几�
 
 import os
 import re
+import atexit
 import os
 import shutil
 import subprocess
@@ -111,8 +112,12 @@ def _isolation_gitdir():
     global _TMP_GITDIR
     if _TMP_GITDIR is None:
         _TMP_GITDIR = tempfile.mkdtemp(prefix="runs-privacy-git-")
-        subprocess.run(["git", "init", "-q", _TMP_GITDIR], check=True,
-                       capture_output=True, text=True, env=GIT_ENV)
+        atexit.register(shutil.rmtree, _TMP_GITDIR, True)
+        # --template=<空目录>：不继承用户 init.templateDir，否则模板里的 info/exclude 会让断言假红
+        empty_tpl = tempfile.mkdtemp(prefix="runs-privacy-tpl-")
+        atexit.register(shutil.rmtree, empty_tpl, True)
+        subprocess.run(["git", "init", "-q", f"--template={empty_tpl}", _TMP_GITDIR],
+                       check=True, capture_output=True, text=True, env=GIT_ENV)
     return os.path.join(_TMP_GITDIR, ".git")
 
 
