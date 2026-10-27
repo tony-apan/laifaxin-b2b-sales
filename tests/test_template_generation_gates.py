@@ -105,6 +105,67 @@ def build_plan(variants, rounds=12, titles=None, claims=None, profile_sha="0" * 
     return plan
 
 
+class SampleCardStructureTest(unittest.TestCase):
+    def test_each_sample_has_own_body_and_intent_in_user_card(self):
+        import re
+        text = (ROOT / "output-templates" / "S7-template-confirm.md").read_text(encoding="utf-8")
+        card = text.split("```", 2)[1]
+        sections = re.split(r"(?m)^【样稿 (\d+)】\s*$", card)
+        self.assertEqual(["1", "2", "3", "4"], sections[1::2])
+        for number, body in zip(sections[1::2], sections[2::2]):
+            with self.subTest(sample=number):
+                # Stop at the end of this sample; text after the card's next section cannot fill it.
+                sample = body.split("【样稿结束】", 1)[0]
+                self.assertIn(f"<粘贴样稿 {number} 渲染后正文，含 Hi 【名称】>", sample)
+                self.assertEqual(1, sample.count("这封的用意"))
+                self.assertIn(f"<说明样稿 {number} 想达成什么或为什么这么写>", sample)
+                self.assertIn("【样稿结束】", body)
+        self.assertEqual(4, card.count("这封的用意"))
+
+
+class OptionalSellingPointPreviewTest(unittest.TestCase):
+    """Run the real CLI preview offline with profiles that have no selling points."""
+
+    def test_preview_48_without_selling_points(self):
+        import os
+        for status in ("declined", "confirmed"):
+            with self.subTest(status=status), tempfile.TemporaryDirectory(prefix="optional-selling-") as tmp:
+                root = Path(tmp)
+                profile = root / "product-profile.md"
+                profile.write_text(PROFILE_FIXTURE, encoding="utf-8")
+                if status == "confirmed":
+                    result = subprocess.run([sys.executable, str(TOOLS / "product_profile.py"),
+                        "confirm", "--profile", str(profile), "--by", "Tony", "--quote", "确认当前产品档案"],
+                        capture_output=True, text=True, cwd=ROOT)
+                    self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                record = root / "operation-record.md"
+                record.write_text("---\nstatus: S6\nnext_state: S7\n---\n", encoding="utf-8")
+                sha = hashlib.sha256(profile.read_bytes()).hexdigest()
+                variants = [f'Explore <b>packaging</b> ideas for {word}. Reply "<b>{word.upper()}</b>" for details.'
+                            for word in ("amber", "birch", "coral", "delta")]
+                directions = [[f"R{i+1:02d}", "介绍", TITLES[i*4:i*4+4],
+                               f"Are your <b>packaging</b> plans ready? Let's discuss <b>{TITLES[i]}</b>."]
+                              for i in range(12)]
+                plan = root / "plan.json"
+                plan.write_text(json.dumps({"profile_sha256": sha, "directions": directions,
+                                            "variants": variants, "claims": []}), encoding="utf-8")
+                # A fake curl records any attempted transport and fails without network access.
+                fakebin = root / "bin"
+                fakebin.mkdir()
+                curl = fakebin / "curl"
+                curl.write_text('#!/bin/sh\nprintf called > "' + str(root / 'network-called') + '"\nexit 99\n', encoding="utf-8")
+                curl.chmod(0o755)
+                env = dict(os.environ, PATH=str(fakebin) + os.pathsep + os.environ.get("PATH", ""))
+                result = subprocess.run([sys.executable, str(GEN), "--plan", str(plan), "--token", "x", "--org", "1",
+                    "--product", "pet-pack", "--name", "Tony", "--prefix", "英-pet-", "--project", "tony/pet-pack",
+                    "--profile", str(profile), "--record", str(record), "--preview"],
+                    capture_output=True, text=True, cwd=ROOT, env=env, timeout=120)
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                self.assertEqual(48, result.stdout.count("●英-pet-"), result.stdout)
+                self.assertFalse((root / "network-called").exists())
+                self.assertIn("status: S7", record.read_text(encoding="utf-8"))
+
+
 class GridGateTest(unittest.TestCase):
     """P0-D：48=12轮×4 必须是硬断言（不再动态相乘）。"""
 

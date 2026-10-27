@@ -4,7 +4,7 @@ title: "序列配置标准"
 description: "序列/模板规范：每轮方向与模板必须不同（防重复发信/风控）+ 计划时间 + 发送上限 + 标签"
 type: "spec"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-27"
 created: 2026-08-26
 author: "AI + 用户对抗完善"
 source: "皮筏艇/电动自行车实操"
@@ -151,7 +151,7 @@ audience: 人+AI
    - ✅ 正例：`Worth a look? Reply "CATALOG" and I'll send our 2026 product range — no commitment.`
    - ✅ 正例：`Should I send you the <b>drop-stitch</b> spec sheet for your rental fleet — yes or no is enough.`
    - ❌ 违例：无 CTA 段（正文说完就落款）/ 泛 CTA（"feel free to reach out" / "look forward to hearing from you"——没说清回什么）/ CTA 藏在段落中间不独立成段。
-2. **优势具体化铁律**：至少 1 条**可感知的优势**，必须带**数字/实体**（质保年数、交期天数、修复性结构、材料工艺、载重/气压参数），禁止裸能力陈述（"high quality" / "professional team" / "we offer seasonal planning calls"这类没有数字与买家利益绑定的句子=违例）。有 confirmed product-profile 时从档案 ⑧可引用数字取材；无档案时用结构/工艺类**非承诺性**表达（如 repair-friendly construction），不得编数字。
+2. **卖点可选**：仅使用用户已确认且有来源的卖点；没有卖点时直接介绍产品或合作范围，不宣称效果、询盘保证或未经证实的能力。不得编造数字、材料、工艺、认证或承诺；高风险事实仍须通过来源校验。
 3. **产品词视觉加粗铁律**：正文首次出现的**核心产品词与关键数字**必须 `<b>` 加粗（如 `<b>inflatable rafts</b>`、`<b>5-year seam warranty</b>`、`<b>25-day lead time</b>`）——买家扫一眼必须看到"卖什么+凭什么"。每封 ≥2 处 `<b>`，但 ≤4 处（全篇加粗=没加粗）；**标题不加粗不变**（标题纯文案）。
 4. **CTA 可回复性校验**：CTA 段必须让买家**知道回复什么**——要么给回复关键词（Reply "CATALOG"），要么给是非问题（yes/no is enough），要么给具体选项（2 款打样还是整套报价？）。"回什么的答案"在邮件里要能一句话说出。
 
@@ -165,7 +165,7 @@ Hi 【名称】,
 
 【钩子·问句】← 对方痛点，一个问号
 
-【卖点段】We build <b>产品词</b> for 买家类型: <b>数字优势1</b>, <b>数字优势2</b>, 利益短语.
+【介绍段】介绍 <b>产品词</b> 与合作范围；仅有可靠来源时使用具体卖点。
 
 【CTA 段·独立】Worth a look? Reply "关键词" and I'll send 具体交付物 — no commitment.
 
@@ -180,7 +180,7 @@ Tony
    - ★**关键词铁律（2026-09-09 实测：真实产物整批零加粗、无短词，旧工具静默放行后补）**：每封变体必须给出**恰好一个 1-2 个单词的短词**（`CATALOG`/`DATA`/`PRICE`/`SAMPLE`/`YES`…）让对方回；**开放式要求不算 CTA**（"Reply with your target cup sizes / your delivery address"=买家不知道回什么，违例）。唯一豁免：明确的是非问（`— yes or no is enough`）。
    - 关键词**每轮换词**，整批模板不要全用同一个；关键词本身计入"全大写 ≤1 个"额度。
 5. **无视觉噪音**：禁 emoji 堆砌（≤1 个且仅当品类天然适配，如户外品 🛶）、禁全大写单词（CTA 关键词除外，≤1 个）、禁链接裸奔（首封不落链接，防 spam 判定）。
-6. **移动端预览自检**：生成后抽查渲染视图时按"手机半屏"宽度目测——钩子、一个加粗卖点、CTA 三样在首屏内必须全部可见。
+6. **移动端预览自检**：生成后抽查渲染视图时按"手机半屏"宽度目测——钩子、一个加粗产品词、CTA 三样在首屏内必须全部可见。
 
 **★垃圾邮件触发词清单（2026-10-23 用户要求完善；生成器硬门）**：
 - **A 类 硬禁（标题+正文命中即 exit 2；大小写不敏感、短语匹配）**：free sample / free trial / free quote / free consultation / risk-free / no obligation / act now / limited time / click here / buy now / order now / congratulations / you have won / you are a winner / urgent action / do not miss out / last chance / 100% free / 100% guaranteed / $$$ / !!!。
@@ -190,7 +190,7 @@ Tony
 - **R12 写法提醒**：轮次角色叫「最后机会」时，正文不要直译 last chance；用 closing note / final follow-up 等替代表述，避免命中 A 类。
 - 机器位置：tools/gen_templates.py 的 SPAM_HARD_BAN 列表，在 check_four_elements() 扫全部标题与正文；命中逐条列出并 exit 2。清单变更必须同步改这里、生成器与测试。
 **反例（=你截图那封的形状）**：两大段纯文本 + 无加粗 + 无 CTA 段 + "tony" 小写落款——买家扫一眼抓不到任何锚点，直接归档。
-**正例骨架**：问句钩子 → `<b>` 加粗的 2 个数字卖点 → 独立 CTA 段（加粗关键词+no commitment）→ 昵称落款。
+**正例骨架**：问句钩子 → `<b>` 加粗的产品词和有来源的要点（如有） → 独立 CTA 段（加粗关键词+no commitment）→ 昵称落款。
 
 **落地与校验**：① 生成器 `gen_templates.py` 断言：总词数≤120 / `<b>` 2~4 处（**0 处也违例**，旧 `if bolds and ...` 曾放行零加粗）/ 变体句必须含短回复关键词且已加粗（缺失或未加粗均 exit 2）/ CTA 段位置=签名前最后一段；② `--plan` 文案按视觉骨架产出；③ 生成后抽查渲染视图按"手机半屏"目测；④ 对抗审查"邮件模板清单"第⑧项含视觉扫读逐条核对。
 

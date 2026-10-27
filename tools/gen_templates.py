@@ -631,8 +631,8 @@ def check_spam_words():
     print(f"  ✅ 垃圾词预检: 标题/正文/轮次句均未命中 {len(SPAM_HARD_BAN)} 个禁用短语")
 
 def check_four_elements():
-    """四要素+视觉扫读铁律（sequence-config）：①变体句含CTA（具体可回复）②优势具体化
-    ③<b>加粗2-4处且含加粗回复关键词④CTA可回复性 ⑤整封≤120词 ⑥CTA回复关键词必须加粗。
+    """四要素+视觉扫读铁律（sequence-config）：①变体句含CTA（具体可回复）②<b>加粗2-4处且含加粗回复关键词
+    ③CTA可回复性 ④整封≤120词。卖点可选，事实来源仍由 claims 校验。
     违例列出并 exit 2。claims 已单独校验事实来源。"""
     issues = []
     samples = []
@@ -654,8 +654,6 @@ def check_four_elements():
                 issues.append(f"[{loc}] 缺CTA——变体句末段必须有具体可回复动作（Reply \"X\" / yes-or-no / 选项）")
             elif _GENERIC_CTA_RE.search(text):
                 issues.append(f"[{loc}] 泛CTA违例（feel free/look forward——没说清回什么）")
-            if not _ADVANTAGE_RE.search(text):
-                issues.append(f"[{loc}] 缺具体化优势——须带数字/实体（质保年数/交期天数/材料工艺），裸能力陈述=违例")
             # 视觉扫读：CTA 回复关键词必须存在且加粗（Reply "<b>CATALOG</b>"）——买家的低门槛回复动作
             plain = re.sub(r"<[^>]+>", "", text)
             kw = _cta_keyword(plain)
@@ -681,22 +679,23 @@ def check_four_elements():
         for i in issues[:10]:
             print(f"   - {i}")
         raise SystemExit(2)
-    print(f"  ✅ 四要素+视觉扫读铁律: {len(samples)} 句全部合规（CTA/优势/加粗/词数）")
+    print(f"  ✅ 四要素+视觉扫读铁律: {len(samples)} 句全部合规（CTA/加粗/词数）")
 
 def preview():
     print("★ 渲染视图预览(收件人看到):")
-    for d in DIRECTIONS[:5]:
+    for d in DIRECTIONS:
         rnd, zh, angle = d[0], d[1], d[3]
-        subj = subject_for(d, 1)
-        h = html_for(rnd, zh, subj, angle, VARIANTS[0])
-        t = re.sub(r'<code[^>]*>\{联系人:([^}]+)\}</code>', lambda m: '【' + m.group(1) + '】', h)
-        t = re.sub(r'<[^>]+>', '\n', t)
-        t = re.sub(r'&amp;', '&', t)
-        lines = [l.strip() for l in t.split('\n') if l.strip()]
-        print(f"\n●{args.prefix}{rnd}-{zh}-V01 | 主题:{subj}")
-        for l in lines:
-            print("  " + l)
-    print(f"\n(预览仅代表; 生成={len(DIRECTIONS)}轮x{len(VARIANTS)}={len(DIRECTIONS)*len(VARIANTS)}, 每轮正文句不同+每变体正文句不同)")
+        for vi, variant in enumerate(VARIANTS, 1):
+            subj = subject_for(d, vi)
+            h = html_for(rnd, zh, subj, angle, variant)
+            t = re.sub(r'<code[^>]*>\{联系人:([^}]+)\}</code>', lambda m: '【' + m.group(1) + '】', h)
+            t = re.sub(r'<[^>]+>', '\n', t)
+            t = re.sub(r'&amp;', '&', t)
+            lines = [l.strip() for l in t.split('\n') if l.strip()]
+            print(f"\n●{args.prefix}{rnd}-{zh}-V{vi:02d} | 主题:{subj}")
+            for l in lines:
+                print("  " + l)
+    print(f"\n(离线预览={len(DIRECTIONS)}轮x{len(VARIANTS)}={len(DIRECTIONS)*len(VARIANTS)}封，未创建线上模板)")
 
 check_spam_words()
 validate_claims()
