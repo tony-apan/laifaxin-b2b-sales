@@ -113,5 +113,5 @@ updated: "2026-10-27"
 - `S0-product-profile.md`：两问合一（只回「确认」），并去掉「回 1 连接平台」。
 - `README.md:57/70`：3 类→默认 4；`SKILL.md:24`：每次汇报→阶段级；`S2-segment-confirm.md:3/5`、`S9-sequence-confirm.md:21`、`S0-install-report.md`（既有）同步。
 
-## 8. 已知环境前置（不在本次文案范围）
-`save_company_cli.py` 依赖 `runtime/cards/S5.json`（`step_gate.py:145`）；本 checkout 无 `runtime/`，真实保存前须先确认该卡就位，否则工具 exit 2。属于运行环境问题，另开任务处理。
+## 8. 执行卡与安装完整性
+静态执行卡随仓分发，正常新安装无需用户手工生成。`save_company_cli.py` 依赖 `runtime/cards/S5.json`，由 `step_gate.py` 加载；缺卡时工具停止并 exit 2。缺卡属于安装完整性错误，由 AI 检查和修复；不得跳过执行门，也不得要求用户伪造卡。
