@@ -61,20 +61,22 @@ class ReferencedFilesExistTest(unittest.TestCase):
 
 
 class FirstScreenPlainLanguageTest(unittest.TestCase):
-    """首屏 = 装好后第一段话（第 0 屏）：只问昵称+产品，不许要数字、不许出菜单。"""
+    """首屏 = 装好后第一段话（第 0 屏）：只报装好+连接+检测结论，给回 1/回 2，不许出菜单。
+
+    2026-10-27 二次裁决：第 0 屏允许两个数字选项、并新增了「第 0 屏分流图」，
+    所以不再按「开场两屏共 2 个代码块」断言，改为按小节各取 1 块。
+    """
 
     BANNED = ("客群", "划边界", "序列", "点数", "硬门", "审批凭证")
 
-    def _blocks(self):
+    def _screen(self, heading):
         text = (ROOT / "specs" / "beginner-flow.md").read_text(encoding="utf-8")
-        m = re.search(r"## 一、开场两屏.*?(\Z|## 二、)", text, re.S)
-        self.assertIsNotNone(m, "beginner-flow 缺少「开场两屏」小节")
-        blocks = re.findall(r"```[a-z]*\n(.*?)```", m.group(0), re.S)
-        self.assertEqual(2, len(blocks), "开场两屏应各有 1 个代码块（第 0 屏 / 第 1 屏）")
-        return blocks
+        m = re.search(heading + r".*?```[a-z]*\n(.*?)```", text, re.S)
+        self.assertIsNotNone(m, "beginner-flow 缺少「%s」的代码块" % heading)
+        return m.group(1)
 
     def test_install_screen_asks_two_things_only(self):
-        block = self._blocks()[0]
+        block = self._screen("### 第 0 屏")
         for word in self.BANNED:
             self.assertNotIn(word, block, f"首屏出现黑话「{word}」")
         # 2026-10-27 改序：第 0 屏只连接，昵称/产品在连接成功后由 C1 询问
@@ -88,7 +90,7 @@ class FirstScreenPlainLanguageTest(unittest.TestCase):
         self.assertLessEqual(len(lines), 10, f"第 0 屏太长（{len(lines)} 行），新手看不完")
 
     def test_step1_screen_has_six_steps_and_number(self):
-        block = self._blocks()[1]
+        block = self._screen("### 第 1 屏")
         for must in ("找买家", "筛名单", "建跟进计划", "现在", "该回什么", "还要回 8 次"):
             self.assertIn(must, block, f"第 1 屏缺少「{must}」")
 

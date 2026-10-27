@@ -48,6 +48,43 @@ class InstallScreenSingleSourceTest(unittest.TestCase):
             self.assertIn(must, block, f"第 0 屏缺少「{must}」")
 
 
+class InstallScreenShortAndBranchTest(unittest.TestCase):
+    """2026-10-27 二次裁决：第 0 屏压到 ≤6 行，并按本机状态分 A/B/C/D 四支。"""
+
+    def setUp(self):
+        self.block = _blocks("S0-install-report.md")[0]
+
+    def test_screen_is_at_most_six_lines(self):
+        lines = [l for l in self.block.strip().splitlines() if l.strip()]
+        self.assertLessEqual(len(lines), 6,
+                             "第 0 屏超过 6 行（新用户会懵）：%d 行" % len(lines))
+
+    def test_screen_offers_exactly_two_options(self):
+        self.assertIn("回 1", self.block, "第 0 屏必须给回 1")
+        self.assertIn("回 2", self.block, "第 0 屏必须给回 2（手动办法兜底）")
+        self.assertNotIn("回 3", self.block, "一屏最多两个选项")
+
+    def test_branch_table_covers_four_branches(self):
+        card = (TEMPLATES / "S0-install-report.md").read_text(encoding="utf-8")
+        rows = [l for l in card.splitlines() if l.startswith("| **")]
+        self.assertEqual(4, len(rows), "分支对照表应正好 4 行（A/B/C/D）：%r" % rows)
+        for tag, row in zip(("**A ", "**B ", "**C ", "**D "), rows):
+            self.assertIn(tag, row, "分支对照表第 %s 行标签不对" % tag)
+            self.assertIn("回 1", row, "分支 %s 没给回 1" % tag)
+
+    def test_flow_chart_covers_four_branches(self):
+        flow = (ROOT / "specs" / "beginner-flow.md").read_text(encoding="utf-8")
+        self.assertIn("第 0 屏分流图", flow, "beginner-flow 缺分流图")
+        self.assertIn("flowchart TD", flow, "分流图不是 mermaid flowchart")
+        for node in ("分支A", "分支B", "分支C", "分支D"):
+            self.assertIn(node, flow, "流程图缺 %s" % node)
+
+    def test_detection_commands_documented(self):
+        flow = (ROOT / "specs" / "beginner-flow.md").read_text(encoding="utf-8")
+        for cmd in ("onboard_check.py", "check_login.py", "browser_login.py --probe-only"):
+            self.assertIn(cmd, flow, "检测项缺 %s" % cmd)
+
+
 class Step1HonestQuoteTest(unittest.TestCase):
     def setUp(self):
         flow = (ROOT / "specs" / "beginner-flow.md").read_text(encoding="utf-8")
