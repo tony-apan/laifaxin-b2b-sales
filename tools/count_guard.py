@@ -189,6 +189,19 @@ def _ledger(plan: Dict[str, Any], unit: Decimal) -> Dict[str, Any]:
     risk_ack = ledger.get("risk_ack")
     if not isinstance(risk_ack, bool):
         _fail("E_LEDGER_INVALID", "budget_ledger.risk_ack 必须是 bool，实际 %r" % (risk_ack,))
+    # TASK-20261027-AC2：档位一致性——ledger（缺省 3=legacy）必须与 plan 档位一致。
+    ledger_tier = ledger.get("contact_max_count", 3)
+    if isinstance(ledger_tier, bool) or not isinstance(ledger_tier, int):
+        _fail("E_LEDGER_INVALID",
+              "budget_ledger.contact_max_count 必须是 int，实际 %r" % (ledger_tier,))
+    plan_tier = (plan.get("contactMaxCount", 3) if isinstance(plan, dict) else 3)
+    if isinstance(plan_tier, bool) or not isinstance(plan_tier, int):
+        _fail("E_LEDGER_INVALID",
+              "plan.contactMaxCount 必须是 int，实际 %r" % (plan_tier,))
+    if ledger_tier != plan_tier:
+        _fail("E_LEDGER_TIER_MISMATCH",
+              "档位不一致：plan=%d ledger=%d（校准必须同档，缺同档先跑本档探针）"
+              % (plan_tier, ledger_tier))
     upper = _as_decimal(ledger.get("per_company_upper"), "budget_ledger.per_company_upper")
     batch_upper = _as_decimal(ledger.get("batch_points_upper"),
                               "budget_ledger.batch_points_upper")
@@ -220,6 +233,7 @@ def _ledger(plan: Dict[str, Any], unit: Decimal) -> Dict[str, Any]:
         "risk_ack": risk_ack,
         "b_plan": b_plan, "spent_all": spent, "budget_left": left,
         "per_company_upper": upper, "batch_points_upper": batch_upper,
+        "contact_max_count": ledger_tier,
         "org_hash": str(ledger.get("org_hash")),
         "round_id": str(ledger.get("round_id")),
         "exec_quote_ref": str(ledger.get("exec_quote_ref")),
@@ -251,6 +265,7 @@ def verify_ledger_file(root: Any, plan: Dict[str, Any]) -> None:
         "exec_quote_ref": str(ledger.get("exec_quote_ref") or ""),
         "round_id": str(ledger.get("round_id") or ""),
         "risk_ack": ledger.get("risk_ack"),
+        "contact_max_count": ledger.get("contact_max_count"),
     }
     for row in rows:
         if row.get("kind") != "plan" or row.get("state") != "ready":
@@ -268,7 +283,8 @@ def verify_ledger_file(root: Any, plan: Dict[str, Any]) -> None:
                 and str(payload.get("batch_points_upper")) == wanted["batch_points_upper"]
                 and str(payload.get("round_id") or "") == wanted["round_id"]
                 and str(payload.get("exec_quote_ref") or "") == wanted["exec_quote_ref"]
-                and payload.get("risk_ack") is wanted["risk_ack"]):
+                and payload.get("risk_ack") is wanted["risk_ack"]
+                and payload.get("contact_max_count") == wanted["contact_max_count"]):
             return
     _fail("E_LEDGER_ROW_NOT_FOUND",
           "budget_ledger 在 .local/budget-ledger.jsonl 中找不到同内容 ready 行")
@@ -352,6 +368,14 @@ def validate_plan(plan: Dict[str, Any]) -> Dict[str, Any]:
     """confirm/execute 重算并校验五处数量一致；不信任 plan 自报。"""
     if not isinstance(plan, dict):
         _fail("E_COUNT_EVIDENCE_REQUIRED", "plan 不是对象")
+    # R2-B：plan 顶层档位必须严格等于 wire 档位（wire 含该字段时）。
+    wire_doc = plan.get("wire_payload")
+    if isinstance(wire_doc, dict) and "contactMaxCount" in wire_doc:
+        top_tier = plan.get("contactMaxCount", 3)
+        if type(top_tier) is not int or top_tier != wire_doc["contactMaxCount"]:
+            _fail("E_CONTACT_TIER_MISMATCH",
+                  "plan.contactMaxCount=%r 与 wire=%r 不一致"
+                  % (top_tier, wire_doc["contactMaxCount"]))
     evidence = plan.get("count_evidence")
     mode = plan.get("count_mode")
     explicit = plan.get("explicit_count")

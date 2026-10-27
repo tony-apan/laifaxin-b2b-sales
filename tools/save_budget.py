@@ -447,21 +447,22 @@ def _rows(root, project, org, kind=None):
 
 def begin_batch(root, *, project, org, task_id, b0, exec_quote="",
                 exec_quote_ref="", batch_id=None, sample_batch=False,
-                probe_level=None, now=None):
+                probe_level=None, now=None, contact_max_count=3):
     lock = acquire_round_lock(Path(root))
     try:
         return _begin_batch_locked(
             root, project=project, org=org, task_id=task_id, b0=b0,
             exec_quote=exec_quote, exec_quote_ref=exec_quote_ref,
             batch_id=batch_id, sample_batch=sample_batch,
-            probe_level=probe_level, now=now)
+            probe_level=probe_level, now=now,
+            contact_max_count=contact_max_count)
     finally:
         _release_quiet(lock)
 
 
 def _begin_batch_locked(root, *, project, org, task_id, b0, exec_quote="",
                         exec_quote_ref="", batch_id=None, sample_batch=False,
-                        probe_level=None, now=None):
+                        probe_level=None, now=None, contact_max_count=3):
     """执行前登记（第一条 batch_begin）；重复 batch_id → E_LEDGER_REPLAY。
 
     v14：探针批必须已有更早的 sample_ack（时序严格小于），否则批 void +
@@ -474,6 +475,14 @@ def _begin_batch_locked(root, *, project, org, task_id, b0, exec_quote="",
         _fail("E_BALANCE_UNAVAILABLE", "缺执行前余额快照 B0")
     exec_ack = bool(str(exec_quote or "").strip()
                     and str(exec_quote_ref or "").strip())
+    # TASK-20261027-ledger-close：档位严格校验（bool/float/str/越界全拒），legacy 缺省 3。
+    if (isinstance(contact_max_count, bool)
+            or not isinstance(contact_max_count, int)
+            or contact_max_count not in (3, 6, 9)):
+        _fail("E_BAD_INPUT",
+              "contact_max_count 必须是 3/6/9 之一（严格 int），实际 %r"
+              % (contact_max_count,))
+    tier = int(contact_max_count)
     record = {
         "task_id": str(task_id),
         "b0_b_avail": str(b0["b_avail"]),
@@ -482,6 +491,7 @@ def _begin_batch_locked(root, *, project, org, task_id, b0, exec_quote="",
         "exec_quote_ref": str(exec_quote_ref or ""),
         "probe_level": probe_level,
         "sample_batch": bool(sample_batch),
+        "contact_max_count": tier,
     }
     if sample_batch:
         current_round = ""
@@ -509,7 +519,8 @@ def _begin_batch_locked(root, *, project, org, task_id, b0, exec_quote="",
             "task_id": str(task_id), "exec_ack": exec_ack,
             "b0_b_avail": str(b0["b_avail"]),
             "probe_level": probe_level,
-            "sample_batch": bool(sample_batch)}
+            "sample_batch": bool(sample_batch),
+            "contact_max_count": tier}
 
 
 def settle_balance(http: Any, *, token: str, org: str, clock: Any, sleep: Any,
@@ -601,6 +612,8 @@ def _settle_locked(root, *, project, org, token, task_id, http=None,
     if settles:
         _fail("E_LEDGER_REPLAY", "同一 batch 重复 settle: %s" % bid)
     payload0 = begins[-1].get("payload") or {}
+    # TASK-20261027-ledger-close：settle 档位只继承对应 begin 行，不接受调用者参数。
+    settle_tier = payload0.get("contact_max_count", 3)
     b0 = {"b_avail": payload0.get("b0_b_avail"),
           "source": str(payload0.get("b0_source") or ""),
           "org_hash": org_hash(org),
@@ -661,6 +674,7 @@ def _settle_locked(root, *, project, org, token, task_id, http=None,
         "b_settle": str(b1_avail),
         "exec_ack": bool(payload0.get("exec_ack")),
         "probe_level": payload0.get("probe_level"),
+        "contact_max_count": settle_tier,
         "unresolved_upper": str(batch_cost_lo),
     }
     append_ledger(Path(root), org_hash=org_hash(org), project=project,
@@ -668,6 +682,7 @@ def _settle_locked(root, *, project, org, token, task_id, http=None,
                   batch_id=bid, state="preliminary", payload=record)
     return {"schema_version": SCHEMA_VERSION, "batch_id": bid,
             "state": "preliminary", "preliminary": True,
+            "contact_max_count": settle_tier,
             "probe_level": payload0.get("probe_level"),
             "batch_cost_lo": str(batch_cost_lo),
             "company_save_count": str(task["company_save_count"]),
@@ -711,6 +726,8 @@ def _carry_locked(root, *, project, org, batch_id, b_after, settle_quote="",
            for r in _rows(root, project, org, "carry")):
         _fail("E_LEDGER_REPLAY", "同一 batch 重复 carry: %s" % batch_id)
     payload = settles[-1].get("payload") or {}
+    # TASK-20261027-ledger-close：carry 档位只继承对应 settle 行。
+    carry_tier = payload.get("contact_max_count", 3)
     b_settle = Decimal(str(payload.get("b_settle")))
     b_after_dec = Decimal(str(b_after))
     late = max(Decimal("0"), b_settle - b_after_dec)
@@ -735,12 +752,14 @@ def _carry_locked(root, *, project, org, batch_id, b_after, settle_quote="",
         "settle_quote_ref": str(settle_quote_ref or ""),
         "settled_at": _iso(now),
         "probe_level": payload.get("probe_level"),
+        "contact_max_count": carry_tier,
     }
     append_ledger(Path(root), org_hash=org_hash(org), project=project,
                   kind="carry", source_ref="late_carryover",
                   batch_id=batch_id, state="settled", late=late,
                   external_risk=external_risk, payload=record)
     return {"batch_id": batch_id, "state": "settled",
+            "contact_max_count": carry_tier,
             "batch_cost": str(batch_cost), "late": str(late),
             "company_save_count": str(companies),
             "contact_save_count": str(contacts),
@@ -826,10 +845,20 @@ def next_probe_level(root, *, project, org, round_id):
     return PROBE_LEVELS[0]
 
 
-def round_accounts(root, *, project, org, b_now=None):
+def round_accounts(root, *, project, org, b_now=None, contact_max_count=None):
+    """TASK-20261027-AC2：校准账按同 contact_max_count 过滤（legacy 无字段=3）；
+    spent_settled/spent_all/unresolved 恒为全档累计，换档不清零预算。
+    """
+    tier = 3 if contact_max_count is None else int(contact_max_count)
 
     carried = _rows(root, project, org, "carry")
-    clean = [r for r in carried if r.get("external_risk") == "confirmed"]
+    clean_all = [r for r in carried if r.get("external_risk") == "confirmed"]
+
+    def _row_tier(row):
+        value = (row.get("payload") or {}).get("contact_max_count")
+        return 3 if value is None else int(value)
+
+    clean = [r for r in clean_all if _row_tier(r) == tier]
     spent_settled = sum((Decimal(str((r.get("payload") or {}).get("batch_cost", "0")))
                          for r in carried), Decimal("0"))
     spent_calib = sum((Decimal(str((r.get("payload") or {}).get("batch_cost", "0")))
@@ -911,6 +940,8 @@ def round_accounts(root, *, project, org, b_now=None):
         "emails_calib": emails,
         "per_company_upper": max(uppers) if uppers else None,
         "latest_probe_level": latest_level,
+        "contact_max_count": tier,
+        "clean_count_all_tiers": len(clean_all),
         "unresolved_count": unresolved_count,
         "unresolved_total": unresolved_total,
     }
@@ -945,20 +976,40 @@ def freeze_b_plan(root, *, project, org, b_avail, ratio=DEFAULT_BUDGET_RATIO,
     return value, source
 
 
+def _finite_balance(value):
+    """R2-C：余额必须是有限、非负数字；bool/None/NaN/Inf/负数/非数字明确拒。"""
+    if isinstance(value, bool) or value is None:
+        _fail("E_BAD_INPUT", "b_avail 必须是数字，实际 %r" % (value,))
+    try:
+        dec = Decimal(str(value))
+    except Exception:
+        _fail("E_BAD_INPUT", "b_avail 非数字: %r" % (value,))
+    if not dec.is_finite():
+        _fail("E_BAD_INPUT", "b_avail 非有限数字: %r" % (value,))
+    if dec < 0:
+        _fail("E_BAD_INPUT", "b_avail 为负数: %r" % (value,))
+    return dec
+
+
 def bootstrap_sample(*, b_plan, b_avail, history_upper=None,
                      sample_ack_quote="", sample_ack_ref="", sample_n0=100):
     """v3：无历史先生成 100 家探针（一次拿单价/联系人率），随后直接推导全量；
     旧的 B_plan<20 点门槛已删除（量纲无关）。"""
-    budget = Decimal(str(b_plan))
+    # TASK-20261027-AC3：预算入口先拒 0/负/非有限，不产任何可执行 ready 提案。
+    try:
+        budget = Decimal(str(b_plan))
+    except Exception:
+        _fail("E_BAD_INPUT", "b_plan 非数字: %r" % (b_plan,))
+    if not budget.is_finite():
+        _fail("E_BAD_INPUT", "b_plan 非有限数字: %r" % (b_plan,))
+    if budget <= 0:
+        _fail("E_BUDGET_EXHAUSTED",
+              "b_plan=%s 必须 >0，拒出样本提案（0/负预算不能跑探针）" % (b_plan,))
+    _finite_balance(b_avail)
     if history_upper is None:
         n0 = 1 if sample_n0 is None else int(sample_n0)
-        # 保守封顶：按「每家公司至少 1 点」估，探针量不得超过本轮预算点数。
-        try:
-            cap = int(budget)
-        except Exception:
-            cap = n0
-        if cap > 0 and n0 > cap:
-            n0 = max(1, cap)
+        # R2：无历史单价时不存在真实费用上界；不再用「每家至少 1 点」下界缩量，
+        # 保持默认探针量，风险文字如实写未知。
         warning = ("首批 %d 家为成本实测样本，实际扣点未知；样本本身可能耗掉"
                    "本轮预算的大部分甚至全部余额。" % n0)
         affordable = None
@@ -974,10 +1025,21 @@ def bootstrap_sample(*, b_plan, b_avail, history_upper=None,
         else:
             warning = ("首批 %d 家为成本实测样本，实际扣点未知；样本本身可能"
                        "耗掉本轮预算的大部分甚至全部余额。" % n0)
-    ack = bool(str(sample_ack_quote or "").strip()
-               and str(sample_ack_ref or "").strip())
+    # TASK-20261027-ack-close：肯定授权必须是安全肯定原话——复用 S5 保存确认
+    # 口径（否定/取消/疑问一律不算 ack）；纯 ASCII 数字必须精确等于本提案 N。
+    import rule_check as _rc
+    quote_text = str(sample_ack_quote or "").strip()
+    numeric = _rc.plain_numeric_save_count(quote_text)
+    affirmative = _rc.is_plain_save_confirm(quote_text)
+    ack = bool(str(sample_ack_ref or "").strip()
+               and (affirmative
+                    or (numeric is not None and numeric == n0)))
+    quote_given = bool(quote_text)
     return {
         "status": "sample_ready" if ack else "sample_needs_ack",
+        "ack_quote_invalid": bool(quote_given and not (affirmative
+                                                       or (numeric is not None
+                                                           and numeric == n0))),
         "sample_n": n0,
         "bootstrap": True,
         "b_plan": str(budget),
@@ -1003,7 +1065,7 @@ def plan(root, **kwargs):
 def make_ready_row_payload(*, b_plan, confirm_n, n_cons, n_est, risk_ack,
                            cap_ack, exec_quote_ref, batch_points_upper,
                            round_id, spent_all, budget_left,
-                           per_company_upper):
+                           per_company_upper, contact_max_count=3):
     """ready 台账行的唯一生产者；字段变更有回归测试盯住 count_guard 消费端。"""
     return {
         "b_plan": str(b_plan), "freeze": False, "confirm_n": confirm_n,
@@ -1014,6 +1076,7 @@ def make_ready_row_payload(*, b_plan, confirm_n, n_cons, n_est, risk_ack,
         "spent_all": str(spent_all),
         "budget_left": str(budget_left),
         "per_company_upper": str(per_company_upper),
+        "contact_max_count": int(contact_max_count),
     }
 
 
@@ -1025,7 +1088,12 @@ def _plan_locked(root, *, project, org, b_plan, b_avail, read_at=None,
          sample_ack_quote="", sample_ack_ref="", now=None,
          balance_read_at=None, new_round=False, ratio=DEFAULT_BUDGET_RATIO,
          override=None, override_source="", round_id=None,
-         cumulative_cap=None):
+         cumulative_cap=None, contact_max_count=None):
+    # R2-C：余额字段级校验先于任何落盘；仅已证 POINTS 源的 0 余额才拒（查看配额 0 不是点数 0）。
+    b_avail_dec = _finite_balance(b_avail)
+    if _is_points_source(balance_source) and b_avail_dec <= 0:
+        _fail("E_BUDGET_EXHAUSTED",
+              "点数余额 %s <= 0，不能规划保存" % (b_avail,))
     if balance_read_at or read_at:
         age = (_now(now) - _now(balance_read_at or read_at)).total_seconds()
         if age > BALANCE_STALE_SECONDS:
@@ -1073,7 +1141,8 @@ def _plan_locked(root, *, project, org, b_plan, b_avail, read_at=None,
                 ("%s|%s|%s" % (org_hash(org), project, _iso(now))).encode("utf-8")
             ).hexdigest()[:12]
     spent_cumulative_all_rounds = Decimal("0")  # 在 accounts 之后补齐
-    accounts = round_accounts(root, project=project, org=org, b_now=b_avail)
+    tier = 3 if contact_max_count is None else int(contact_max_count)
+    accounts = round_accounts(root, project=project, org=org, b_now=b_avail, contact_max_count=tier)
     # v16 AC-B12：跨轮累计 = 全部 settled + 当前 unresolved 上界；参与 cap 判定。
     spent_cumulative_all_rounds = (
         sum((Decimal(str((r.get("payload") or {}).get("batch_cost", "0")))
@@ -1092,6 +1161,12 @@ def _plan_locked(root, *, project, org, b_plan, b_avail, read_at=None,
               % (accounts["unresolved_count"], accounts["unresolved_total"]))
     if accounts["preliminary_count"] > 0:
         _fail("E_CALIB_NOT_READY", "当前批尚未结转，不给数量")
+    # R2-A：全档 spent_all 已耗尽本轮冻结预算 → 不再产任何新档提案/ack/probe_level。
+    remaining = frozen - accounts["spent_all"]
+    if remaining <= 0:
+        _fail("E_BUDGET_EXHAUSTED",
+              "本轮预算 %s 已被全档累计已花 %s 耗尽，不能为档位 %d 再提新探针"
+              % (frozen, accounts["spent_all"], tier))
     # D1：校验通过前不落 freeze 行——失败轮不得改写首轮锚点。
     if need_open_round:
         append_ledger(Path(root), org_hash=org_hash(org), project=project,
@@ -1102,14 +1177,71 @@ def _plan_locked(root, *, project, org, b_plan, b_avail, read_at=None,
                                "cumulative_cap": None if cumulative_cap is None
                                else str(cumulative_cap)})
         need_open_round = False
-    if accounts["carry_count"] == 0:
+    # TASK-20261027-ack-close：bootstrap 由本档校准计数决定（其它档有历史
+    # 不代表本档已校准）；spent_all/未结清/跨轮上限仍全档累计（上面已算）。
+    if accounts["clean_count"] == 0:
         # 校准账空：先跑一次 100 家探针（单独确认），拿到单价后直接推导全量。
         level = next_probe_level(root, project=project, org=org,
                                  round_id=round_id)
-        sample = bootstrap_sample(b_plan=frozen, b_avail=b_avail,
+        sample = bootstrap_sample(b_plan=remaining, b_avail=b_avail,
                                   sample_ack_quote=sample_ack_quote,
                                   sample_ack_ref=sample_ack_ref,
                                   sample_n0=level)
+        sample["risk_notice"] = (
+            sample["risk_notice"]
+            + " 本轮剩余预算 %s 点；样本实际费用未知，不保证不超过该剩余预算。" % remaining)
+        # TASK-20261027-ledger-close AC3：sample_ready 必须绑定此前已持久化的
+        # probe 提案（同 org/round/tier/b_plan/sample_n）。任意非空 ack 不再够。
+        proposal = None
+        for row in reversed(read_ledger(Path(root), project)):
+            pay = row.get("payload") or {}
+            if (row.get("kind") == "plan"
+                    and row.get("state") == "probe_proposal"
+                    and row.get("org_hash") == org_hash(org)
+                    and str(pay.get("round_id") or "") == str(round_id)
+                    and pay.get("contact_max_count") == tier
+                    and str(pay.get("budget_remaining")) == str(remaining)
+                    and pay.get("sample_n") == sample["sample_n"]
+                    and str(pay.get("risk_notice") or "") == str(sample["risk_notice"])):
+                proposal = pay
+                break
+        proposal_ref = str((proposal or {}).get("proposal_ref") or "")
+        if str(sample_ack_quote or "").strip() and sample.get("ack_quote_invalid"):
+            # TASK-20261027-ack-close：给了原话但非安全肯定（否定/取消/疑问/
+            # 数字≠N）→ 明确拒绝，不落提案确认行，不返回 ready。
+            _fail("E_SAMPLE_ACK_INVALID",
+                  "确认原话 %r 不是肯定授权（否定/取消/疑问/数字不等于提案 N=%d），"
+                  "不能确认探针提案" % (sample_ack_quote, sample["sample_n"]))
+        if sample["sample_ack"]:
+            # ack 路径：ref 必须命中已持久化同 scope 提案，否则绝不 ready。
+            if not proposal:
+                _fail("E_PROBE_PROPOSAL_REQUIRED",
+                      "确认探针前必须先由 plan 生成并展示本 scope 提案"
+                      "（档位 %d/预算 %s/N %d），不能凭任意确认字符串 ready"
+                      % (tier, remaining, sample["sample_n"]))
+            if str(sample_ack_ref or "").strip() != proposal_ref:
+                _fail("E_PROBE_PROPOSAL_MISMATCH",
+                      "sample_ack_ref=%r 与已持久化提案 ref=%r 不匹配"
+                      "（旧档位/改预算/改 N 的提案不能确认本 scope）"
+                      % (sample_ack_ref, proposal_ref))
+        else:
+            # 未确认：落一份可确认的提案行，返回 proposal_ref 供用户确认引用。
+            proposal_ref = "prop-" + hashlib.sha256(
+                ("%s|%s|%s|%s|%s" % (org_hash(org), round_id, tier,
+                                     remaining, sample["sample_n"]))
+                .encode("utf-8")).hexdigest()[:12]
+            append_ledger(Path(root), org_hash=org_hash(org), project=project,
+                          kind="plan", source_ref="bootstrap_sample",
+                          state="probe_proposal",
+                          payload={"round_id": str(round_id),
+                                   "probe_level": level,
+                                   "sample_n": sample["sample_n"],
+                                   "b_plan": str(frozen),
+                                   "budget_remaining": str(remaining),
+                                   "contact_max_count": tier,
+                                   "risk_notice": sample["risk_notice"],
+                                   "proposal_ref": proposal_ref})
+            sample["proposal_ref"] = proposal_ref
         ack_at = _iso(now) if sample["sample_ack"] else ""
         append_ledger(Path(root), org_hash=org_hash(org), project=project,
                       kind="sample_ack" if sample["sample_ack"] else "plan",
@@ -1120,7 +1252,8 @@ def _plan_locked(root, *, project, org, b_plan, b_avail, read_at=None,
                                "b_plan_source": source,
                                "sample_n": sample["sample_n"],
                                "risk_notice": sample["risk_notice"],
-                               "sample_ack_ref": str(sample_ack_ref or "")})
+                               "sample_ack_ref": str(sample_ack_ref or ""),
+                               "contact_max_count": tier})
         if sample["sample_ack"] and not _probe_planned(
                 root, project=project, org=org, round_id=round_id, level=level):
             append_ledger(Path(root), org_hash=org_hash(org), project=project,
@@ -1131,8 +1264,13 @@ def _plan_locked(root, *, project, org, b_plan, b_avail, read_at=None,
                                    "sample_n": sample["sample_n"]})
         sample["probe_level"] = level
         sample["round_id"] = round_id
+        sample["contact_max_count"] = tier
         return sample
     if accounts["clean_count"] == 0:
+        if accounts.get("clean_count_all_tiers", 0) > 0:
+            _fail("E_CALIB_NOT_READY",
+                  "档位 %d 无同档干净批次（其它档位历史不能当 %d 档校准）；"
+                  "须先跑本档位 100 家探针校准" % (tier, tier))
         _fail("E_CALIB_NOT_READY",
               "没有干净批次（external_risk=confirmed），不得外推")
     if (accounts["spent_calib"] <= 0 or accounts["companies_calib"] <= 0
@@ -1217,6 +1355,7 @@ def _plan_locked(root, *, project, org, b_plan, b_avail, read_at=None,
             "unresolved_total": str(accounts["unresolved_total"]),
         },
         "round_id": str(round_id),
+        "contact_max_count": tier,
         "spent_cumulative_all_rounds": str(spent_cumulative_all_rounds),
         "cumulative_cap": None if cumulative_cap is None else str(cumulative_cap),
         "unresolved_count": accounts["unresolved_count"],
@@ -1251,7 +1390,7 @@ def _plan_locked(root, *, project, org, b_plan, b_avail, read_at=None,
         risk_ack=risk_ack, cap_ack=cap_ack, exec_quote_ref=str(exec_quote_ref),
         batch_points_upper=str(batch_points_upper), round_id=str(round_id),
         spent_all=str(accounts["spent_all"]), budget_left=str(budget_left),
-        per_company_upper=str(upper))
+        per_company_upper=str(upper), contact_max_count=tier)
     append_ledger(Path(root), org_hash=org_hash(org), project=project,
                   kind="plan", source_ref=str(exec_quote_ref), state="ready",
                   payload=assert_ledger)
@@ -1392,6 +1531,9 @@ def _run(argv: Optional[List[str]] = None) -> int:
     b.add_argument("--b0-file", required=True)
     b.add_argument("--exec-quote", default="")
     b.add_argument("--exec-quote-ref", default="")
+    b.add_argument("--contact-max-count", type=int, default=3,
+                   dest="contact_max_count",
+                   help="每司联系人档位 3/6/9（须与保存 plan wire 一致；缺省 3）")
 
     st = sub.add_parser("settle")
     st.add_argument("--root", default=str(TOOLS_DIR.parent))
@@ -1438,6 +1580,9 @@ def _run(argv: Optional[List[str]] = None) -> int:
     q.add_argument("--new-round", action="store_true")
     q.add_argument("--cumulative-cap", default=None,
                    help="跨轮累计上限（点）；--new-round 缺省时按上一轮冻结预算强校验")
+    q.add_argument("--contact-max-count", type=int, default=None,
+                   dest="contact_max_count",
+                   help="每司联系人档位 3/6/9（须与保存 wire 一致；缺省 3）")
     q.add_argument("--out", default=None)
 
     ac = sub.add_parser("audit-clear", help="核销未结清批次（0=确认未扣点）")
@@ -1475,7 +1620,9 @@ def _run(argv: Optional[List[str]] = None) -> int:
         print(json.dumps(begin_batch(
             root, project=args.project, org=args.org, task_id=args.task_id,
             b0=b0, exec_quote=args.exec_quote,
-            exec_quote_ref=args.exec_quote_ref), ensure_ascii=False, indent=2))
+            exec_quote_ref=args.exec_quote_ref,
+            contact_max_count=args.contact_max_count),
+            ensure_ascii=False, indent=2))
         return 0
     if args.cmd == "settle":
         batch = settle(root, project=args.project, org=args.org,
@@ -1521,7 +1668,8 @@ def _run(argv: Optional[List[str]] = None) -> int:
                       cap_quote=args.cap_quote, cap_quote_ref=args.cap_quote_ref,
                       risk_quote=args.risk_quote, risk_ref=args.risk_ref,
                       sample_ack_quote=args.sample_ack_quote,
-                      sample_ack_ref=args.sample_ack_ref)
+                      sample_ack_ref=args.sample_ack_ref,
+                      contact_max_count=args.contact_max_count)
         result["b_source"] = b_source
         if getattr(args, "format", "human") == "json":
             print(json.dumps(result, ensure_ascii=False, indent=2))

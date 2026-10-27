@@ -51,7 +51,7 @@ confirmed plan + render + ticket ──execute（工作空间预检→重验 bin
 | `count` | 可选 | int | 旧字段别名；若给必须等于 `selectTotal`，否则 `E_COUNT_MISMATCH` |
 | `companyTags` | ✅ | array[string] | 公司标签**名称**（铁律7：语言-行业-角色）；与 wire 的标签 ID 必须成对 |
 | `contactTags` | ✅ | array[string] | 联系人标签名称；同上 |
-| `contactMaxCount` | 可选 | int | 联系人提取档位，只允许 `3/6/9`（缺省 3） |
+| `contactMaxCount` | 可选 | int | 联系人提取档位，只允许 `3/6/9`（缺省 3）。**唯一真源是 `wire_payload.contactMaxCount`**：顶层若提供必须与 wire 一致，不一致 → `E_CONTACT_TIER_MISMATCH`；卡面/台账档位均取 wire 值 |
 | `contactVerifyStatus` | 可选 | array[string] | 缺省 `["valid","unkown"]`（平台原拼写） |
 | `plan_id` | 可选 | string | 缺省自动生成 `plan-<随机>` |
 | `revision` | 可选 | int | 缺省 1 |

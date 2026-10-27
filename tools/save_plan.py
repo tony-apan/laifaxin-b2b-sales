@@ -764,6 +764,13 @@ def prepare_save(root: Path, *, project: str, source: Dict[str, Any],
     wire = rule_check.validate_wire(offline_input["wire_payload"]) if offline_input.get("wire_payload") else None
     if not isinstance(wire, dict):
         _fail("E_PLAN_REQUIRED", "缺 wire_payload，无法绑定保存数量")
+    # TASK-20261027：档位唯一真源=wire.contactMaxCount；top-level 若提供必须一致。
+    wire_tier = wire.get("contactMaxCount")
+    top_tier = offline_input.get("contactMaxCount")
+    if top_tier is not None and (type(top_tier) is not int or top_tier != wire_tier):
+        _fail("E_CONTACT_TIER_MISMATCH",
+              "contactMaxCount 不一致：top=%r wire=%r（唯一真源是 wire_payload）"
+              % (top_tier, wire_tier))
     if wire.get("selectTotal") != select_total:
         _fail("E_SELECT_TOTAL_DERIVED_MISMATCH",
               "wire.selectTotal=%r 与证据推导=%d 不一致" % (wire.get("selectTotal"), select_total))
@@ -803,7 +810,7 @@ def prepare_save(root: Path, *, project: str, source: Dict[str, Any],
         "logic": source.get("logic", "and"), "selectSort": source.get("selectSort", {}),
         "company_tags": offline_input.get("companyTags", []),
         "contact_tags": offline_input.get("contactTags", []),
-        "contactMaxCount": offline_input.get("contactMaxCount", 3),
+        "contactMaxCount": wire_tier,
         "contactVerifyStatus": offline_input.get("contactVerifyStatus",
                                                  list(rule_check.VERIFY_STATUS_DRAFT)),
         "selectTotal": select_total,
@@ -861,7 +868,8 @@ def load_plan(path: Any) -> Dict[str, Any]:
 
 CARD_TTL_SECONDS = PLAN_TTL_SECONDS  # 卡有效期与 plan TTL 同口径（30 分钟）
 CARD_FIELDS = ("plan_id", "revision", "project", "n", "wire_payload_sha256",
-               "dependency_sha256", "budget_points", "max_points")
+               "dependency_sha256", "budget_points", "max_points",
+               "contactMaxCount")
 
 
 def card_material(plan: Dict[str, Any],
@@ -883,6 +891,7 @@ def card_material(plan: Dict[str, Any],
         "dependency_sha256": plan.get("dependency_sha256"),
         "budget_points": plan.get("budget_points"),
         "max_points": plan.get("max_points"),
+        "contactMaxCount": plan.get("contactMaxCount", 3),
         "presented_at": presented_at,
         "expires_at": expires_at,
     }
@@ -942,6 +951,24 @@ def _parse_utc_strict(value: Any, *, what: str) -> float:
     return 0.0  # unreachable（_fail 必抛）
 
 
+def _assert_tier_consistent(doc: Dict[str, Any]) -> None:
+    """R2-B：wire.contactMaxCount 唯一真源；顶层存在须严格 int 且相等，
+    缺省仅兼容 wire=3 的 legacy。出卡前/授权落盘前必经。"""
+    wire = doc.get("wire_payload")
+    if not isinstance(wire, dict):
+        return
+    wire_tier = wire.get("contactMaxCount")
+    if "contactMaxCount" in doc:
+        top = doc.get("contactMaxCount")
+        ok = type(top) is int and top == wire_tier
+    else:
+        ok = wire_tier == 3
+    if not ok:
+        _fail("E_CONTACT_TIER_MISMATCH",
+              "contactMaxCount 不一致：plan=%r wire=%r（唯一真源是 wire_payload）"
+              % (doc.get("contactMaxCount", "<缺省>"), wire_tier))
+
+
 def present_card(root: Path, draft_path: Any, *, now: Optional[float] = None) -> Dict[str, Any]:
     """持久化确认前保存卡，返回用户可读卡面与 card_ref。
 
@@ -953,6 +980,7 @@ def present_card(root: Path, draft_path: Any, *, now: Optional[float] = None) ->
     哈希只证明「卡内容与 confirm 时一致」，不证明真人已读、不防恶意本机篡改。
     """
     draft = load_plan(draft_path)
+    _assert_tier_consistent(draft)
     if draft.get("status") not in ("draft", "confirmed"):
         _fail("E_PLAN_NOT_CONFIRMED", "plan 状态非法，无法出卡")
     clock = time.time() if now is None else float(now)
@@ -1006,18 +1034,21 @@ def present_card(root: Path, draft_path: Any, *, now: Optional[float] = None) ->
                    if _clean(est_points) else "未知")
     emails_text = ("约 %s 个" % _clean(est_emails)) if _clean(est_emails) else "未知"
     budget_text = "%s 点" % (_points_of(material["budget_points"]) or "未知")
+    tier = material.get("contactMaxCount", 3)
+    tier_text = "每家公司最多 %s 个邮箱（可选 3/6/9，本批按 %s）" % (tier, tier)
     readable = (
         "【保存确认】\n"
         "保存家数：**%d 家**\n"
+        "%s\n"
         "预计邮箱：%s\n"
         "预计扣点：%s\n"
         "本次预算上限：%s（超出会拒绝保存）\n"
         "\n"
         "确认后我开始保存：这一步只存名单、不发邮件；保存不可一键撤回。\n"
         "您现在可以：回「确认」，或直接回复卡上家数「%d」；"
-        "要改数量回复新家数，我重发新确认卡（旧卡作废）。\n"
+        "要改数量或每公司邮箱数回复新数字，我重发新确认卡（旧卡作废）。\n"
         "下一步：确认后开始保存，存完向您报实际存了多少。"
-        % (n, emails_text, points_text, budget_text, n))
+        % (n, tier_text, emails_text, points_text, budget_text, n))
     return {"ok": True, "stage": "present", "card_ref": ref,
             "content_sha256": content_hash, "card_text": readable,
             "card_path": str(card_path(root, ref))}
@@ -1132,6 +1163,7 @@ def confirm_plan(root: Path, draft: Dict[str, Any], *, quote: str,
               "确认必须携带明确的保存卡引用（present_card 产出的 card_ref）")
     draft = dict(draft)
     draft["card_ref"] = card_ref
+    _assert_tier_consistent(draft)
     clock = time.time() if now is None else float(now)
     if not math.isfinite(clock):
         _fail("E_CARD_TIME_INVALID", "confirm now 非有限: %r" % now)

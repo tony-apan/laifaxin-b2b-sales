@@ -143,7 +143,9 @@ def validate_wire(payload: Dict[str, Any]) -> Dict[str, Any]:
     if payload["logic"] not in ("and", "or"):
         _fail("E_PLAN_PAYLOAD_MISMATCH", "logic 须为 and/or")
     validate_filters(payload["filters"], logic=payload["logic"])
-    return {"selectTotal": validate_select_total(payload)}
+    # TASK-20261027：档位通过校验后一并返回，供 plan 层作为唯一真源绑定。
+    return {"selectTotal": validate_select_total(payload),
+            "contactMaxCount": cmc}
 
 
 # ---------------------------------------------------------------------------
@@ -452,6 +454,12 @@ def check_save(payload: Any, plan: Any, dependencies: Optional[Dict[str, Any]] =
         _fail("E_PLAN_REQUIRED", "缺少已确认 plan")
     if plan.get("status") != "confirmed":
         _fail("E_PLAN_NOT_CONFIRMED", "plan 未确认（须 confirm 流程产出）")
+    # R2-B：execute/confirm 必经路径重校档位；plan 缺省仅兼容 wire=3 legacy。
+    plan_top = plan.get("contactMaxCount", 3)
+    if type(plan_top) is not int or plan_top != payload.get("contactMaxCount"):
+        _fail("E_CONTACT_TIER_MISMATCH",
+              "contactMaxCount 不一致：plan=%r wire=%r"
+              % (plan_top, payload.get("contactMaxCount")))
     expected = plan.get("wire_payload")
     if not isinstance(expected, dict):
         _fail("E_PLAN_PAYLOAD_MISMATCH", "plan 缺 wire_payload")

@@ -79,8 +79,10 @@ class SaveOfflineInputDocTest(unittest.TestCase):
     def test_sample_wire_payload_is_valid(self):
         wire = self.sample["wire_payload"]
         self.assertEqual(18, len(wire), "wire_payload 必须恰为 18 字段")
-        self.assertEqual({"selectTotal": self.sample["selectTotal"]},
-                         rule_check.validate_wire(wire))
+        # TASK-20261027：validate_wire 返回体新增 contactMaxCount（档位真源）。
+        got = rule_check.validate_wire(wire)
+        self.assertEqual(self.sample["selectTotal"], got["selectTotal"])
+        self.assertEqual(wire["contactMaxCount"], got["contactMaxCount"])
 
     def test_sample_budget_and_coefficients_are_valid(self):
         est = self.sample["coefficients"]
