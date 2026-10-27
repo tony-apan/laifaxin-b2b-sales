@@ -20,6 +20,18 @@ class ConnectCardTest(unittest.TestCase):
             self.assertIn(needed, self.text)
 
 
+class SaveUXTest(unittest.TestCase):
+    def test_s7_each_sample_has_rationale(self):
+        text = (ROOT / "output-templates" / "S7-template-confirm.md").read_text(encoding="utf-8")
+        self.assertIn("这封的用意", text)
+        self.assertIn("没有说明的样稿不许发出去", text)
+
+    def test_s6_requires_progress_broadcast(self):
+        text = (ROOT / "output-templates" / "S6-count-report.md").read_text(encoding="utf-8")
+        self.assertIn("save_progress.py", text)
+        self.assertIn("不得只发一句静态说明", text)
+
+
 class AnnounceBeforeActTest(unittest.TestCase):
     def test_beginner_flow_has_rule(self):
         text = (ROOT / "specs" / "beginner-flow.md").read_text(encoding="utf-8")

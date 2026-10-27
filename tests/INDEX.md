@@ -55,6 +55,7 @@ updated: "2026-10-26"
 | test_product_profile_hardening.py | 产品档案硬约束：字段校验/版本/hash/回落 | 改产品档案校验/回落后 |
 | test_registration_facts.py | 注册/开通事实口径测试（2026-09-09 对抗审查）。 | 改注册/开通事实口径后 |
 | test_connect_auto_and_announce.py | 批2-B：连接首选自动（browser_login）+ 先报后做规则守卫。 | 改连接卡或先报后做规则后 |
+| test_save_progress.py | 保存进度播报一行话术（已存/总数/已用点/剩余，不编造）。 | 改保存播报格式后 |
 | test_save_confirm_plain.py | v3 行为回归：纯确认过 auth_guard 铸票（需 count_bound_by=card）、100 家 probe 模式、探针幂等。 | 改 S5 确认口径或探针档位后 |
 | test_release_consistency.py | 发布一致性：SKILL 版本 = CHANGELOG 最新条目；README/总索引挂演示稿；模板改名有映射记录。 | 发版、改版本号或新手入口后 |
 | test_render_html_preview.py | HTML 预览渲染测试：加粗标记不泄漏、CTA 段独立标注、变量替换正确。 | 改 HTML 预览渲染后 |
