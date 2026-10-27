@@ -340,7 +340,7 @@ def check_index_coverage(root=ROOT):
         for name in sorted(os.listdir(d)):
             if name == "INDEX.md" or name.startswith(".") or name == "__pycache__":
                 continue
-            # 用户运行档案（runs/<运营方>/）是本地数据，不要求登记进 INDEX（与 .gitignore runs/*/ 一致）
+            # 用户运行档案（runs/<运营方>/）是本地数据，不要求登记进 INDEX（与 .gitignore runs/* 一致）
             if _is_user_run_dir(([] if rel_dir == "." else rel_dir.split(os.sep)) + [name]):
                 continue
             # 必须作为表格首列条目出现，正文顺带提及不算登记

@@ -125,8 +125,12 @@ class DocNamingTest(unittest.TestCase):
             missing = []
             if not any("---" in ln for ln in rows):
                 missing.append("缺少表格表头/分隔行")
+            d_parts = [] if d == ROOT else list(d.relative_to(ROOT).parts)
             for name in sorted(os.listdir(d)):
                 if name == "INDEX.md" or name.startswith(".") or name in CACHE_DIRS:
+                    continue
+                # runs/<运营方>/ 是本地运行档案（已 gitignore，不入仓），不要求登记进公开 INDEX
+                if _is_user_run_dir(d_parts + [name]):
                     continue
                 # 必须作为表格首列条目出现，正文顺带提及不算登记
                 if not any(len(ln.split("|")) > 1 and name in ln.split("|")[1] for ln in rows):

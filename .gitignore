@@ -29,8 +29,9 @@ venv/
 # 发布/复核报告（防误提交，仅本地留档）
 PUBLISH-REPORT.md
 RELEASE-REVIEW.md
-# ★运营方真实运行档案/本地数据(不入公开仓, 仅保留 _template) — 2026-09-02 对抗审查 P0-4 后立
-runs/*/
+# ★运营方真实运行档案/本地数据(不入公开仓, 仅放行 INDEX.md 与 _template/) — 2026-09-02 对抗审查 P0-4 后立, 2026-10-27 三审收紧为 runs/*
+runs/*
+!runs/INDEX.md
 !runs/_template/
 .video_agent/
 .video_agent
