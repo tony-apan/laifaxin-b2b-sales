@@ -68,7 +68,7 @@ py tools\onboard_check.py
 bash tools/bootstrap.sh --check-only
 
 # ② 有缺失 → 安装（自动选择 brew/apt-get/dnf/yum/pacman/apk；仅已确认无需 sudo 和交互时执行）
-bash tools/bootstrap.sh --install
+bash tools/bootstrap.sh --install-noninteractive
 
 # ③ 安装后复查（仅安装成功后复查）
 bash tools/bootstrap.sh --check-only
@@ -77,7 +77,10 @@ bash tools/bootstrap.sh --check-only
 python3 tools/onboard_check.py
 ```
 
-- **macOS 无 Homebrew** → 脚本**不会自动安装 Homebrew**（策略约束），明确失败并给出：Python 官方包 https://www.python.org/downloads/ ， ；git 可用 Apple 命令行工具 `xcode-select --install`；或用户同意后手动装 Homebrew（ https://brew.sh ）再重跑 ②。
+- **macOS 无 Homebrew** → 不自动安装 Homebrew；按缺失项选择一个官方图形安装渠道，向用户只给唯一下一步。
+- **Linux/WSL 非 root** → 返回 `privilege_required`，不调用 sudo、不索取密码；停止并给唯一下一步，例如请管理员通过组织允许的方式准备缺失依赖。
+- **安装失败** → 脚本仍复查且返回失败，不自动重试；根据实际缺失项给唯一下一步。
+- **用户话术**：先说“我来确认能否安全处理”；失败时只说明结果并给唯一下一步，不展示内部模式名或命令。
 - **Git Bash（MINGW/MSYS）里发现缺失** → Git Bash 没有包管理器，脚本会明确失败并引导转 PowerShell 跑 `bootstrap.ps1 -Install`。
 
 ### 2.3 退出码与稳定输出（AI 解析约定）

@@ -116,7 +116,7 @@ Windows 和 Mac 流程完全一样；如果 AI 碰到「找不到 python3 / bash
 
 打开 [GitHub 仓库](https://github.com/tony-apan/laifaxin-b2b-sales) → 点击右上角 **Code → Download ZIP** → 解压。然后把解压后的文件夹路径发给 AI，再发送上面的指令。
 
-如果电脑没有 Python、Git 或其他环境，不要自己排查；让 AI 按 `specs/environment-setup.md` 运行 `tools/bootstrap.sh --install`（macOS/Linux）或 `tools/bootstrap.ps1 -Install`（Windows）。
+如果电脑没有 Python、Git 或其他环境，不要自己排查；让 AI 确认能否安全处理，失败时按 AI 给出的唯一下一步操作。
 
 </details>
 
@@ -272,7 +272,7 @@ README 只负责带你入门；执行时以 `RULES.md` 和对应 `specs/` 为准
 | 项 | 说明 |
 |---|---|
 | 主流程依赖 | Python 3 标准库 + curl + bash；无需安装 Python 第三方包。Windows 还需要 Git Bash（`onboard_check` 用；WSL 的 bash 不算） |
-| macOS / Linux | `bash tools/bootstrap.sh --install`，再运行 `python3 tools/onboard_check.py` |
+| macOS / Linux | `bash tools/bootstrap.sh --install-noninteractive`，再运行 `python3 tools/onboard_check.py` |
 | Windows | `powershell -NoProfile -ExecutionPolicy Bypass -File tools/bootstrap.ps1 -Install`；之后优先用脚本返回的 `python_cmd` 自检 |
 | Windows 实机状态 | `bootstrap.ps1` 已通过静态检查，尚未在全新 Windows 实机完整验证；失败时按 `specs/environment-setup.md` 的官方安装路径兜底 |
 

@@ -211,7 +211,7 @@ python3 tools/onboard_check.py     # Windows 用 bootstrap 给出的 python_cmd�
 2. 环境就绪：按 specs/environment-setup.md 执行——
    Windows PowerShell：powershell -NoProfile -ExecutionPolicy Bypass -File tools\bootstrap.ps1 -CheckOnly
      （有缺失就换 -Install 装，装完再 -CheckOnly 复查）
-   macOS/Linux：bash tools/bootstrap.sh --check-only（有缺失就 --install）
+   macOS/Linux：bash tools/bootstrap.sh --check-only（有缺失就 --install-noninteractive）
 
 3. 恢复数据到和新机仓库的同名路径（先解到临时目录、列清单给我确认再写入）：
    .local/、runs/<运营方>/、db/ 里的本地数据表（若有）；

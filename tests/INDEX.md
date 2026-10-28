@@ -92,6 +92,7 @@ updated: "2026-10-27"
 | test_website_profile.py | 网站资料增强：角色分类/候选校验/批准补丁/失败不阻断 | 改网站资料增强模块后 |
 | test_workspace_guard.py | 工作空间落点校验的对抗性测试：确凿误路由必须阻断，探测不到必须"未校验"而非"已通过"。 | 改工作空间落点校验后 |
 | test_workspace_transport.py | 工作空间传输方式测试（2026-09-09 真实双空间对照实测）。 | 改双空间传输方式后 |
+| test_bootstrap_noninteractive.py | 真实引导脚本的隔离非交互安装回归。 | 修改环境引导后 |
 | test_doc_frontmatter.py | 文档 frontmatter 回归：必填字段、description 长度、doc_id 唯一、type 枚举、MD-METADATA 自身完整性。 | 改元数据规范/文档 frontmatter 后 |
 | test_doc_links.py | 文档引用回归：Markdown 链接、反引号 .md 路径、INDEX 覆盖，坏链必须为 0。 | 改文档链接或 INDEX 后 |
 | test_email_style_gate.py | email-style.md 闸门回归：结构五项必填，价格/邮箱/电话/认证/承诺必须拒绝。 | 改旧开发信提炼/模板生成前闸门后 |

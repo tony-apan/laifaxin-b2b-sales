@@ -94,7 +94,7 @@ PAGE_SIZE = 20  # 统一 ≥10
 ```bash
 # 无 Python 前提环境准备
 bash bootstrap.sh --check-only       # macOS/Linux/Git Bash/WSL
-bash bootstrap.sh --install
+bash bootstrap.sh --install-noninteractive
 # Windows PowerShell: powershell -ExecutionPolicy Bypass -File bootstrap.ps1 -Install
 
 # 公司级/产品级档案

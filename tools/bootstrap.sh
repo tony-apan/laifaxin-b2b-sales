@@ -12,9 +12,10 @@ set -u
 
 usage() {
   cat <<'EOF'
-用法: bash tools/bootstrap.sh [--check-only|--install]
+用法: bash tools/bootstrap.sh [--check-only|--install|--install-noninteractive]
   --check-only  只探测 python3/python、curl、bash、grep、awk、git，不安装（第一步先跑这个）
   --install     用检测到的包管理器（brew/apt-get/dnf/yum/pacman/apk）安装缺失项；需要 sudo 时正常使用 sudo
+  --install-noninteractive  安全非交互安装；Linux/WSL 需 root，不调用 sudo
   （不带参数 = --check-only）
 退出码: 0=全部就绪  1=仍有缺失/无法自动安装  2=参数错误
 平台: macOS / Linux / WSL / Windows Git Bash；不自动安装 Homebrew；Git Bash 无包管理器 → 明确失败+官方下载地址
@@ -27,8 +28,9 @@ case "${1:-}" in
   "")            MODE="check-only" ;;
   --check-only)  MODE="check-only" ;;
   --install)     MODE="install" ;;
+  --install-noninteractive) MODE="install-noninteractive" ;;
   -h|--help)     usage; exit 0 ;;
-  *)             echo "❌ 未知参数: $1（只支持 --check-only / --install）"; usage; exit 2 ;;
+  *)             echo "❌ 未知参数: $1（只支持 --check-only / --install / --install-noninteractive）"; usage; exit 2 ;;
 esac
 if [ $# -ge 2 ]; then echo "❌ 参数过多（一次只接受一个模式参数）"; usage; exit 2; fi
 
@@ -97,13 +99,20 @@ echo "   平台: OS=$OS (uname=$uname_s, arch=$uname_m)  包管理器: ${PM:-无
 
 # ---------- 安装（仅 --install 且有缺失时）----------
 INSTALL_RESULT="not_attempted"
-if [ "$MODE" = "install" ]; then
+if [ "$MODE" = "install" ] || [ "$MODE" = "install-noninteractive" ]; then
   NEED="$(missing_list)"
   if [ -z "$NEED" ]; then
     INSTALL_RESULT="nothing_to_do"
     echo "✔ 无缺失项，不需要安装"
   else
     echo "→ 待安装: $NEED"
+    if [ "$MODE" = "install-noninteractive" ] && { [ "$OS" = "linux" ] || [ "$OS" = "wsl" ]; } && [ "$(id -u)" != 0 ]; then
+      INSTALL_RESULT="privilege_required"
+      echo "❌ 当前权限不足，无法安全自动安装。"
+    else
+    if [ "$MODE" = "install-noninteractive" ]; then
+      export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_ENV_HINTS=1 NONINTERACTIVE=1 CI=1
+    fi
     case "$OS" in
       macos)
         if [ "$PM" = "brew" ]; then
@@ -189,6 +198,7 @@ if [ "$MODE" = "install" ]; then
         echo "❌ 无法自动安装：未识别的平台（uname=$uname_s）。"
         echo "   · Python: $PY_URL   · Git: $GIT_URL" ;;
     esac
+    fi
     # 安装后清掉 bash 的命令缓存再复查
     hash -r 2>/dev/null || true
   fi
@@ -222,7 +232,7 @@ if [ "$ALL_OK" = "1" ]; then
 else
   echo "   🔴 仍缺: $MISSING"
   case "$MODE" in
-    check-only) echo "      👉 AI 决策: 缺的是 python/curl/git → 跑 bash tools/bootstrap.sh --install；无包管理器 → 按脚本给出的官方地址装（见上）" ;;
+    check-only) echo "      👉 AI 决策: 有缺失时使用 --install-noninteractive，失败后按 SOP 给唯一下一步" ;;
     install)    echo "      👉 安装后仍缺 → 按错误分级处理（specs/environment-setup.md）: 换包管理器/官方安装包/让用户在图形界面装后重跑 --check-only 复查" ;;
   esac
 fi
@@ -246,4 +256,4 @@ echo "git_ok=$GIT_OK"
 echo "missing=${MISSING:-none}"
 echo "all_ok=$ALL_OK"
 
-[ "$ALL_OK" = "1" ] && exit 0 || exit 1
+[ "$ALL_OK" = "1" ] && { [ "$MODE" != "install-noninteractive" ] || [ "$INSTALL_RESULT" != "failed" ]; } && exit 0 || exit 1
