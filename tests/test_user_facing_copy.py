@@ -329,7 +329,7 @@ class WalkthroughAndCrossFileConsistencyTest(unittest.TestCase):
         doc = (ROOT / "docs/14-novice-walkthrough-demo.md").read_text(encoding="utf-8")
         self.assertIn("确认激活 英语-保温杯-批发商-S04", doc)
         self.assertIn("我已在网页激活 英语-保温杯-批发商-S04", doc)
-        self.assertIn("方式二少一道自动检查", doc)
+        self.assertIn("用户问网页激活才给方式二", doc)
 
     def test_skill_save_authorization_requires_count_phrase(self):
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -1380,6 +1380,24 @@ class S7S8SubjectBodyTest(unittest.TestCase):
         self.assertIn("主题", self.s8)
         self.assertIn("正文", self.s8)
         self.assertRegex(self.s8, r"(两两|逐对|配对|互相比对)")
+
+
+class ResidualCopyRegressionTest(unittest.TestCase):
+    def test_demo_default_screen_hides_manual_path_body(self):
+        doc = (ROOT / "docs/14-novice-walkthrough-demo.md").read_text(encoding="utf-8")
+        section = doc.split("### 环节 7｜", 1)[1].split("### 环节 8｜", 1)[0]
+        default = re.findall(r"```text\n(.*?)```", section, re.S)[0]
+        self.assertIn("方式一", default)
+        self.assertNotIn("方式二", default)
+        self.assertNotIn("我已在网页激活", default)
+        self.assertIn("用户问网页激活才给方式二", section)
+
+    def test_connect_failure_retry_is_bounded(self):
+        doc = (TEMPLATES / "S0-connect-failed.md").read_text(encoding="utf-8")
+        self.assertNotRegex(doc, r"等几分钟|几分钟后重试")
+        self.assertNotIn("如果反复出现", doc)
+        self.assertIn("再试 1 次", doc)
+        self.assertIn("仍未成功就停止", doc)
 
 
 class S12ActivationCardTest(unittest.TestCase):
