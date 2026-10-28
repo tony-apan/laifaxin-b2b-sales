@@ -340,6 +340,15 @@ class Step1HonestQuoteTest(unittest.TestCase):
         lines = [l for l in self.block.strip().splitlines() if l.strip()]
         self.assertTrue(lines[-1].startswith("该回什么："), "第 1 屏末行必须是「该回什么：…」")
 
+    def test_step1_is_short_and_separated_from_profile(self):
+        """第 1 屏收短（TASK-20261028）：≤9 行，每行 ≤46 字，且与 8 项档案彻底拆分。"""
+        lines = [l for l in self.block.strip().splitlines() if l.strip()]
+        self.assertLessEqual(len(lines), 9, f"第 1 屏超过 9 行: {len(lines)}")
+        for i, l in enumerate(lines, 1):
+            self.assertLessEqual(len(l), 46, f"第 1 屏第 {i} 行字数超过 46: {len(l)} -> {l}")
+        for banned in ("卖给谁", "产品线", "核心卖点", "规格和认证", "和别人比"):
+            self.assertNotIn(banned, self.block, f"第 1 屏不得混入 8 项产品资料表格: {banned}")
+
 
 class StageCardsHaveProgressHeaderTest(unittest.TestCase):
     def test_every_stage_card_starts_with_three_lines(self):

@@ -54,7 +54,8 @@ class EntryOrderConnectFirstTest(unittest.TestCase):
         profile = (ROOT / "output-templates" / "S0-product-profile.md").read_text(encoding="utf-8")
         self.assertNotIn("我请您连接来发信账号", profile,
                          "档案卡不得再说『确认后连接』——连接已在其前完成")
-        self.assertIn("目标客户", profile, "档案展示后须问有没有目标客户网址（客户，不是自己官网）")
+        s3 = (ROOT / "output-templates" / "S3-seed-confirm.md").read_text(encoding="utf-8")
+        self.assertIn("目标客户", s3, "S3 样板屏须明确询问有没有目标客户网址（客户，不是自己官网）")
 
 
 if __name__ == "__main__":

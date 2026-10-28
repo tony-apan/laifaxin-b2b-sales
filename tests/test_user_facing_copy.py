@@ -142,15 +142,16 @@ class ConnectCardTest(unittest.TestCase):
 
 
 class ProfileCardStartsPointTest(unittest.TestCase):
-    """档案确认卡必须带起点引导（用户截图圈出的地方）。"""
+    """档案确认卡纯粹核对，S3 样板卡负责起点引导（2026-10-28 统一真源）。"""
 
     def setUp(self):
         self.text = (TEMPLATES / "S0-product-profile.md").read_text(encoding="utf-8")
+        self.s3 = (TEMPLATES / "S3-seed-confirm.md").read_text(encoding="utf-8")
 
     def test_user_block_mentions_start_point(self):
-        block = user_view_blocks(self.text)[0]
-        self.assertIn("询盘客户", block, "档案确认卡必须引导用户提供询盘客户/精准买家官网")
-        self.assertIn("起点", block)
+        s3_block = user_view_blocks(self.s3)[0]
+        self.assertIn("买家网址", s3_block, "S3 样板卡必须引导用户提供询盘客户/精准买家官网")
+        self.assertIn("起点", s3_block)
 
     def test_user_block_has_no_internal_status_words(self):
         block = user_view_blocks(self.text)[0]
@@ -159,6 +160,32 @@ class ProfileCardStartsPointTest(unittest.TestCase):
 
     def test_next_step_is_connect_platform(self):
         self.assertIn("T-token-guide.md", self.text, "档案确认后必须接连接平台")
+
+    def test_product_profile_user_block_has_no_website_asking(self):
+        # 负向测试：保证档案屏用户块不含网址询问（统一延后至 S3 样板屏明确询问）。
+        block = user_view_blocks(self.text)[0]
+        for phrase in ("目标客户的网址", "买家官网", "有没有目标客户网址", "发我网址", "官网", "网址"):
+            self.assertNotIn(phrase, block, f"档案屏用户块不得含有网址询问词: {phrase}")
+
+    def test_s0_profile_recommended_reply_passes_check_confirm_quote(self):
+        # B2 绑定测试：S0 屏面推荐回复词必须包含确认词且能通过 check_confirm_quote 校验。
+        import sys
+        sys.path.insert(0, str(ROOT / "tools"))
+        from product_profile import check_confirm_quote
+
+        block = user_view_blocks(self.text)[0]
+        self.assertIn("没问题", block, "S0 屏面必须提供『没问题』作为推荐确认词")
+        self.assertIn("要改", block, "S0 屏面必须提供『要改』路径")
+        self.assertIn("没问题", block, "S0 屏面必须提供如『没问题』等推荐确认词")
+
+        ok, why = check_confirm_quote("没问题")
+        self.assertTrue(ok, f"推荐确认原话『没问题』应通过校验，却被拒绝: {why}")
+
+        ok2, why2 = check_confirm_quote("1 没问题")
+        self.assertTrue(ok2, f"带编号与确认词组合『1 没问题』应通过校验，却被拒绝: {why2}")
+
+        ok_digit, _ = check_confirm_quote("1")
+        self.assertFalse(ok_digit, "未带确认词的纯数字 1 必须被拒绝（防误触安全铁律）")
 
 
 class SeedCardGuidanceTest(unittest.TestCase):
@@ -682,7 +709,7 @@ class StepGuidanceTest(unittest.TestCase):
     # 描述"之后会发生什么"的表述（任一即可）
     NEXT_RE = re.compile(
         r"确认之后|选完之后|回完|回复之后|发完|完成后|接下来|之后我会|"
-        r"之后的流程|做完再把|做完这个再|存完我会|加完会把|通过后进入|马上开始"
+        r"之后的流程|做完再把|做完这个再|存完我会|加完会把|通过后进入|马上开始|下一步"
     )
 
     def first_block(self, name):
@@ -1407,7 +1434,8 @@ class S12ActivationCardTest(unittest.TestCase):
         self.block = (TEMPLATES / "S12-activation-confirm.md").read_text(encoding="utf-8")
 
     def test_activation_phrase_and_irreversible_warning(self):
-        self.assertIn("确认激活 <序列名>", self.block)
+        self.assertIn("确认激活", self.block)
+        self.assertIn("<计划名>", self.block)
         self.assertIn("不能一键撤回", self.block)
         self.assertIn("想暂停/停发", self.block)
 
@@ -1422,7 +1450,7 @@ class S12ActivationCardTest(unittest.TestCase):
         self.assertNotIn("**12 步**", self.block)
 
     def test_manual_path_kept_and_ledgered(self):
-        self.assertIn("我已在网页激活 <序列名>", self.block)
+        self.assertIn("我已在网页激活 <计划名>", self.block)
         self.assertIn("用户问了再给", self.block)
         self.assertIn("两种方式", self.block)
         default = re.findall(r"```[a-zA-Z]*\n(.*?)```", self.block, re.S)[0]

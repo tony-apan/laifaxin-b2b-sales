@@ -65,8 +65,8 @@ class SegmentAdviceEstimateTest(unittest.TestCase):
         self.assertIn("不保证", first, "不得写成平台统计或成交保证")
 
     def test_url_no_reask_rule_in_profile_card(self):
-        profile = read("output-templates/S0-product-profile.md")
-        self.assertIn("已给过", profile, "已给过目标客户网址不再重问，须在卡内写明")
+        s3 = read("output-templates/S3-seed-confirm.md")
+        self.assertIn("已给过", s3, "已给过目标客户网址不再重问，须在 S3 样板卡写明")
 
 
 if __name__ == "__main__":

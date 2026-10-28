@@ -36,6 +36,40 @@ class LateStageEdgeCaseTest(unittest.TestCase):
         self.assertIn("也不会打开发信", s11)
         self.assertIn("完成不等于开始发", s11)
 
+    def test_s0_profile_recommended_reply_passes_check_confirm_quote(self):
+        # B2: S0 产品资料屏推荐回复词需包含确认词且能通过 check_confirm_quote。
+        import sys
+        sys.path.insert(0, str(ROOT / "tools"))
+        from product_profile import check_confirm_quote
+
+        s0 = read("output-templates/S0-product-profile.md")
+        parts = s0.split("```text")
+        self.assertGreater(len(parts), 1, "S0 必须含有 text 代码块")
+        target_block = parts[1].split("```")[0]
+
+        self.assertIn("没问题", target_block, "S0 屏面必须提供『没问题』作为推荐确认词")
+        self.assertIn("要改", target_block, "S0 屏面必须提供『要改』路径")
+        self.assertIn("没问题", target_block, "S0 屏面必须提供如『没问题』等确认词推荐")
+
+        ok, why = check_confirm_quote("没问题")
+        self.assertTrue(ok, f"屏面推荐确认词应通过 check_confirm_quote，实际: {why}")
+
+        ok2, why2 = check_confirm_quote("1 没问题")
+        self.assertTrue(ok2, f"组合确认词应通过 check_confirm_quote，实际: {why2}")
+
+        ok_digit, _ = check_confirm_quote("1")
+        self.assertFalse(ok_digit, "未包含确认词的纯数字 1 必须被拒绝")
+
+    def test_product_profile_user_block_has_no_website_asking(self):
+        # B3 负向测试：保证档案屏用户块不含目标客户网址询问（延后至 S3 明确询问）。
+        s0 = read("output-templates/S0-product-profile.md")
+        parts = s0.split("```text")
+        self.assertGreater(len(parts), 1, "S0 必须含有 text 代码块")
+        target_block = parts[1].split("```")[0]
+
+        for phrase in ("目标客户的网址", "买家官网", "有没有目标客户网址", "发我网址", "官网", "网址"):
+            self.assertNotIn(phrase, target_block, f"档案屏用户块不得含有网址询问: {phrase}")
+
 
 if __name__ == "__main__":
     unittest.main()
