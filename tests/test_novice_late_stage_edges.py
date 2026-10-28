@@ -20,7 +20,8 @@ class LateStageEdgeCaseTest(unittest.TestCase):
     def test_s9_gives_real_small_trial_path(self):
         s9 = read("output-templates/S9-sequence-confirm.md")
         self.assertIn("这一次只能整批加", s9)
-        self.assertIn("想少加，回 2，我改数量后重出这张卡", s9)
+        self.assertIn("想少加可直接说数量", s9)
+        self.assertIn("重新选定完整批次", s9)
 
     def test_s10_says_no_partial_add(self):
         s10 = read("output-templates/S10-contacts-confirm.md")

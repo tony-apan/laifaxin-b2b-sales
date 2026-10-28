@@ -4,7 +4,7 @@ title: "新手流程契约（单一真源 v1.0）"
 description: "新手流程契约：回话次数、确认闸门与两屏话术的验收标准，改流程时对齐。"
 type: "spec"
 status: "active"
-updated: "2026-10-27"
+updated: "2026-10-28"
 ---
 
 # 新手流程契约（单一真源 v1.0）
@@ -64,7 +64,7 @@ updated: "2026-10-27"
 | 3 | 产品档案直出后 | **回 1 认可当前资料，回 2 修改**（也可直接说改哪项）；档案屏不追问网址（延后至 S3 样板屏明确询问） | `S0-product-profile` | `tools/product_profile.py confirm` 接受原话「1」及明确确认词；仅认可当前展示资料，不授权保存或激活 |
 | 4 | 买家类型推演完 | **回数字**（默认只展示 4 个，按展示的 4 个回） | `S2-segment-confirm` | 平台推演默认展示 4 个；多返回折叠；来源只认平台返回 |
 | 5 | 选起点 | 一家时回 1 选它、回 2 再找；多家时回表中编号选对应项、回 0 再找；也可直接发买家网址 | `S3-seed-confirm` | 重找直接执行、最多一轮；回 1 后不再追问网址，沉默或跳过网址不代选 |
-| 6 | 存客户前 | **回「确认」**（或「确认保存 前 N 家」） | `S5-save-confirm` | `save_plan.confirm_plan`：原话带数→按数校验；纯确认原话→绑定卡面 N 并留痕 `count_bound_by=card`；只回数字 1 仍拒（S5 不是选单） |
+| 6 | 存客户前 | **回「确认」**（或「确认保存 前 N 家」） | `S5-save-confirm` | `save_plan.confirm_plan`：原话带数→按数校验；纯确认原话→绑定卡面 N 并留痕 `count_bound_by=card`；纯数字须精确等于卡面 N（N=1 时回 1 按数量有效，其他 N 时回 1 属改单拒签；S5 不是菜单选单） |
 | 7 | 本地样稿 4 封 | **回 1** = 认可，直接建 48 个模板（不再单独确认模板） | `S7-template-confirm` | `gen_templates.py:753` 单次 S7 审批即可（工具按 `--state S7…` 接受用户回「1」作为认可）；删掉旧「④回1、⑤再回1」 |
 | 8 | 建序列+加人（联合卡，A方案） | **回 1** | `S9-sequence-confirm`（联合卡；对账明细见 `S10-contacts-confirm`） | 一次回复同时确认两件事；执行走 sequence_contact_bundle.py，两动作分别绑定审批/票据；激活仍单独「确认激活」 |
 | 9 | （并入第 8 联合卡）加人对账明细页 | 不用回 | `S10-contacts-confirm` | 联合链内 contact_add_authorized.py 仍独立 S10 审批 + auth_guard 票据 + 时序守卫；对账一致才加 |

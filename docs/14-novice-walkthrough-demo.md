@@ -4,7 +4,7 @@ title: "新手全流程模拟演示（从装好到第一封发出，逐环节含
 description: "按老板视角逐环节演示：卡首行、看到什么、回什么、AI 内部、为什么；排练与培训用。"
 type: "guide"
 status: "active"
-updated: "2026-10-24"
+updated: "2026-10-28"
 ---
 
 # 新手全流程模拟演示（从装好到第一封发出，逐环节含逻辑）
@@ -410,7 +410,7 @@ Mac 只有 Safari 也行：菜单「设置→高级」
 | 存客户 | `S5-save-confirm.md`、`S6-count-report.md` | 保存 + 对账 | 卡面 N 已知：确认、准确带家数原话或纯数字 N；空答无效 |
 | 写样稿 | `S7-template-confirm.md` | 禁词门/事实门/去重/格式 | 一次确认覆盖建模板 |
 | 建模板 | `S8-template-building.md` | 48 模板、分组、查重 | 想停回「停」，已建保留 |
-| 建计划并加人 | `S9-sequence-confirm.md`（对账明细 `S10-contacts-confirm.md`） | 同一张卡、一次回 1：建计划并把这批客户加进去，还不会发信；三数对账写在卡上 | 固定 12 轮；慢周期提示先不激活；只能整批，想少加先回 2 改数量 |
+| 建计划并加人 | `S9-sequence-confirm.md`（对账明细 `S10-contacts-confirm.md`） | 同一张卡、一次回 1：建计划并把这批客户加进去，还不会发信；三数对账写在卡上 | 固定 12 轮；慢周期提示先不激活；只能整批；想少加可直接说数量，重新选定整批并对账、重出卡再确认；需新保存仍单独确认。 |
 | 完成报告 | `S11-completion-report.md` | 真实收口/设置核对 | 不发信；收口后才可激活 |
 | 发信开关 | `S12-activation-confirm.md` | `flow_orchestrator.py --resume-s12` → 预检 → 签凭据 → 激活 → 回读 | 方式一/方式二双口令；回读三态 |
 | 看数据 | `S12-activation-confirm.md`（激活后建议）、`Q1-Q5-inquiry-followup.md`、`docs/09` | 退信分级/唯一诊断顺序 | 连续两轮 0 才止损；阈值以平台为准 |
