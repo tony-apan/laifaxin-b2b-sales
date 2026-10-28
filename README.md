@@ -4,7 +4,7 @@ title: "来发信：让 AI 帮你找海外买家、写开发信、自动跟进"
 description: "面向人的项目说明：能力范围、安装步骤与阅读顺序，第一次了解本 Skill 时读。"
 type: "readme"
 status: "active"
-updated: "2026-10-26"
+updated: "2026-10-27"
 ---
 
 # 来发信：让 AI 帮你找海外买家、写开发信、自动跟进
@@ -272,7 +272,7 @@ README 只负责带你入门；执行时以 `RULES.md` 和对应 `specs/` 为准
 | 项 | 说明 |
 |---|---|
 | 主流程依赖 | Python 3 标准库 + curl + bash；无需安装 Python 第三方包。Windows 还需要 Git Bash（`onboard_check` 用；WSL 的 bash 不算） |
-| macOS / Linux | `bash tools/bootstrap.sh --install-noninteractive`，再运行 `python3 tools/onboard_check.py` |
+| macOS / Linux | AI 执行（技术参考，新手无需照抄）：`bash tools/bootstrap.sh --install-noninteractive`，再运行 `python3 tools/onboard_check.py` |
 | Windows | `powershell -NoProfile -ExecutionPolicy Bypass -File tools/bootstrap.ps1 -Install`；之后优先用脚本返回的 `python_cmd` 自检 |
 | Windows 实机状态 | `bootstrap.ps1` 已通过静态检查，尚未在全新 Windows 实机完整验证；失败时按 `specs/environment-setup.md` 的官方安装路径兜底 |
 

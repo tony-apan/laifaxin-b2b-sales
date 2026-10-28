@@ -18,6 +18,15 @@ class RecoveryContract(unittest.TestCase):
         self.assertNotIn("我来处理，您什么都不用做", card)
         self.assertIn("我会先确认能否安全处理", card)
 
+    def test_install_summary_and_readme_command_labels(self):
+        setup = self.text("specs/environment-setup.md")
+        section = setup.split("### 2.3 ", 1)[1].split("\n## ", 1)[0]
+        self.assertRegex(section, r"`install_result`[^。]*`privilege_required`")
+        readme = self.text("README.md")
+        row = next(line for line in readme.splitlines() if line.startswith("| macOS / Linux |"))
+        self.assertIn("AI 执行", row)
+        self.assertIn("新手无需照抄", row)
+
     def test_beginner_flow_install_failure_is_bounded(self):
         flow = self.text("specs/beginner-flow.md")
         section = flow.split("安装没通过还没到本屏", 1)[1].split("#### 第 0 屏分流图", 1)[0]

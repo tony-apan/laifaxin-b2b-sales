@@ -4,7 +4,7 @@ title: "环境就绪 SOP（AI 执行·零 Python 前提 bootstrap）"
 description: "新电脑（可能无 Python）环境就绪 SOP：bootstrap、Windows/Unix 入口、安装与复查、错误分级，命令可直接复制。"
 type: "spec"
 status: "active"
-updated: "2026-10-23"
+updated: "2026-10-27"
 created: 2026-09-04
 author: "AI Agent"
 source: "bootstrap.sh / bootstrap.ps1 实操设计"
@@ -85,7 +85,7 @@ python3 tools/onboard_check.py
 
 ### 2.3 退出码与稳定输出（AI 解析约定）
 
-两个脚本语义一致：**exit 0=全部就绪；1=仍有缺失（含无法自动安装）；2=参数错误**。结尾固定输出 `# ---- bootstrap summary (key=value) ----` 块（`python_cmd / python_ok / curl_ok / bash_ok / grep_ok / awk_ok / git_ok / missing / all_ok / install_result` 等 key 名稳定，勿解析人类可读行）。**`python_cmd` 就是后续所有节点该用的实际 Python 命令**。
+两个脚本语义一致：**exit 0=全部就绪；1=仍有缺失（含无法自动安装）；2=参数错误**。结尾固定输出 `# ---- bootstrap summary (key=value) ----` 块（`python_cmd / python_ok / curl_ok / bash_ok / grep_ok / awk_ok / git_ok / missing / all_ok / install_result` 等 key 名稳定，勿解析人类可读行）；`install_result` 可取 `privilege_required`。**`python_cmd` 就是后续所有节点该用的实际 Python 命令**。
 
 ## 3. 依赖边界：主流程零第三方包，但需要 OS 工具
 
