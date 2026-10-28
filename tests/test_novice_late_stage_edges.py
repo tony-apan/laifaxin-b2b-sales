@@ -47,18 +47,12 @@ class LateStageEdgeCaseTest(unittest.TestCase):
         self.assertGreater(len(parts), 1, "S0 必须含有 text 代码块")
         target_block = parts[1].split("```")[0]
 
-        self.assertIn("没问题", target_block, "S0 屏面必须提供『没问题』作为推荐确认词")
-        self.assertIn("要改", target_block, "S0 屏面必须提供『要改』路径")
-        self.assertIn("没问题", target_block, "S0 屏面必须提供如『没问题』等确认词推荐")
-
-        ok, why = check_confirm_quote("没问题")
-        self.assertTrue(ok, f"屏面推荐确认词应通过 check_confirm_quote，实际: {why}")
-
-        ok2, why2 = check_confirm_quote("1 没问题")
-        self.assertTrue(ok2, f"组合确认词应通过 check_confirm_quote，实际: {why2}")
-
-        ok_digit, _ = check_confirm_quote("1")
-        self.assertFalse(ok_digit, "未包含确认词的纯数字 1 必须被拒绝")
+        self.assertIn("回 1", target_block)
+        self.assertIn("回 2", target_block)
+        self.assertTrue(check_confirm_quote("1")[0])
+        self.assertTrue(check_confirm_quote("没问题")[0])
+        for quote in ("2", "12", "不确认", "确认吗？"):
+            self.assertFalse(check_confirm_quote(quote)[0])
 
     def test_product_profile_user_block_has_no_website_asking(self):
         # B3 负向测试：保证档案屏用户块不含目标客户网址询问（延后至 S3 明确询问）。

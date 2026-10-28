@@ -174,18 +174,12 @@ class ProfileCardStartsPointTest(unittest.TestCase):
         from product_profile import check_confirm_quote
 
         block = user_view_blocks(self.text)[0]
-        self.assertIn("没问题", block, "S0 屏面必须提供『没问题』作为推荐确认词")
-        self.assertIn("要改", block, "S0 屏面必须提供『要改』路径")
-        self.assertIn("没问题", block, "S0 屏面必须提供如『没问题』等推荐确认词")
-
-        ok, why = check_confirm_quote("没问题")
-        self.assertTrue(ok, f"推荐确认原话『没问题』应通过校验，却被拒绝: {why}")
-
-        ok2, why2 = check_confirm_quote("1 没问题")
-        self.assertTrue(ok2, f"带编号与确认词组合『1 没问题』应通过校验，却被拒绝: {why2}")
-
-        ok_digit, _ = check_confirm_quote("1")
-        self.assertFalse(ok_digit, "未带确认词的纯数字 1 必须被拒绝（防误触安全铁律）")
+        self.assertIn("回 1", block)
+        self.assertIn("回 2", block)
+        self.assertTrue(check_confirm_quote("1")[0])
+        self.assertTrue(check_confirm_quote("没问题")[0])
+        for quote in ("2", "12", "不确认", "确认吗？"):
+            self.assertFalse(check_confirm_quote(quote)[0])
 
 
 class SeedCardGuidanceTest(unittest.TestCase):
@@ -198,6 +192,25 @@ class SeedCardGuidanceTest(unittest.TestCase):
         self.assertIn("优先主动引导", self.text)
         self.assertNotIn("自动走标准路径，**不追问**", self.text,
                          "旧版'用户没网址就不追问'必须删除——改为优先引导询盘客户/精准买家官网")
+
+    def test_seed_selection_single_and_multiple_are_unambiguous(self):
+        blocks = user_view_blocks(self.text)
+        self.assertGreaterEqual(len(blocks), 2)
+        multi, single = blocks[0], blocks[1]
+        self.assertIn("回表中编号", multi)
+        self.assertIn("回 0", multi)
+        self.assertNotIn("回 2**：再找", multi)
+        self.assertIn("回 1", single)
+        self.assertIn("回 2", single)
+        self.assertNotIn("回复「再找一轮」", single)
+        for block in (multi, single):
+            self.assertIn("网址", block)
+            self.assertIn("最多一次", block)
+        self.assertIn("收到 2 直接再找", self.text)
+        self.assertIn("收到 0 直接再找", self.text)
+        self.assertIn("不再追问有没有网址", self.text)
+        self.assertIn("沉默不视为选择", self.text)
+        self.assertIn("再找一轮", self.text)
 
     def test_start_point_must_map_to_segment(self):
         """起点必须关联客群（S4 匹配率分母/客户线计数依赖）。"""

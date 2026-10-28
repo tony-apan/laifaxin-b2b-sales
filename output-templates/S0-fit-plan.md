@@ -1,7 +1,7 @@
 ---
 doc_id: "output-templates-s0-fit-plan"
 title: "S0 产品画像方案（方向参考，不让用户选买家类型）"
-description: "产品画像方向方案话术：给出 A/B/C/D 获客方向与推荐，S0 选择方向时用。"
+description: "产品画像方向参考话术：说明找客户方向并自动继续，不要求用户选择。"
 type: "template"
 status: "active"
 updated: "2026-10-27"

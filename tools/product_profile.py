@@ -83,6 +83,8 @@ def check_confirm_quote(quote):
     m = _CONFIRM_NEGATION_EN.search(compact)
     if m:
         return False, f"含否定/犹豫词『{m.group(0)}』——用户尚未明确确认, 禁止置 confirmed"
+    if q == "1":
+        return True, ""
     low = compact.lower()
     if low in _CONFIRM_EXACT:
         return True, ""

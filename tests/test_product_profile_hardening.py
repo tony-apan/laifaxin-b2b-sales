@@ -32,6 +32,23 @@ class ProductProfileHardeningTest(unittest.TestCase):
             capture_output=True,
         encoding="utf-8", errors="replace")
 
+    def test_numeric_profile_confirmation_preserves_original_quote(self):
+        result = self.run_cli("confirm", "--profile", self.profile, "--by", "Tony", "--quote", "1")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        text = self.profile.read_text(encoding="utf-8")
+        self.assertRegex(text, r"(?m)^status: confirmed$")
+        self.assertRegex(text, r'''(?m)^confirm_quote: *["']?1["']? *$''')
+        result = self.run_cli("validate", "--profile", self.profile, "--require-confirmed")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_nonaffirmative_profile_replies_do_not_confirm(self):
+        before = self.profile.read_bytes()
+        for quote in ("2", "12", "", "不确认", "确认吗？"):
+            with self.subTest(quote=quote):
+                result = self.run_cli("confirm", "--profile", self.profile, "--by", "Tony", "--quote", quote)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertEqual(self.profile.read_bytes(), before)
+
     def test_confirmed_validation_requires_confirm_quote(self):
         result = self.run_cli(
             "confirm", "--profile", self.profile,
