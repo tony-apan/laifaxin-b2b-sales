@@ -35,6 +35,8 @@ if not (args.id or args.keyword or args.company):
     print("❌ 需 --id <32hex id> 或 --keyword <query_en> 或 --company <公司名>"); sys.exit(2)
 
 def api(path, p, t=60):
+    from tag_write_guard import check_send
+    check_send(path, p)
 # LFX_GATE_WRITE
     try:
         from startup_gate import enforce_cli_startup as _lfx_gate

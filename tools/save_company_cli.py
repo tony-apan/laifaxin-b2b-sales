@@ -73,6 +73,8 @@ def _load_json(text: Optional[str], path: Optional[str]) -> Any:
 def _http(token: str, org: str, timeout: int, endpoint: str = SAVE_ENDPOINT):
     """真实平台写 transport；只应被 execute 在全部本地闸门之后调用。"""
     def call(payload: Dict[str, Any]) -> Dict[str, Any]:
+        from tag_write_guard import check_send
+        check_send(endpoint, payload)
         cmd = ["curl", "-sSL", "-X", "POST", api_base_url.api_url(endpoint),
                "-H", "Content-Type: application/json",
                "-H", "accesstoken: " + token, "-H", "uid: " + org,

@@ -719,6 +719,8 @@ def ensure_folder():
     except Exception:
         __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
         raise SystemExit(2)
+    from tag_write_guard import check_send
+    check_send("mailbox/templates-folder-list", {})
     fl = subprocess.run(["curl", "-sSL", "-X", "POST",
                          "https://web.laifaxin.com/api/mailbox/templates-folder-list",
                          "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
@@ -748,6 +750,8 @@ def ensure_folder():
     except Exception:
         __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
         raise SystemExit(2)
+    from tag_write_guard import check_send
+    check_send("mailbox/template-folder-add", {"name": args.prefix})
     fa = subprocess.run(["curl", "-sSL", "-X", "POST",
                          "https://web.laifaxin.com/api/mailbox/template-folder-add",
                          "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
@@ -771,6 +775,8 @@ def _existing_template_id(name):
     """★断点修复(2026-09-09 真机)：查同名模板是否已存在，返回其 id。
     重跑时模板已建（如上次因分组报错中止、实际已写入）→ 旧代码报"名称已存在"并整体失败；
     现在改为幂等复用，避免"明明成功却报失败"误导 AI 去删数据重来。"""
+    from tag_write_guard import check_send
+    check_send("mailbox/templates-list", {"current": 1, "pageSize": 500})
     cmd = ["curl", "-sSL", "-X", "POST", "https://web.laifaxin.com/api/mailbox/templates-list",
            "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}",
@@ -797,6 +803,8 @@ def add(name, subject, html):
     except Exception:
         __import__("sys").stderr.write("还差一步：请先告诉我怎么称呼您、主要卖什么产品，登记后我马上继续（不是你的账号问题）。\n")
         raise SystemExit(2)
+    from tag_write_guard import check_send
+    check_send("mailbox/template-add", p)
     cmd = ["curl", "-sSL", "-X", "POST", "https://web.laifaxin.com/api/mailbox/template-add",
            "-H", "Content-Type: application/json", "-H", f"accesstoken: {args.token}",
  "-H", f"uid: {args.org}",

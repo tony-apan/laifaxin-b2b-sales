@@ -21,6 +21,8 @@ args=ap.parse_args()
 BAD=("CN","TW","HK","MO")
 def clist(pg):
     p={"logic":"and","current":pg,"pageSize":10,"filters":[{"property":"country_code","operator":"exclude","value":"","values":["CN","TW","HK","MO"],"valueType":"select"}],"sort":{},"keyword":args.keyword,"filter":{}}
+    from tag_write_guard import check_send
+    check_send("refine/company-list", {"keyword": args.keyword})
     cmd=["curl","-sSL","-X","POST","https://web.laifaxin.com/api/refine/company-list","-H","Content-Type: application/json","-H",f"accesstoken: {args.token}",
            "-H", f"uid: {args.org}","-d",json.dumps(p)]
     r=subprocess.run(cmd,capture_output=True,text=True,timeout=60, encoding="utf-8", errors="replace")

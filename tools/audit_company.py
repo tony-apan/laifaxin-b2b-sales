@@ -105,6 +105,8 @@ CURL_STATUS_MARKER = "\n__HTTP_STATUS__:"
 
 
 def _curl_json(cmd, what):
+    from tag_write_guard import check_send
+    check_send("refine/company-list", {})
     """执行 curl，返回 (payload, http_status)；网络失败/非 JSON/非对象 → AuditHTTPError。"""
     try:
         completed = subprocess.run(cmd, capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")

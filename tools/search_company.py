@@ -269,6 +269,8 @@ def make_transport(root: Path, token: str, org: str, timeout: int = 60) -> Any:
     import subprocess
 
     def call(endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from tag_write_guard import check_send
+        check_send(endpoint, payload)
         cmd = ["curl", "-sSL", "-m", str(int(timeout)), "-X", "POST",
                api_url(endpoint), "-H", "Content-Type: application/json",
                "-H", "accesstoken: " + token, "-H", "uid: " + org,

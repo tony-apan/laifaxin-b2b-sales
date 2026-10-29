@@ -173,7 +173,7 @@ class ActivateLocalGateOrderTest(unittest.TestCase):
         for name in (
             "activate_sequence.py", "approval.py", "compliance_validation.py", "evidence_validation.py", "profile_utils.py",
             "s11_closure.py",
-            "project_lock.py", "update_run_state.py", "workspace_guard.py", "credential_input.py",
+            "project_lock.py", "update_run_state.py", "workspace_guard.py", "tag_write_guard.py", "credential_input.py",
         ):
             shutil.copy2(TOOLS / name, self.repo / "tools" / name)
         self.project_dir = self.repo / "runs" / "operator" / "product"

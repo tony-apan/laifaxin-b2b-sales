@@ -40,6 +40,7 @@ updated: "2026-10-29"
 | test_cta_keyword_gate.py | CTA 回复关键词闸门测试：引导对方回一个短词，且该短词必须加粗。 | 改模板 CTA 关键词或渲染文案后 |
 | test_doc_naming.py | 文档命名与目录索引防回归（2026-10-23 文档重命名与索引重构）。 | 重命名文档或改目录/INDEX 后 |
 | test_evidence_mode.py | evidence_mode 判定：仅 live 可正式收口 | 改 evidence_mode 判定后 |
+| test_feedback_connection_cdp.py | 显式本机 CDP 接入回归：端点限制、同端口 loopback、无关页与非法 WS/302/500 协议拒绝、令牌不外泄、空间冲突不报成功、不启停外部浏览器。 | 修改 CDP 接入或连接顺序后 |
 | test_feedback_connection_order.py | 连接优先顺序及等待、失败分支回归 | 修改连接选择或续接流程后 |
 | test_feedback_tag_http_guard.py | 标签危险路径拦截与允许路径回归 | 修改统一 HTTP 标签写入防护后 |
 | test_finalize_audit_window.py | S4 finalize_audit 的审计窗口机器校验（P0-1 回归测试）。 | 改 S4 审计窗口/finalize 逻辑后 |
@@ -60,6 +61,7 @@ updated: "2026-10-29"
 | test_novice_flow_contract.py | 新手流程契约测试（specs/novice-flow-contract.md v1.0）。 | 改新手契约/回复次数后 |
 | test_product_profile_hardening.py | 产品档案硬约束：字段校验/版本/hash/回落 | 改产品档案校验/回落后 |
 | test_quote_authorization_contract.py | 用户原话授权契约回归 | 修改确认原话授权判定时 |
+| test_tag_write_guard.py | 统一标签写门回归：危险/歧义/未知标签写路径拒绝、tag-save 仅精确改名、合法控制路径与 23 发送器实际接线。 | 改标签写门或发送器接线后 |
 | test_registration_facts.py | 注册/开通事实口径测试（2026-09-09 对抗审查）。 | 改注册/开通事实口径后 |
 | test_connect_auto_and_announce.py | 批2-B：连接首选自动（browser_login）+ 先报后做规则守卫。 | 改连接卡或先报后做规则后 |
 | test_save_progress.py | 保存进度播报数值与话术回归。 | 改保存播报格式后 |

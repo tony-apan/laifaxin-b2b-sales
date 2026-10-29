@@ -379,6 +379,8 @@ def read_balance(http: Any, *, token: str, org: str,
 
 def make_http(token: str, org: str, timeout: int = 60) -> Any:
     def call(endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        from tag_write_guard import check_send
+        check_send(endpoint, payload)
         if endpoint not in ALLOWED_ENDPOINTS:
             raise BudgetError("E_ENDPOINT_NOT_ALLOWED", "只允许只读端点: %s" % endpoint)
         req = _urlrequest.Request(

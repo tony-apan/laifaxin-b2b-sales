@@ -142,6 +142,8 @@ _OPENER = urllib.request.build_opener(_NoRedirect)
 
 
 def _http_json(path, token, org, payload, timeout=30):
+    from tag_write_guard import check_send
+    check_send(path, payload)
     req = Request(api_base_url.api_url(path), data=json.dumps(payload).encode("utf-8"),
                   headers={"Content-Type": "application/json", "accesstoken": token, "uid": org},
                   method="POST")

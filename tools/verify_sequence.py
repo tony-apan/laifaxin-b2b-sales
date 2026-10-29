@@ -156,6 +156,8 @@ def check_sequence(api, seq, allow_active=False):
 def default_api(args):
     """CLI 平台调用（保持原 curl 形态：uid 必须进 header）。"""
     def api(path, payload, timeout=50):
+        from tag_write_guard import check_send
+        check_send(path, payload)
         # LFX_GATE_WRITE
         try:
             from startup_gate import enforce_cli_startup as _lfx_gate

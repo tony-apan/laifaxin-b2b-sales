@@ -42,6 +42,8 @@ if rec.get("save_task_id", "") != args.task or rec.get("contact_tag_id", "") != 
     sys.exit(4)
 
 def api(path, payload, timeout=40):
+    from tag_write_guard import check_send
+    check_send(path, payload)
 # LFX_GATE_WRITE
     try:
         from startup_gate import enforce_cli_startup as _lfx_gate

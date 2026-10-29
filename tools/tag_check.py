@@ -13,6 +13,8 @@ def _cred(args):
     _h, t, o = load_ready(TOOLS.parent)
     return t, o
 def _api(path, payload, token, org):
+    from tag_write_guard import check_send
+    check_send(path, payload)
     cmd = ["curl", "-sSL", "-m", "30", "-X", "POST",
            "https://web.laifaxin.com/api/" + path,
            "-H", "Content-Type: application/json",

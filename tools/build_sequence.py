@@ -173,6 +173,8 @@ require_approval(args.approval, args.project, ("S9",), what="建序列", expecte
 preflight(args.token, args.org, dry_run=args.dry_run, what="建序列")
 
 def api(path, p, t=60, exit_on_fail=True):
+    from tag_write_guard import check_send
+    check_send(path, p)
 # LFX_GATE_WRITE
     try:
         from startup_gate import enforce_cli_startup as _lfx_gate

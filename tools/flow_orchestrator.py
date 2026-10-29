@@ -260,6 +260,8 @@ def ensure_operator_profile():
     print(f"  ✅ 已初始化 {op.relative_to(KB)} (nickname={args.nickname}; 公司资料待按 operator-profile-sop 渐进补充)")
 
 def api(path, p, t=60):
+    from tag_write_guard import check_send
+    check_send(path, p)
 # LFX_GATE_WRITE
     try:
         from startup_gate import enforce_cli_startup as _lfx_gate

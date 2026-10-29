@@ -84,6 +84,7 @@ updated: "2026-10-27"
 | step_gate.py | 执行卡闸门（L2 加载留痕 / L3 写操作前拒绝）。 | 执行卡加载与写操作前 |
 | tag_add.py | contacts/tags-add建标签+同名查重复用+铁律7中文提醒;--list免审批;--approval S2/S5闸门 | 第 3 步建标签 / 查重 |
 | tag_check.py | 只读检查联系人标签存量；>0 默认拒绝，防复用共享标签把全库老联系人带进 S10。 | 保存前 / 加人前核对标签是否新 |
+| tag_write_guard.py | 统一发送前写门：危险四路径拒绝、tags/tag-save 仅精确改名、歧义路径拒绝；23 个发送器接线。 | 改标签/联系人写入口或核对拒绝边界时 |
 | template_batch.py | 模板批次选取单一真源：按前缀收集、排除同名分组容器（分组/未分组模板都计入）。 | 改模板差异/重建模板的收集口径时 |
 | tmap_grid.py | tmap 网格解析（★单一真源）：从 gen_templates 产出的 name→id 映射，解析"12 轮 × N 变体"并分组。 | 第 5 步解析 12 轮×N 变体分组 |
 | update_run_state.py | 安全更新operation-record并按合法转换图/恢复证据防跳步 | 推进状态 / 换机续接 |

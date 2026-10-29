@@ -41,6 +41,8 @@ if not args.list and (not args.token or not args.org):
     raise SystemExit(2)
 
 def api(path, p, t=40):
+    from tag_write_guard import check_send
+    check_send(path, p)
 # LFX_GATE_WRITE
     try:
         from startup_gate import enforce_cli_startup as _lfx_gate

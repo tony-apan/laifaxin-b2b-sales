@@ -614,8 +614,10 @@ EXPRESSION = """(() => { const out=[]; const scan=(w)=>{try { if (!w.location.ho
 
 
 def read_page(page, port, deadline=None):
-    host = parse.urlsplit(page.get('url', '')).hostname
-    if page.get('type') not in ('page', 'iframe') or not allowed_host(host):
+    u = parse.urlsplit(page.get('url', ''))
+    host = u.hostname
+    if (page.get('type') not in ('page', 'iframe') or u.scheme != 'https'
+            or not allowed_host(host) or not page.get('id')):
         return []
     ws = WebSocket(page.get('webSocketDebuggerUrl', ''), port, deadline=deadline)
     try:
@@ -784,8 +786,49 @@ def admit_credentials(root, choice, *, accept_fallback=False):
             "host_source": source,
             "entry_host": getattr(choice, "entry_host", "")}
 
-def connect_preferred():
-    """先校验可用会话，再使用已有可见窗口流程；只在明确不可用时建议复制。"""
+def parse_cdp_endpoint(value):
+    """只接受显式本机 127.0.0.1:端口；不接受 URL/路径/userinfo/query。"""
+    text = str(value or "").strip()
+    if not text or any(c in text for c in "/?#@ \t\r\n"):
+        raise Failure(20, 'probe')
+    host, sep, port_text = text.partition(':')
+    if sep != ':' or host != '127.0.0.1' or not port_text.isdigit():
+        raise Failure(20, 'probe')
+    port = int(port_text)
+    if not 1 <= port <= 65535:
+        raise Failure(20, 'probe')
+    return port
+
+
+def connect_cdp(root, endpoint, timeout=30):
+    """接入用户显式提供的本机 CDP；只读精确 laifaxin 页面，失败不报成功。"""
+    port = parse_cdp_endpoint(endpoint)
+    deadline = time.monotonic() + min(max(1.0, float(timeout)), 90.0)
+    try:
+        version(port, deadline)
+    except OSError:
+        raise Failure(11, 'probe', 'E_CDP_UNAVAILABLE')
+    except (ValueError, KeyError, TypeError):
+        raise Failure(11, 'probe', 'E_CDP_PROTOCOL')
+    try:
+        choice = wait_credentials(port, min(timeout, 90), None, deadline=deadline,
+                                  entry_host='web.laifaxin.com')
+        admitted = admit_credentials(root, choice)
+    except Failure:
+        raise
+    except OSError:
+        raise Failure(11, 'read', 'E_CDP_UNAVAILABLE')
+    except (ValueError, KeyError, TypeError):
+        raise Failure(11, 'read', 'E_CDP_PROTOCOL')
+    return 0, {'stage': 'verify', 'source': 'cdp', 'host': admitted['host'],
+               'workspace': 'verified', 'can_auto': True}
+
+
+def connect_preferred(cdp_endpoint=None):
+    """先验证会话；显式端点严格单独接入，不静默换路；否则走可见窗口。"""
+    cdp_port = None
+    if cdp_endpoint is not None:
+        cdp_port = parse_cdp_endpoint(cdp_endpoint)
     try:
         host, _, _ = load_ready(ROOT)
         return 0, {'stage': 'verify', 'source': 'session', 'host': host,
@@ -794,6 +837,18 @@ def connect_preferred():
         diagnostic = getattr(exc, 'diagnostic', 'E_NO_SESSION')
         if diagnostic not in ('E_NO_SESSION', 'E_STALE_SESSION', 'E_SESSION_CORRUPT'):
             return 12, {'stage': 'verify', 'next': 'stop', 'reason': diagnostic}
+    if cdp_endpoint is not None:
+        try:
+            return connect_cdp(ROOT, cdp_endpoint)
+        except Failure as exc:
+            base = {'stage': exc.stage, 'reason': exc.diagnostic, 'source': 'cdp'}
+            if exc.code == 11 and exc.diagnostic == 'E_CDP_UNAVAILABLE':
+                return exc.code, dict(base, next='visible')
+            if exc.code == 10 and exc.diagnostic == 'E_NO_TOKEN':
+                args = ['--connect-preferred', '--cdp-endpoint', '127.0.0.1:%d' % cdp_port]
+                return exc.code, dict(base, next='awaiting_login', resume=' '.join(args),
+                                      resume_args=args)
+            return exc.code, dict(base, next='stop')
     try:
         code, result = execute([])
         if code == 0:
@@ -818,14 +873,15 @@ def execute(argv):
     parser.add_argument('--browser', choices=['auto', 'chrome', 'edge', 'none', 'playwright'], default='auto')
     parser.add_argument('--confirm-profile')
     parser.add_argument('--connect-preferred', action='store_true', help='先验证已有会话，再尝试可见登录窗口')
+    parser.add_argument('--cdp-endpoint', help='显式本机 CDP：仅 127.0.0.1:<1-65535>')
     for flag in ['probe-only', 'no-launch', 'allow-launch-probe', 'clean', 'force-legacy', 'force', 'resume', 'keep-open', 'save-session', 'from-session', 'forget', 'accept-fallback-host']:
         parser.add_argument('--' + flag, action='store_true')
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     args = parser.parse_args(raw_argv)
     if args.connect_preferred:
-        if len(raw_argv) != 1:
-            raise Failure(20, 'probe')
-        return connect_preferred()
+        return connect_preferred(args.cdp_endpoint)
+    if args.cdp_endpoint:
+        return connect_cdp(ROOT, args.cdp_endpoint, timeout=args.timeout)
     args.no_launch = args.no_launch or args.resume
     if args.forget:
         forget_session(ROOT)

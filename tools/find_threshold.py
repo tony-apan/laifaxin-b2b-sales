@@ -31,6 +31,8 @@ FOUR_REGION_FILTERS = [{"property": "country_code", "operator": "exclude", "valu
 
 def fetch(page, keyword, token, org, page_size=10):
     p = {"keyword": keyword, "current": page, "pageSize": page_size, "filters": FOUR_REGION_FILTERS, "logic": "and"}
+    from tag_write_guard import check_send
+    check_send("refine/company-list", {})
     cmd = ["curl","-sSL","-X","POST","https://web.laifaxin.com/api/refine/company-list",
            "-H","Content-Type: application/json","-H",f"accesstoken: {token}",
            "-H", f"uid: {org}","-d",json.dumps(p)]

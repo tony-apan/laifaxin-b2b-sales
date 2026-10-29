@@ -30,6 +30,7 @@ FLOW_FILES = (
     "profile_utils.py",
     "update_run_state.py",
     "workspace_guard.py",
+    "tag_write_guard.py",
     "credential_input.py",
 )
 SEQ = "0123456789abcdef01234567"

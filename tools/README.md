@@ -53,6 +53,7 @@ audience: AI优先（人可参考）
 | `browser_login.py` | 本机真实 Chrome/Edge 登录取参（隔离 profile、可 `--probe-only/--save-session/--forget`；标准库实现） | ✅ 只读登录页，不写平台 |
 | `session_store.py` | 本机会话凭据存储（0700 目录 / 0600 文件；`--forget` 清除；非安全边界） | ✅ 仅本机 |
 | `tag_add.py` | S5 前置·建标签（中文名 + 同名复用） | ✅ 记录 id(名称) 成对 |
+| `tag_write_guard.py` | 统一发送前标签/联系人覆盖写门：危险四路径拒绝、tag-save 仅精确改名、歧义路径拒绝 | ✅ 前置拒绝，安全追加未实现 |
 | `resolve_schedule.py` | 时区计划时间解析（schedule_id 运行时解析） | ✅ 各账号不同，禁止硬编码 |
 | `audit_company.py` | 搜索页精准度审计（词匹配只做趋势初筛） | ✅ 临界须 AI 语义反思 |
 | `find_threshold.py` | 二分找 70% 临界（参考） | ✅ 人工复核临界页 |

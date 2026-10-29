@@ -36,6 +36,7 @@ updated: "2026-10-29"
 | [save-offline-input.md](save-offline-input.md) | S5 保存 offline-input 最小 JSON schema | 构造/校验保存输入时 |
 | [sequence-config.md](sequence-config.md) | 序列配置标准（12 轮不同模板、时间设置） | 配置跟进序列、检查模板差异时 |
 | [step-map.md](step-map.md) | 新用户全流程·逐模块逻辑（唯一索引） | 查整体步骤、跳步规则与模块关系时 |
+| [tag-write-guard.md](tag-write-guard.md) | 统一发送前标签/联系人写门契约（危险路径拒绝、改名精确载荷、追加未实现） | 改标签/联系人写入口或核对拒绝边界时 |
 | [threshold-method.md](threshold-method.md) | 临界点判定方法论（找 70% 保存边界） | 定保存阈值、做语义反思判定时 |
 | [threshold-probe-spec.md](threshold-probe-spec.md) | S4-A 临界点探测执行规范 v3.2 | 执行临界点探测与证据收口时 |
 | [website-profile-sop.md](website-profile-sop.md) | 网站资料增强模块 SOP（可选模块） | 启用网站资料增强模块时 |
