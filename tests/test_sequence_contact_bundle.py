@@ -377,7 +377,13 @@ class BundleTest(H._RepoCase):
         sha = profile_gate(self.profile)[3]
         texts = {"sequence": f"序列 {SEQ} 状态=inactive\n步骤数: 12\n全部12步均绑定模板\n",
                  "exclude": "含4区=0\n排除生效\n", "diff": "模板数: 48\n最大相似度 0.41\n差异≥30%达标\n",
-                 "panel": "标签 客群 保存 模板 配额 审查 已核对\n"}
+                 "panel": ("核实面板（平台回读）\n"
+                           "- 标签：询盘、不发两个停止标签已挂好\n"
+                           "- 客群：宠物食品包装采购商，本批 5 人\n"
+                           "- 保存：5 人已加入跟进计划\n"
+                           "- 模板：48 个模板已挂到 12 轮\n"
+                           "- 配额：全账号 30000/天、单公司 5/天\n"
+                           "- 审查：12 步顺序与时区 America/New_York 已核对\n")}
         ev = {}
         for k, v in texts.items():
             if k == missing: continue

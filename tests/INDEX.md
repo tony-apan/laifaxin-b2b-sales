@@ -4,7 +4,7 @@ title: "tests 索引"
 description: "目录索引：测试用例分组、运行方式与文档回归测试入口，跑回归前读。"
 type: "index"
 status: "active"
-updated: "2026-10-27"
+updated: "2026-10-29"
 ---
 
 # tests 索引
@@ -32,6 +32,7 @@ updated: "2026-10-27"
 | test_company_page_report.py | 一页公司全明细只读链回归：真实 CLI collect→AI 判定→render + 本地 loopback 替身（凭据零 argv、只读 API 白名单、安全反例全拒）。 | 改 company_page_report.py 的采集/渲染/判定校验后 |
 | test_compliance_evidence_mode.py | S7/S8/S11/S12 合规证据模式：live-only 与 fail-closed 契约 | 改 S7/S8/S11/S12 合规证据校验后 |
 | test_confirm_numbering.py | 确认点一律回数字（2026-10-23 用户要求：只回数字就能继续）。 | 改确认点话术或确认闸门后 |
+| test_confirmation_intent_regressions.py | 确认意图永久回归（A 席）：资料/联合卡人数/保存邮箱被夹带修改时拒确认，数字与纯确认不误杀。 | 改 approval.py 或确认意图判定后 |
 | test_contact_add_ticket_gate.py | P0-A S10 票据门回归测试（静态红队：票据门曾经失效）。 | 改 S10 加人票据门后 |
 | test_count_guard.py | S5 数量推导闸门回归：50 绕过、末页、预算、样本、五处一致、哈希篡改。 | 改保存数量/预算/证据推导后 |
 | test_credential_input.py | 聊天框两行凭据解析（LF/CRLF/缺 org/超限 fail-closed） | 改凭据输入/传输方式后 |
@@ -39,8 +40,11 @@ updated: "2026-10-27"
 | test_cta_keyword_gate.py | CTA 回复关键词闸门测试：引导对方回一个短词，且该短词必须加粗。 | 改模板 CTA 关键词或渲染文案后 |
 | test_doc_naming.py | 文档命名与目录索引防回归（2026-10-23 文档重命名与索引重构）。 | 重命名文档或改目录/INDEX 后 |
 | test_evidence_mode.py | evidence_mode 判定：仅 live 可正式收口 | 改 evidence_mode 判定后 |
+| test_feedback_connection_order.py | 连接优先顺序及等待、失败分支回归 | 修改连接选择或续接流程后 |
+| test_feedback_tag_http_guard.py | 标签危险路径拦截与允许路径回归 | 修改统一 HTTP 标签写入防护后 |
 | test_finalize_audit_window.py | S4 finalize_audit 的审计窗口机器校验（P0-1 回归测试）。 | 改 S4 审计窗口/finalize 逻辑后 |
 | test_flow_credential_transport.py | 主流程凭据传递：程序化 stdin、不落盘 | 改流程内凭据传递后 |
+| test_flow_copy_consistency.py | 流程文案一致性回归（C 席）：S3 问网址时机、数字范围、回复次数与契约同口径。 | 改 S3/契约/新手流程文案后 |
 | test_full_flow_simulation.py | 全流程模拟：S0→S12 编排与状态推进联调 | 改主流程编排或全流程联调前 |
 | test_gate_hardening.py | 闸门加固回归：写操作前拒绝与票据 | 改闸门加固/写入口后 |
 | test_gate_integration.py | 闸门与写脚本集成：开工门/执行卡/审批链 | 改闸门与各写脚本集成后 |
@@ -55,6 +59,7 @@ updated: "2026-10-27"
 | test_novice_edge_cases.py | 新手首测边界：只答一半/回数字/Safari/拒绝连接/单一候选/审计时长/产品照片。 | 改首测卡片或边界话术后 |
 | test_novice_flow_contract.py | 新手流程契约测试（specs/novice-flow-contract.md v1.0）。 | 改新手契约/回复次数后 |
 | test_product_profile_hardening.py | 产品档案硬约束：字段校验/版本/hash/回落 | 改产品档案校验/回落后 |
+| test_quote_authorization_contract.py | 用户原话授权契约回归 | 修改确认原话授权判定时 |
 | test_registration_facts.py | 注册/开通事实口径测试（2026-09-09 对抗审查）。 | 改注册/开通事实口径后 |
 | test_connect_auto_and_announce.py | 批2-B：连接首选自动（browser_login）+ 先报后做规则守卫。 | 改连接卡或先报后做规则后 |
 | test_save_progress.py | 保存进度播报数值与话术回归。 | 改保存播报格式后 |
@@ -75,7 +80,9 @@ updated: "2026-10-27"
 | test_save_offline_input_doc.py | 保存命令文档回归（任务C）：SKILL/operations-sop 示例参数与代码一致 + offline-input schema 文档 | 改保存命令示例或 offline-input 文档后 |
 | test_s7_numeric_confirm.py | S7 数字确认端到端回归（2026-10-23）：S7 回「1」可铸凭证；S2/S5/S9/S10 裸「1」一律拒绝 | 改审批口令或 S7 卡确认方式后 |
 | test_s12_activation_gates.py | 第 7 关激活前结构闸门：上限实读/标签身份/模板库归属/凭证一次性 + --check-structure 端到端。 | 改激活结构闸门或 S12 凭证消费后 |
+| test_s12_intent_regressions.py | S12 激活意图回归（A 席）：否定/等待/条件/修改句先于正向词拒激活，合法「确认激活」场景仍放行。 | 改 activate_sequence.py 或激活意图判定后 |
 | test_s11_closure_gate.py | S11 收口证明闸门：只认 finalize_run 写的收口字段，手写/过期/坏 sha 一律拒绝。 | 改 S11 收口字段或 S12 签发/激活前校验后 |
+| test_s11_unknown_evidence.py | S11 全未知/缺核实值终检证据必须拒绝（B1-B4），合法六项面板仍可收口。 | 改 finalize_run.py 或终检证据契约后 |
 | test_workspace_verified_gate.py | 工作空间未判定必须 fail-closed（exit 5），仅测试进程放行。 | 改 workspace_guard.preflight 后 |
 | test_sequence_closure_hardening.py | 任务A 回归测试：闭合序列 / 激活 / verify 三处加固（2026-10-23）。 | 改序列闭合/激活/verify 加固后 |
 | test_sequence_contact_bundle.py | S9+S10 联合确认全链回归：本地 loopback 平台替身；卡/依赖重验/票据/续接/凭据 stdin-only/激活 0 调用，及 R2：测试 base 票据无效 fail-closed、sequence-summary 人数回读、S11 自动 finalize_run 接线等 31 项。 | 改 sequence_contact_bundle.py / platform_http.py / auth_guard bundle 函数后 |

@@ -198,7 +198,7 @@ class S12AdversarialTest(unittest.TestCase):
     def s12_rows(self):
         return [r for r in self.rows() if r.get("state", "").startswith("S12")]
 
-    def issue(self, quote="确认激活 皮筏艇找客户", profile=None, seq=None, compliance=None):
+    def issue(self, quote="确认激活", profile=None, seq=None, compliance=None):
         """走签发路径（默认用合法夹具）。"""
         return subprocess.run(
             [sys.executable, str(self.repo / "tools" / "flow_orchestrator.py"),
@@ -217,7 +217,7 @@ class S12AdversarialTest(unittest.TestCase):
              "--profile", str(profile or self.profile),
              "--compliance-file", str(compliance or self.compliance),
              "--record", str(record or self.record),
-             "--confirm", "确认激活 皮筏艇",
+             "--confirm", "确认激活",
              "--approval", approval],
             capture_output=True, text=True, cwd=self.repo, timeout=90, encoding="utf-8", errors="replace")
 
@@ -353,7 +353,7 @@ class S12AdversarialTest(unittest.TestCase):
 
     def test_p0b_confirm_activation_passes_local_gates_without_network(self):
         """「确认激活 …」须通过本地口令闸门（随后因缺审批凭证 exit 1，证明不是死锁）。"""
-        r, calls = self.activate_offline("确认激活 皮筏艇")
+        r, calls = self.activate_offline("确认激活")
         self.assertEqual(1, r.returncode, r.stdout + r.stderr)
         self.assertNotIn("确认原话校验未过", r.stdout + r.stderr,
                          "「确认激活」不应被口令闸门拒绝")

@@ -277,7 +277,10 @@ class InstallScreenShortAndBranchTest(unittest.TestCase):
             self.assertIn(node, flow, "流程图缺 %s" % node)
         chart = flow[flow.index("#### 第 0 屏分流图"):flow.index("#### 检测项")]
         self.assertIn("B2 -- 回 1 后打开窗口 --> W", chart)
-        self.assertIn("B2 -- 回 2 贴两行 --> V", chart)
+        self.assertIn("B2 -- 回 2 --> Z2", chart)
+        self.assertIn("暂停连接", chart)
+        self.assertIn("C1 -- 回 2 贴两行 --> V", chart)
+        self.assertIn("D1 -- 回 2 贴两行 --> V", chart)
         self.assertIn("W --> V", chart)
         self.assertIn("V -- 通过 --> E", chart)
         self.assertNotIn("B2 --> E", chart)
@@ -325,7 +328,7 @@ class Step1HonestQuoteTest(unittest.TestCase):
         self.assertNotIn("连您的来发信账号", self.block, "连接已前移，第 1 屏不得再约连接")
 
     def test_honest_reply_count(self):
-        self.assertIn("还要回 8 次", self.block)
+        self.assertIn("还要回 7 次", self.block)
         self.assertIn("顺利的话", self.block)
         self.assertNotIn("最多 9 次不动", self.block)
         for banned in ("只回一个数字", "全程你只需要回数字", "3 类"):
@@ -341,9 +344,9 @@ class Step1HonestQuoteTest(unittest.TestCase):
         self.assertTrue(lines[-1].startswith("该回什么："), "第 1 屏末行必须是「该回什么：…」")
 
     def test_step1_is_short_and_separated_from_profile(self):
-        """第 1 屏收短（TASK-20261028）：≤9 行，每行 ≤46 字，且与 8 项档案彻底拆分。"""
+        """第 1 屏收短：按 FEEDBACK7-① 落实每序号独行后为 ≤12 行，每行 ≤46 字，且与 8 项档案彻底拆分。"""
         lines = [l for l in self.block.strip().splitlines() if l.strip()]
-        self.assertLessEqual(len(lines), 9, f"第 1 屏超过 9 行: {len(lines)}")
+        self.assertLessEqual(len(lines), 12, f"第 1 屏超过 12 行: {len(lines)}")
         for i, l in enumerate(lines, 1):
             self.assertLessEqual(len(l), 46, f"第 1 屏第 {i} 行字数超过 46: {len(l)} -> {l}")
         for banned in ("卖给谁", "产品线", "核心卖点", "规格和认证", "和别人比"):

@@ -49,8 +49,8 @@ from pathlib import Path
 
 KB = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KB / "tools"))
-from approval import (confirm_quote_ok, require_approval, stable_params_hash,
-                       is_approval_used, mark_approval_used)
+from approval import (authorize_quote, confirm_quote_ok, reservation, require_approval,
+                       stable_params_hash, is_approval_used, mark_approval_used)
 from compliance_validation import validate_compliance
 from profile_utils import ensure_same_project_paths, profile_gate
 from project_lock import acquire_project_lock
@@ -275,25 +275,25 @@ if args.status:
 #   网页手动激活同步(sync-manual)与回滚(deactivate)是另一条契约，仍按 action_word 判定。
 ACTIVATION_CONFIRM_PHRASE = "确认激活"
 
-def check_confirm(quote, action_word, required_phrase=""):
-    """返回 (ok, 原因)。action_word='激活'或'暂停'。否定句/犹豫词/对向指令词一律拒绝。
-    required_phrase 非空时：原话必须逐字包含该短语（激活路径=「确认激活」，仅说「激活」不通过）。"""
+def check_confirm(quote, action_word, required_phrase="", sequence_name=""):
+    """返回 (ok, 原因)。action_word='激活'或'暂停'。否定/等待/条件/修改/对向指令词一律拒绝。
+    required_phrase 非空时：原话必须逐字包含该短语（激活路径=「确认激活」，仅说「激活」不通过）。
+    判定顺序：confirm_quote_ok 已把否定/等待/条件/修改/保留句放在正向词之前；
+    这里再显式复核一次，便于执行口单独打印原因，避免与签发口漂移。"""
     if not quote or not quote.strip():
         return False, "原话为空"
     q = quote.strip().replace("’", "'")
-    if not confirm_quote_ok(q):
-        return False, "原话不是严格正向确认（含否定/疑问/等待/取消或缺确认词）"
-    neg = _re.search(r'(不|别|甭|莫|勿|先不|暂不|不用|不要|无须|无需|没法|无法|还没|暂停|停止|取消|回滚)[^。，,；;。！？!?]{0,12}' + action_word, q) or \
-          _re.search(action_word + r'[^。，,；;。！？!?]{0,12}(不|别|否|没)', q)
-    hesitate = _re.search(r'(别急|等等|稍等|先看|考虑|想想|再看看|回头|再说|商量|暂缓|犹豫|可能|大概|应该|也许)', q)
+    if required_phrase and not authorize_quote(q, "S12", {"sequence_name": sequence_name}):
+        return False, "请按当前激活卡回复确认激活"
+    if not required_phrase and not confirm_quote_ok(q):
+        return False, "原话不是严格正向确认"
+    blocked, why = reservation(q)
+    if blocked:
+        return False, f"原话含否定/等待/条件/修改语义（{why}）——禁止执行"
     # 对向/撤回指令词全局拦截(与action_word无关, 出现即语义矛盾→拒绝, 让用户给一句干净原话)
     forbid = ("暂停", "停止", "取消", "回滚", "不要", "不行", "先不", "暂不", "暂缓") if action_word == "激活" \
         else ("激活", "取消", "不要", "不行", "先不", "暂缓")
     forbid_hit = [w for w in forbid if w in q and w != action_word]
-    if neg:
-        return False, f"原话含否定/暂停语义({neg.group(0)})——禁止执行"
-    if hesitate:
-        return False, f"原话含犹豫词({hesitate.group(0)})——须用户明确指令"
     if forbid_hit:
         return False, f"原话含对向/撤回指令词({forbid_hit})——语义矛盾, 请用户给一句干净的正向原话"
     if required_phrase:
@@ -478,7 +478,7 @@ if args.approval and is_approval_used(args.approval):
     print("❌ 该 S12 凭证已用于一次激活，不能复用——请重新 --resume-s12 由用户新原话签发。(exit 2)")
     sys.exit(2)
 approval_row = require_approval(args.approval, args.project, ("S12",), what="激活序列", expected_hash=stable_params_hash(binding))
-if " ".join(str(approval_row.get("user_quote", "")).split()) != " ".join(args.confirm.split()):
+if str(approval_row.get("user_quote", "")) != args.confirm:
     print("❌ --confirm 必须与S12审批凭证中的用户原话逐字一致——拒绝替换确认语义")
     sys.exit(2)
 

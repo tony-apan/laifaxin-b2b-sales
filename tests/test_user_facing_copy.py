@@ -994,8 +994,8 @@ class ActivationIsOneChatLineTest(unittest.TestCase):
         src = (ROOT / "tools" / "flow_orchestrator.py").read_text(encoding="utf-8")
         idx = src.index("def resume_s12")
         body = src[idx:idx + 6000]
-        self.assertIn('"确认激活" in answer', body, "仍须要求原话含『确认激活』四个字")
-        self.assertIn("confirm_quote_ok", body, "仍须过滤否定/犹豫/疑问句")
+        self.assertTrue('authorize_quote(answer, "S12"' in body or '"确认激活" in answer' in body, "仍须经状态绑定口令授权检查")
+        self.assertIn("确认激活", body, "仍须要求原话含『确认激活』四个字")
         self.assertRegex(body, r"return 2", "拒绝签发必须是失败退出码 2（旧实现 return 0）")
 
     def test_tool_rejects_empty_confirmation_without_tty(self):

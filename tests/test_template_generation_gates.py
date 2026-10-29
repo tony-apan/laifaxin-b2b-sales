@@ -135,7 +135,7 @@ class OptionalSellingPointPreviewTest(unittest.TestCase):
                 profile.write_text(PROFILE_FIXTURE, encoding="utf-8")
                 if status == "confirmed":
                     result = subprocess.run([sys.executable, str(TOOLS / "product_profile.py"),
-                        "confirm", "--profile", str(profile), "--by", "Tony", "--quote", "确认当前产品档案"],
+                        "confirm", "--profile", str(profile), "--by", "Tony", "--quote", "1"],
                         capture_output=True, text=True, cwd=ROOT)
                     self.assertEqual(0, result.returncode, result.stdout + result.stderr)
                 record = root / "operation-record.md"

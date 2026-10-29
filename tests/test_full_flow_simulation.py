@@ -242,7 +242,7 @@ class FullFlowSimulationTest(unittest.TestCase):
         cls.write_json(params, binding)
         result = cls.run_tool(
             "approval.py", "grant", "--project", PROJECT, "--state", state,
-            "--quote", "确认执行当前参数", "--params-file", params,
+            "--quote", "1", "--params-file", params,
         )
         match = re.search(r"凭证已铸造: (ap-[0-9a-f]+)", result.stdout)
         if not match:
@@ -279,7 +279,7 @@ class FullFlowSimulationTest(unittest.TestCase):
             text, count = re.subn(pattern, rf"\1- 内容：{content}\n- source: {source}", text)
             self.assertEqual(1, count, marker)
         self.profile.write_text(text, encoding="utf-8")
-        self.run_tool("product_profile.py", "confirm", "--profile", self.profile, "--by", NICKNAME, "--quote", "确认当前产品档案")
+        self.run_tool("product_profile.py", "confirm", "--profile", self.profile, "--by", NICKNAME, "--quote", "1")
         confirmed = self.profile.read_text(encoding="utf-8")
         section4 = re.search(r"## ④.*?(?=\n## ⑤)", confirmed, re.S).group(0)
         self.assertIn("内容：（待补）", section4)
@@ -456,7 +456,17 @@ class FullFlowSimulationTest(unittest.TestCase):
         self.run_tool("verify_sequence.py", "--token", TOKEN, "--org", ORG, "--seq", SEQUENCE, output=verify_seq)
         self.run_tool("verify_exclude.py", "--token", TOKEN, "--org", ORG, "--keyword", SEED, output=verify_exclude)
         self.run_tool("check_template_diff.py", "--token", TOKEN, "--org", ORG, "--prefix", "英语-宠物食品包装-", "--limit", 48, output=verify_diff, timeout=180)
-        panel.write_text("标签 客群 保存 模板 配额 审查\n状态 inactive，等待人工决策。\n", encoding="utf-8")
+        panel.write_text(
+            "核实面板（平台回读）\n"
+            "- 标签：询盘、不发两个停止标签已挂好\n"
+            "- 客群：宠物食品包装采购商，本批名单已核对\n"
+            "- 保存：联系人已加入跟进计划（对账见 S10 回读）\n"
+            "- 模板：48 个模板已挂到 12 轮\n"
+            "- 配额：全账号 30000/天、单公司 5/天\n"
+            "- 审查：12 步顺序与时区 America/New_York 已核对\n"
+            "状态 inactive，等待人工决策。\n",
+            encoding="utf-8",
+        )
         manifest = self.project_dir / "verification-manifest.json"
         doc = {
             "project": PROJECT, "org_sha256": hashlib.sha256(ORG.encode()).hexdigest(),

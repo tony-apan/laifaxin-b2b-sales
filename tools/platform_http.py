@@ -36,9 +36,22 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+# 此出口没有经过验证的联系人标签更新/删除契约：这些已知危险路径一律拒绝。
+# 该保护只覆盖使用本发送器的调用，不是主机网络防火墙。
+_BLOCKED_TAG_MUTATIONS = frozenset({
+    "tags/tag-delete", "tags/folder-delete",
+    "contacts/contacts/update", "contacts/contacts/batch-update",
+})
+
+
 def post(path, payload, token, org, timeout=60):
     """返回响应文本；任何网络/3xx/4xx5xx 之外的失败按空串返回（调用方 fail-closed）。
     测试 base 非法/票据无效时在 Request/open 之前抛 TestBaseError（0 opener 调用）。"""
+    normalized = str(path).strip().strip("/").lower()
+    if normalized.startswith("api/"):
+        normalized = normalized[4:]
+    if normalized in _BLOCKED_TAG_MUTATIONS:
+        raise ValueError("标签删除或联系人批量更新接口未授权，拒绝发送")
     _apply_test_base()
     req = urllib.request.Request(api_base_url.api_url(path), data=json.dumps(payload).encode("utf-8"), method="POST",
                                  headers={"Content-Type": "application/json", "accesstoken": token, "uid": org})

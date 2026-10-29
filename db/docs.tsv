@@ -33,7 +33,7 @@ specs/environment-setup.md	specs	环境准备SOP	现行	bootstrap,零Python,跨�
 specs/migration-handoff.md	specs	换机续接SOP	现行	换机,迁移,断点续接
 specs/operator-profile-sop.md	specs	运营方档案SOP	现行	主动索取,公司级资料,签名
 specs/product-profile-sop.md	specs	产品知识档案SOP	现行	主动索取,字段来源,版本,hash
-specs/product-fit.md	specs	产品适配度判定	现行	适配度,强条件弱
+specs/product-fit.md	specs	客群定位与采购节奏分析	现行	客群定位,采购节奏,可达渠道
 specs/website-profile-sop.md	specs	网站资料增强模块SOP	现行	独立可选,网址角色,六区候选,批准导入
 website-profile/README.md	其他	网站资料增强模块入口	现行	独立可选,schema,CLI
 website-profile/schema-candidate.json	其他	网站候选Schema	现行	JSON Schema,六区候选

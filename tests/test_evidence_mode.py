@@ -9,6 +9,17 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+LEGAL_PANEL = (
+    "核实面板（平台回读）\n"
+    "- 标签：询盘、不发两个停止标签已挂好\n"
+    "- 客群：宠物食品包装采购商，本批 25 人\n"
+    "- 保存：25 人已加入「英语-宠物食品包装-12轮」\n"
+    "- 模板：48 个模板已挂到 12 轮\n"
+    "- 配额：全账号 30000/天、单公司 5/天\n"
+    "- 审查：12 步顺序与时区 America/New_York 已核对\n"
+    "状态 inactive，等待人工决策（测试不激活）\n"
+)
+
 PROJECT = "operator/product"
 ORG = "org-for-evidence-tests"
 SEQ = "0123456789abcdef01234567"
@@ -129,7 +140,7 @@ class EvidenceModeTest(unittest.TestCase):
         diff = self.write_evidence("verify-diff.txt", "模板数: 48\n最大相似度 20%\n差异≥30%达标\n")
         panel = self.write_evidence(
             "verification-panel.md",
-            panel_text or "标签 客群 保存 模板 配额 审查\n测试不激活\n",
+            panel_text or LEGAL_PANEL,
         )
         doc = {
             "project": PROJECT,

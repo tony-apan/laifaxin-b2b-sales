@@ -27,6 +27,7 @@ def _utf8_stdout():
             pass
 _utf8_stdout()
 import argparse
+import json
 import re
 import sys
 import time
@@ -37,6 +38,7 @@ from profile_utils import (
     content_sha256, detect_third_party_contact, parse_frontmatter, profile_field_facts,
     profile_sha256, read_profile, split_markdown, validate_nickname, validate_product_profile,
 )
+from approval import reservation as _reservation
 
 KB = Path(__file__).resolve().parent.parent
 TEMPLATE = KB / "runs" / "_template" / "product-profile.md"
@@ -227,12 +229,18 @@ def cmd_confirm(args):
     ok, why = validate_nickname(args.by)
     if not ok:
         _fail(2, f"❌ --by 不是纯昵称({args.by}): {why}——签名只能是纯个人昵称 (exit 2)")
-    quote = (args.quote or "").strip()
-    if not quote:
+    quote = args.quote or ""
+    if not quote.strip():
         _fail(2, "❌ --quote 不能为空(须为用户确认原话, 含确认词如 确认/好的/可以/ok) (exit 2)")
-    ok, why = check_confirm_quote(quote)
-    if not ok:
-        _fail(2, f"❌ --quote 不是明确确认({why}): {quote[:60]} (exit 2)")
+    from approval import authorize_quote
+    product_name = profile_field_facts(p).get(2, {}).get("content", "")
+    if product_name in ("待补", "（待补）"):
+        product_name = ""
+    if not authorize_quote(quote, "PROFILE", {"product_name": product_name}):
+        _fail(2, "❌ 原话含修改或不是当前资料的明确确认，请重新确认 (exit 2)")
+    blocked, intent = _reservation(quote)
+    if blocked:
+        _fail(2, f"❌ --quote 含修改/保留意图（{intent}）——请先更新档案字段，再用一句干净确认重新确认；本次未改档案 (exit 2)")
     tp = detect_third_party_contact(quote, label="--quote")
     if tp:
         for t in tp:
@@ -262,7 +270,7 @@ def cmd_confirm(args):
     body_with_log = _append_change_record(body, now, f"confirm v{new_version}", summary)
     _rewrite_frontmatter(p, {"profile_version": str(new_version), "status": "confirmed", "updated_at": now,
                              "confirmed_at": now, "confirmed_by": args.by.strip(),
-                             "confirm_quote": safe_quote, "content_sha256": ""}, body_override=body_with_log)
+                             "confirm_quote": safe_quote, "confirm_quote_json": json.dumps(quote, ensure_ascii=True), "content_sha256": ""}, body_override=body_with_log)
     facts = profile_field_facts(p)
     provided = [n for n, f in sorted(facts.items())
                 if f.get("content") not in ("", "（待补）", "待补")

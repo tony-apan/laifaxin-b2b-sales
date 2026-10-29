@@ -127,7 +127,7 @@ class ContactAddTicketGateTest(unittest.TestCase):
         r = subprocess.run(
             [sys.executable, str(self.repo / "tools" / "approval.py"), "grant",
              "--project", PROJECT, "--state", "S10_加联系人",
-             "--quote", "确认加入联系人", "--params-file", str(params)],
+             "--quote", "1", "--params-file", str(params)],
             capture_output=True, text=True, cwd=self.repo,
             env=self.env, timeout=60, encoding="utf-8", errors="replace")
         self.assertEqual(0, r.returncode, r.stdout + r.stderr)
@@ -135,11 +135,11 @@ class ContactAddTicketGateTest(unittest.TestCase):
         self.assertIsNotNone(m, r.stdout + r.stderr)
         return m.group(1)
 
-    def mint_ticket(self):
+    def mint_ticket(self, quote="1"):
         payload = {"seqId": SEQ, "tags": TAGS, "views": []}
         r = subprocess.run(
             [sys.executable, str(self.repo / "tools" / "auth_guard.py"), "authorize",
-             "--action", "sequence", "--quote", "给序列加 5 个联系人",
+             "--action", "sequence", "--quote", quote,
              "--payload-json", json.dumps(payload)],
             capture_output=True, text=True, cwd=self.repo,
             env=self.env, timeout=60, encoding="utf-8", errors="replace")
@@ -184,6 +184,16 @@ class ContactAddTicketGateTest(unittest.TestCase):
         self.assertNotIn("sequences/contact-add", calls,
                          "★坏票时写调用必须为 0（旧缺陷：丢弃返回值后照常写平台）")
 
+    def test_mismatched_ticket_quote_rejected_without_consumption_or_write(self):
+        ticket = self.mint_ticket("给序列加 5 个联系人")
+        before = ticket.read_bytes()
+        result = self.run_add("--auth-ticket", str(ticket))
+        self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertNotIn("sequences/contact-add", self.calls())
+        self.assertEqual(before, ticket.read_bytes())
+        self.assertFalse(list((self.repo / ".local" / "auth").glob("*.ok")))
+        self.assertEqual("S9", self.status())
+
     # ---------- ③ 好票：正常路径不因新闸门死锁 ----------
     def test_good_ticket_calls_contact_add_exactly_once(self):
         ticket = self.mint_ticket()
@@ -197,7 +207,8 @@ class ContactAddTicketGateTest(unittest.TestCase):
     # ---------- 静态：返回值必须被检查 ----------
     def test_source_checks_authorize_write_result(self):
         src = (ROOT / "tools" / "contact_add_authorized.py").read_text(encoding="utf-8")
-        self.assertIn("authz = save_guard.authorize_write(", src)
+        self.assertIn("auth_guard.begin(", src)
+        self.assertIn("expected_quote=approval_row", src)
         self.assertIn('not authz.get("ok")', src, "必须检查授权返回值 ok")
         self.assertIn("sys.exit(2)", src)
         # argparse 必填或显式校验：非 dry-run 缺票必须提前拒绝

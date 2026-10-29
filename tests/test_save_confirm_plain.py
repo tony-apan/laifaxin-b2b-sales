@@ -85,7 +85,7 @@ class PlainConfirmTicketingTest(unittest.TestCase):
         payload = {"selectTotal": 100}
         plan = {"status": "confirmed", "wire_payload": payload,
                 "wire_payload_sha256": auth_guard.canonical_hash(payload),
-                "dependency_sha256": "0" * 64}
+                "dependency_sha256": "0" * 64, "quote": "确认"}
         if bound:
             plan.update({"count_bound_by": "card", "count_bound_n": 100})
         return payload, plan
@@ -110,6 +110,7 @@ class PlainConfirmTicketingTest(unittest.TestCase):
 
     def test_number_quote_still_checked(self):
         payload, plan = self._confirmed_plan(True)
+        plan["quote"] = "确认保存 前 200 家"
         with tempfile.TemporaryDirectory() as td:
             res = self._authorize("确认保存 前 200 家", payload, plan, td)
         self.assertFalse(res.get("ok"))

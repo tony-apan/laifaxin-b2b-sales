@@ -129,7 +129,7 @@ class S10PrecheckTest(unittest.TestCase):
         r = subprocess.run(
             [sys.executable, str(self.repo / "tools" / "approval.py"), "grant",
              "--project", PROJECT, "--state", "S10_加联系人",
-             "--quote", "确认加入联系人", "--params-file", str(params)],
+             "--quote", "1", "--params-file", str(params)],
             capture_output=True, text=True, cwd=self.repo,
             env=self.env, timeout=60, encoding="utf-8", errors="replace")
         self.assertEqual(0, r.returncode, r.stdout + r.stderr)
@@ -141,7 +141,7 @@ class S10PrecheckTest(unittest.TestCase):
         payload = {"seqId": SEQ, "tags": TAGS, "views": []}
         r = subprocess.run(
             [sys.executable, str(self.repo / "tools" / "auth_guard.py"), "authorize",
-             "--action", "sequence", "--quote", "给序列加 5 个联系人",
+             "--action", "sequence", "--quote", "1",
              "--payload-json", json.dumps(payload)],
             capture_output=True, text=True, cwd=self.repo,
             env=self.env, timeout=60, encoding="utf-8", errors="replace")

@@ -318,7 +318,7 @@ class _RepoCase(unittest.TestCase):
         params = self.project_dir / "s9-params.json"
         params.write_text(json.dumps(binding, ensure_ascii=False), encoding="utf-8")
         result = self.run_tool("approval.py", "grant", "--project", PROJECT,
-                               "--state", "S9_序列配置", "--quote", "确认执行当前参数",
+                               "--state", "S9_序列配置", "--quote", "1",
                                "--params-file", params)
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         return [r for r in self.approval_rows() if r["state"].startswith("S9")][-1]["id"]
@@ -528,7 +528,7 @@ class ActivateSequenceStructureGateTest(_RepoCase):
         issue = self.run_tool("flow_orchestrator.py", "--resume-s12", "--org", ORG,
                               "--profile", self.profile, "--seq", SEQ,
                               "--compliance-file", self.compliance,
-                              "--confirm", "确认激活 皮筏艇找客户")
+                              "--confirm", "确认激活")
         self.assertEqual(0, issue.returncode, issue.stdout + issue.stderr)
         self.ap = [r for r in self.approval_rows() if r["state"].startswith("S12")][-1]["id"]
 
@@ -537,7 +537,7 @@ class ActivateSequenceStructureGateTest(_RepoCase):
             "activate_sequence.py", "--token", TOKEN, "--org", ORG, "--seq", SEQ,
             "--project", PROJECT, "--profile", self.profile,
             "--compliance-file", self.compliance, "--record", self.record,
-            "--confirm", "确认激活 皮筏艇找客户", "--approval", self.ap)
+            "--confirm", "确认激活", "--approval", self.ap)
 
     def pool(self):
         return ["%024x" % (i + 1) for i in range(48)]

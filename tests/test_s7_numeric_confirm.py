@@ -53,6 +53,15 @@ class S7NumericConfirmTest(unittest.TestCase):
         r = self.grant("S7_模板预览", "确认执行")
         self.assertEqual(0, r.returncode, r.stdout + r.stderr)
 
+    def test_s8_grant_accepts_one_and_rejects_mixed_change(self):
+        accepted = self.grant("S8_批量模板", "1")
+        self.assertEqual(0, accepted.returncode, accepted.stdout + accepted.stderr)
+        ledger = self.repo / ".local" / "approvals.tsv"
+        before = ledger.read_bytes()
+        rejected = self.grant("S8_批量模板", "1，修改模板")
+        self.assertNotEqual(0, rejected.returncode, rejected.stdout + rejected.stderr)
+        self.assertEqual(before, ledger.read_bytes(), "夹带修改不得新增审批")
+
     def test_s9_s10_accept_bare_number(self):
         for state in ("S9_序列配置", "S10_加联系人"):
             with self.subTest(state=state):

@@ -1155,6 +1155,12 @@ def confirm_plan(root: Path, draft: Dict[str, Any], *, quote: str,
     """
     if not isinstance(quote, str) or not quote.strip():
         _fail("E_AUTH_COUNT_AMBIGUOUS", "缺确认原话")
+    # 先于数量比对：带了修改/保留意图的原话不能授权旧卡，即使数字碰巧等于卡面 N。
+    from approval import reservation as _reservation
+    _blocked, _why = _reservation(quote)
+    if _blocked:
+        _fail("E_CONFIRM_MODIFICATION",
+              f"原话含修改/保留意图（{_why}）——不能授权当前卡；请按新参数重新 prepare 并展示新卡")
     if not str(quote_ref or "").strip():
         _fail("E_AUTH_COUNT_AMBIGUOUS", "缺 quote_ref（只追溯，不证明真人）")
     card_ref = str(presentation or "").strip()
@@ -1194,6 +1200,11 @@ def confirm_plan(root: Path, draft: Dict[str, Any], *, quote: str,
               "依赖变化（来源/选择/filters/审计窗口/预算/系数），须重新 prepare")
     # 依赖未变后，卡内容与当前计划一致才算「确认的就是这张卡」（AC2）。
     _verify_card_content(draft, card_doc)
+    from approval import authorize_quote
+    if not authorize_quote(quote, "S5", {"count": select_total["selectTotal"]}):
+        numeric_quote = _card_numeric_value(quote)
+        code = "E_AUTH_COUNT_MISMATCH" if numeric_quote is not None else "E_AUTH_COUNT_AMBIGUOUS"
+        _fail(code, "请按当前保存卡回复确认或准确数量")
     # B2：原话数量必须可确定；歧义/缺失 → E_AUTH_COUNT_AMBIGUOUS（confirm 无 render.fields 路径）。
     # v3（2026-10-27）：卡面已经写清 N 家时，用户只回「确认/确认保存」也算授权——
     # 但必须整句纯确认（不含数字/别的动作词），N 从 plan 绑定并留痕 count_bound_by=card，

@@ -439,6 +439,9 @@ def authorize(action: Any, quote: Any, payload: Any, *, task: Optional[str] = No
         if plan.get("status") != "confirmed":
             return _deny(act, quote, "E_PLAN_NOT_CONFIRMED",
                          "plan 未经 confirm 确认", root)
+        from approval import authorize_quote
+        if quote != plan.get("quote") or not authorize_quote(quote, "S5", {"count": payload.get("selectTotal") if isinstance(payload, dict) else None}):
+            return _deny(act, quote, "E_AUTH_QUOTE_MISMATCH", "原话与已确认卡不一致", root)
 
     try:
         payload_hash = canonical_hash(payload)
@@ -614,10 +617,12 @@ def verify(ticket: Any, payload: Any, *, task: Optional[str] = None,
 
 
 def begin(ticket: Any, payload: Any, *, task: Optional[str] = None,
-          root: Optional[Any] = None) -> Dict[str, Any]:
+          root: Optional[Any] = None, expected_quote: Optional[str] = None) -> Dict[str, Any]:
     verified = verify(ticket, payload, task=task, root=root)
     if not verified["ok"]:
         return verified
+    if expected_quote is not None and verified.get("quote") != expected_quote:
+        return _fail("E_AUTH_QUOTE_MISMATCH", "票据原话与审批不一致")
     nonce = verified["ticket"]["nonce"]
     action = verified["action"]
     task = verified["task"]
@@ -841,6 +846,15 @@ def authorize_save_plan(action: Any, quote: Any, payload: Any, *,
     if plan.get("status") != "confirmed":
         return _deny(action, quote, "E_PLAN_NOT_CONFIRMED",
                      "plan 未经 confirm 确认", root)
+    if not isinstance(quote, str) or quote != plan.get("quote"):
+        return _deny(action, quote, "E_AUTH_QUOTE_MISMATCH", "原话与已确认保存计划不一致", root)
+    from approval import authorize_quote
+    if not authorize_quote(quote, "S5", {"count": payload.get("selectTotal") if isinstance(payload, dict) else None}):
+        from rule_check import extract_save_count
+        requested = extract_save_count(quote)
+        if requested is not None and isinstance(payload, dict) and requested != payload.get("selectTotal"):
+            return _deny(action, quote, "E_AUTH_COUNT_MISMATCH", "原话数量与当前卡不一致", root)
+        return _deny(action, quote, "E_AUTH_QUOTE_MISMATCH", "原话不是当前卡的整句确认", root)
     wire = plan.get("wire_payload")
     if not isinstance(wire, dict):
         return _deny(action, quote, "E_PLAN_PAYLOAD_MISMATCH",
@@ -936,8 +950,15 @@ def authorize_bundle_contact(bundle: Dict[str, Any], payload: Dict[str, Any], *,
     if card_sha != conf.get("card_sha256") or card_doc.get("plan_hash") != bundle["plan_hash"]:
         return deny("确认卡与联合计划不符")
     quote = conf.get("quote")
-    if not isinstance(quote, str) or not quote.strip() or any(w in quote for w in ("激活", "发送", "发信")):
-        return deny("缺少有效确认原话")
+    import approval
+    s9 = bundle.get("s9") or {}
+    binding = {"project": bundle.get("project"), "org_sha256": bundle.get("org_sha256"),
+               "name": s9.get("name"), "from_name": s9.get("from_name"),
+               "profile": s9.get("profile"), "tmap": {"sha256": s9.get("tmap_sha256")}, "rules": s9.get("rules")}
+    row = approval.find_approval(bundle.get("s9_approval"), bundle.get("project"), ("S9",),
+                                 expected_hash=approval.stable_params_hash(binding))
+    if not row or row.get("user_quote") != quote or not approval.authorize_quote(quote, "S9", {}):
+        return deny("确认原话与S9审批不一致")
     rc = bundle.get("receipt") or {}
     steps = bundle.get("steps") or {}
     seq = steps.get("seq_id")

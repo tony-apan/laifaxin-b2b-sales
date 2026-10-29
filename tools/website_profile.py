@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import operator_profile
-from approval import confirm_quote_ok
+from approval import authorize_quote
 from profile_utils import detect_third_party_contact, find_list_markers, parse_frontmatter, profile_field_facts, split_markdown, validate_nickname, validate_product_profile
 from website_profile_utils import (
     Invalid, OPERATOR_FIELDS, PRODUCT_FIELDS, SECTIONS, approved_payload, atomic_write_bytes,
@@ -149,8 +149,8 @@ def cmd_approve_patch(args):
         validate_patch(patch)
     except Invalid as exc:
         fail(EXIT_NOT_APPROVED, str(exc))
-    if patch["status"] != "candidate" or args.ack_patch != patch["patch_id"] or not confirm_quote_ok(args.quote):
-        fail(EXIT_NOT_APPROVED, "patch is not an unapproved candidate, --ack-patch mismatches patch_id, or quote is not affirmative")
+    if patch["status"] != "candidate" or args.ack_patch != patch["patch_id"] or not authorize_quote(args.quote, "WEBSITE", {"patch_id": patch["patch_id"]}):
+        fail(EXIT_NOT_APPROVED, "候选明细或确认不匹配：请先按选择重出补丁明细，再回复确认")
     quote_contact_issues = detect_third_party_contact(args.quote, label="--quote")
     if quote_contact_issues or find_list_markers(args.quote):
         fail(EXIT_NOT_APPROVED, "--quote contains contact data/list markers")
@@ -159,7 +159,7 @@ def cmd_approve_patch(args):
         fail(EXIT_NOT_APPROVED, f"--by is not a personal nickname: {reason}")
     patch["status"] = "approved"
     patch["approval"] = {"approved_by": safe_line(args.by, 200),
-                         "approved_quote": safe_line(args.quote), "approved_at": now()}
+                         "approved_quote": args.quote, "approved_at": now()}
     patch["canonical_patch_sha256"] = object_sha256(approved_payload(patch))
     try:
         validate_patch(patch, require_approved=True)

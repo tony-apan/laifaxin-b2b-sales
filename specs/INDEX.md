@@ -4,7 +4,7 @@ title: "specs 索引"
 description: "目录索引：specs 下规格、SOP 与踩坑台账入口，按主题定位执行细则时读。"
 type: "index"
 status: "active"
-updated: "2026-10-27"
+updated: "2026-10-29"
 ---
 
 # specs 索引
@@ -28,8 +28,9 @@ updated: "2026-10-27"
 | [operations-sop.md](operations-sop.md) | 代运营完整 SOP（项目初始化到交付） | 签约客户项目执行时 |
 | [operator-profile-sop.md](operator-profile-sop.md) | 运营方档案 SOP（公司级资料索取与复用） | 建档、询问运营方信息时 |
 | [problems-and-fixes-2026-10-23.md](problems-and-fixes-2026-10-23.md) | 全流程问题对照与对抗审查（首跑台账） | 复盘历史问题、查修复对照时 |
-| [product-fit.md](product-fit.md) | 产品适配度判定（S0 前置·三档） | 判断产品能不能做、走哪档打法时 |
+| [product-fit.md](product-fit.md) | 客群定位与采购节奏分析（S0 前置） | 分析合适买家、采购节奏与可达渠道时 |
 | [product-profile-sop.md](product-profile-sop.md) | 产品知识档案 SOP（字段级来源与版本） | 建立/更新产品档案时 |
+| [quote-authorization-contract.md](quote-authorization-contract.md) | 用户原话与授权意图契约 | 核对确认原话及授权判断时 |
 | [red-team-review.md](red-team-review.md) | 外部红队审查裁定（Terra 式·权威结论） | 查红队结论与邮箱率校正时 |
 | [redteam-fix-checklist.md](redteam-fix-checklist.md) | Terra 红队整改清单（P0→P3） | 按优先级修红队问题时 |
 | [save-offline-input.md](save-offline-input.md) | S5 保存 offline-input 最小 JSON schema | 构造/校验保存输入时 |

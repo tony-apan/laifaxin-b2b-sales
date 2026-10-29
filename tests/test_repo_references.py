@@ -97,7 +97,7 @@ class FirstScreenPlainLanguageTest(unittest.TestCase):
 
     def test_step1_screen_has_six_steps_and_number(self):
         block = self._screen("### 第 1 屏")
-        for must in ("找买家", "筛名单", "建跟进计划", "现在", "该回什么", "还要回 8 次"):
+        for must in ("找买家", "筛名单", "建跟进计划", "现在", "该回什么", "还要回 7 次"):
             self.assertIn(must, block, f"第 1 屏缺少「{must}」")
 
 

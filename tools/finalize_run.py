@@ -22,12 +22,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from evidence_validation import find_non_live_marker
+from evidence_validation import find_non_live_marker, validate_panel_text
 from profile_utils import ensure_same_project_paths, parse_frontmatter, profile_gate
 from update_run_state import record_matches_project, update_frontmatter
 
 
-def evidence_ok(path, keywords):
+def evidence_ok(path, keywords, panel=False):
     p = Path(path)
     if not p.is_file() or p.stat().st_size == 0:
         return False, "文件缺失或为空"
@@ -41,6 +41,8 @@ def evidence_ok(path, keywords):
         return False, "文件含失败标记"
     # verify_sequence 现输出「步骤数=12」，历史证据可能写「步骤数: 12」；两种写法等价
     normalized = re.sub(r"步骤数\s*=\s*", "步骤数: ", text)
+    if panel:
+        return validate_panel_text(text)
     if keywords and not all(word in normalized for word in keywords):
         return False, "缺必需的类型化通过标记"
     return True, ""
@@ -87,7 +89,7 @@ def main():
     specs = {"sequence": ("序列验证", (args.seq, "步骤数: 12", "状态=inactive", "全部12步")),
              "exclude": ("排除4区", ("含4区=0", "排除生效")),
              "diff": ("模板差异", ("模板数: 48", "最大相似度", "差异≥30%达标")),
-             "panel": ("用户核实面板", ("标签", "客群", "保存", "模板", "配额", "审查"))}
+             "panel": ("用户核实面板", ())}
     failed = []
     seen_paths = set()
     for key, (name, words) in specs.items():
@@ -103,7 +105,7 @@ def main():
             failed.append(name + "(证据不在项目目录)"); continue
         if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != item.get("sha256"):
             failed.append(name + "(文件/hash不匹配)"); continue
-        ok, why = evidence_ok(path, words)
+        ok, why = evidence_ok(path, words, panel=(key == "panel"))
         print(f"{'✅' if ok else '❌'} {name}: {path}" + (f" ({why})" if why else ""))
         if not ok: failed.append(name)
     if failed:

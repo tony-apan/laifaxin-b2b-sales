@@ -164,18 +164,14 @@ def resume_s12():
         "compliance": {"sha256": comp_sha},
     }
     if args.confirm:
-        answer = args.confirm.strip()
+        answer = args.confirm
     else:
-        answer = input(f"\n❓【确认节点 S12_激活】确认激活序列 {args.seq}? 本命令只签发凭证，不激活: ").strip()
-    from approval import confirm_quote_ok, record as record_approval, stable_params_hash
-    # ★P0-B 静态红队：仅说「激活」=含糊原话，必须拒绝；拒绝是失败路径 → exit 2（旧实现 return 0）。
-    if not (confirm_quote_ok(answer) and "确认激活" in answer):
+        answer = input(f"\n❓【确认节点 S12_激活】确认激活序列 {args.seq}? 本命令只签发凭证，不激活: ")
+    from approval import authorize_quote, record as record_approval, stable_params_hash
+    if not authorize_quote(answer, "S12", {}):
         print("❌ 未签发S12可执行凭证：原话必须明确含「确认激活」四个字（只说「激活」/含糊应答不算授权）。序列仍保持inactive，record仍为S11。(exit 2)")
         return 2
-    # ★三审S1-3：resume 与 activate 同一语义——带「但/先别/取消」等保留句不得签出 confirmed 凭证
-    if _re.search(r"(?:但|先别|别急|别激活|先不|不要|取消|暂停|暂不|再说)", answer):
-        print("❌ 原话含保留/否定语义，不能只截取「确认激活」四个字——请给一句干净的正向原话。(exit 2)")
-        return 2
+    # ★三审S1-3：confirm_quote_ok 已把否定/等待/条件/修改/保留句放在正向词之前（同一入口不重复判一次）
     approval_id = record_approval(project, "S12_激活", "confirm", answer,
                                   stable_params_hash(binding), "confirmed")
     print(f"✅ S12绑定凭证已签发: {approval_id}；record仍为S11，未执行激活")
@@ -376,7 +372,7 @@ def ask(state, prompt, terminate_on_no=True):
         print(f"【确认·{state}】{prompt} (dry-run 自动通过)"); return "confirm", "(dry-run)"
     while True:
         try:
-            ans=input(f"\n❓【确认节点 {state}】{prompt}\n   回复「确认」继续 /「否」终止 / 或直接说要改什么: ").strip()
+            ans=input(f"\n❓【确认节点 {state}】{prompt}\n   回复「确认」继续 /「否」终止 / 或直接说要改什么: ")
         except EOFError:
             print("  ❌ 需要交互终端运行本向导（stdin 已关闭）"); sys.exit(2)
         if not ans:
@@ -398,6 +394,11 @@ def confirm(state, prompt, params):
     B4-1: 统一词族解析; 听不懂→重问(不再默默记为修改); 修改→诚实提示(不假称回退)。"""
     kind, ans = ask(state, prompt)
     if kind == "confirm":
+        from approval import authorize_quote
+        key = state.upper().split("_", 1)[0]
+        if not args.dry_run and not authorize_quote(ans, key, {}):
+            print("  ❌ 请按当前卡面重新确认，未签发审批")
+            return False
         record(state,"confirm",ans,params); return ans
     _record_modify_once(state, ans, params)
     return False
@@ -418,6 +419,11 @@ def confirm_bound(state, prompt, params, missing, schema_hint):
         print("     " + GRANT_CMD.format(project=STATE["project"], state=state))
         print(f"     参数JSON结构: {schema_hint}")
         return ans
+    from approval import authorize_quote
+    key = state.upper().split("_", 1)[0]
+    if not args.dry_run and not authorize_quote(ans, key, {}):
+        print("  ❌ 请按当前卡面重新确认，未签发审批")
+        return False
     record(state, "confirm", ans, params)
     return ans
 

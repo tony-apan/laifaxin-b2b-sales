@@ -142,7 +142,7 @@ elif not args.dry_run:
     sys.exit(2)
 # ★审批硬闸门+参数绑定: 本工具按本次实际参数(seq/tags/task/project)重算哈希, 凭证memo须逐字一致
 binding = {"project": args.project, "org_sha256": hashlib.sha256(str(args.org).encode()).hexdigest(), "seq": args.seq, "tags": tags, "task": args.task}
-require_approval(args.approval, args.project, ("S10",), what="加联系人入序列",
+approval_row = require_approval(args.approval, args.project, ("S10",), what="加联系人入序列",
                  expected_hash=stable_params_hash(binding))
 # ★工作空间落点校验(写之前): 防"给了企业 orgId 却落进个人空间"
 preflight(args.token, args.org, dry_run=args.dry_run, what="加联系人入序列")
@@ -362,7 +362,16 @@ if args.dry_run:
 # ★P0-A 票据门(静态红队): authorize_write 的返回值必须检查——save_guard 无票/坏票只返回
 #   {"ok": False, "code": ...}, **不会抛异常**; 旧代码丢弃返回值后照常写平台 = 票据门形同虚设。
 #   任何非 ok 一律中文报错 + exit 2, 绝不继续写(拒绝路径 http_calls==0, 本函数不发网络)。
-authz = save_guard.authorize_write(action="sequence", payload=payload, ticket=args.auth_ticket)
+import auth_guard
+from approval import authorize_quote
+verified_ticket = auth_guard.verify(args.auth_ticket, payload)
+if (not verified_ticket.get("ok") or verified_ticket.get("action") != "sequence"
+        or verified_ticket.get("quote") != approval_row.get("user_quote")
+        or not authorize_quote(approval_row.get("user_quote"), "S10", {})):
+    print("❌ S10 写票据校验未通过：票据原话与审批不一致或不是明确确认；未消费票据、未写入")
+    sys.exit(2)
+handle = auth_guard.begin(args.auth_ticket, payload, expected_quote=approval_row["user_quote"])
+authz = auth_guard.commit(handle) if handle.get("ok") else handle
 if not isinstance(authz, dict) or not authz.get("ok"):
     authz = authz if isinstance(authz, dict) else {}
     print(f"❌ S10 写票据校验未通过({authz.get('code') or 'E_AUTH_DENIED'}): {authz.get('reason') or '拒绝原因未知'}")

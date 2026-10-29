@@ -784,6 +784,32 @@ def admit_credentials(root, choice, *, accept_fallback=False):
             "host_source": source,
             "entry_host": getattr(choice, "entry_host", "")}
 
+def connect_preferred():
+    """先校验可用会话，再使用已有可见窗口流程；只在明确不可用时建议复制。"""
+    try:
+        host, _, _ = load_ready(ROOT)
+        return 0, {'stage': 'verify', 'source': 'session', 'host': host,
+                   'workspace': 'verified', 'can_auto': True}
+    except (FileNotFoundError, SessionError) as exc:
+        diagnostic = getattr(exc, 'diagnostic', 'E_NO_SESSION')
+        if diagnostic not in ('E_NO_SESSION', 'E_STALE_SESSION', 'E_SESSION_CORRUPT'):
+            return 12, {'stage': 'verify', 'next': 'stop', 'reason': diagnostic}
+    try:
+        code, result = execute([])
+        if code == 0:
+            result['source'] = 'visible'
+        return code, result
+    except Failure as exc:
+        if exc.code == 10:
+            return 10, {'stage': exc.stage, 'next': 'awaiting_login',
+                        'reason': exc.diagnostic, 'resume': '--resume',
+                        'detail': '请在已打开的专用窗口完成登录，再恢复检查；未验证前不算连接成功。'}
+        if exc.code in (11, 20, 21, 26):
+            return exc.code, {'stage': exc.stage, 'next': 'manual',
+                              'reason': exc.diagnostic, 'window_opened': 'unknown'}
+        return exc.code, {'stage': exc.stage, 'next': 'stop', 'reason': exc.diagnostic}
+
+
 def execute(argv):
     parser = Parser(add_help=True)
     parser.add_argument('--login-url', default='https://web.laifaxin.com')
@@ -791,9 +817,15 @@ def execute(argv):
     parser.add_argument('--profile-dir', default='.local/browser-profile')
     parser.add_argument('--browser', choices=['auto', 'chrome', 'edge', 'none', 'playwright'], default='auto')
     parser.add_argument('--confirm-profile')
+    parser.add_argument('--connect-preferred', action='store_true', help='先验证已有会话，再尝试可见登录窗口')
     for flag in ['probe-only', 'no-launch', 'allow-launch-probe', 'clean', 'force-legacy', 'force', 'resume', 'keep-open', 'save-session', 'from-session', 'forget', 'accept-fallback-host']:
         parser.add_argument('--' + flag, action='store_true')
-    args = parser.parse_args(argv)
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    args = parser.parse_args(raw_argv)
+    if args.connect_preferred:
+        if len(raw_argv) != 1:
+            raise Failure(20, 'probe')
+        return connect_preferred()
     args.no_launch = args.no_launch or args.resume
     if args.forget:
         forget_session(ROOT)

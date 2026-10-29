@@ -39,7 +39,7 @@ audience: 人+AI
 | **方法-临界** | threshold-method | `specs/threshold-method.md` | AI反思/100页跳/连续3页（每页≥50%）窗口/找70%临界；逐模块逻辑与跳步规则见 step-map | ✅ |
 | **执行-临界探测** | threshold-probe-spec | `specs/threshold-probe-spec.md` | S4-A 执行细则 **v3.2**：连续3页（每页≥50%）滑窗/报告证据分离/四件套契约 | ✅ |
 | **逐模块API** | module-api-map | `specs/module-api-map.md` | ★M0–M12 入口脚本×真实API×关键参数×写入门禁×要点（文档=代码核验） | 现行 |
-| **判定-适配度** | product-fit | `specs/product-fit.md` | ★S0 前置：强/条件/弱适配三档（买家盘×决策链×周期×渠道层）+各档打法 | ✅ |
+| **客群与采购节奏分析** | product-fit | `specs/product-fit.md` | ★S0 前置：定位合适买家、分析采购节奏与可达渠道 | ✅ |
 | **SOP-环境准备** | environment-setup | `specs/environment-setup.md` | ★零 Python bootstrap：跨平台探测→自动安装→复查 | ✅ |
 | **SOP-换机续接** | migration-handoff | `specs/migration-handoff.md` | ★迁移本地状态→项目枚举→从当前节点继续 | ✅ |
 | **SOP-运营方档案** | operator-profile-sop | `specs/operator-profile-sop.md` | ★公司级资料主动索取→`.local/operators/<operator_key>.md`→跨产品/换机复用；签名只读昵称 | ✅ |

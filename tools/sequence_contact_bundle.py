@@ -76,6 +76,9 @@ def prepare(a):
     tags = sorted((plan.get("wire_payload") or {}).get("contactTags") or [])
     if plan.get("status") != "confirmed" or plan.get("project") != a.project: die("S5 计划未 confirmed 或项目不符")
     if len(tags) != 1 or not a.task or a.expected_contacts <= 0: die("加人需恰好一个联系人标签、保存任务id、预计人数>0")
+    saved_companies = plan.get("selectTotal")
+    if not isinstance(saved_companies, int) or isinstance(saved_companies, bool) or saved_companies <= 0:
+        die("S5 计划缺有效 selectTotal（已保存公司数）——无法出卡，请先重做保存计划")
     d = {"kind": "sequence_contact_bundle", "project": a.project, "org_sha256": hashlib.sha256(a.org.encode()).hexdigest(), "status": "prepared",
          "deps": {"record": {"path": _abs(a.record)}, "tmap": {"path": tmap, "sha256": _fsha(tmap)},
                   "tmap_meta": {"path": tmap + ".meta.json", "sha256": _fsha(tmap + ".meta.json")},
@@ -85,19 +88,30 @@ def prepare(a):
                 "tmap_sha256": tmeta.get("tmap_sha256"), "profile": {"sha256": sha, "status": status, "version": meta.get("profile_version", "")},
                 "rules": {"steps": 12, "waits": "step1=30分,step2=5天,step3=15天,step4-12=30天", "tz": a.tz,
                           "daily_limit": f"{a.max_per_day}/{a.per_domain}", "not_sent_tags": "询盘/不发"}},
-         "s10": {"tags": tags, "task": a.task, "expected_contacts": a.expected_contacts, "seq": SYMBOL}, "steps": {}}
+         "s10": {"tags": tags, "task": a.task, "expected_contacts": a.expected_contacts,
+                 "saved_companies": saved_companies,
+                 "seq": SYMBOL}, "steps": {}}
     d["plan_hash"] = auth_guard.bundle_plan_hash(d); path = _dir() / f"bundle-{d['plan_hash'][:12]}.json"; _save(path, d)
     print(f"✅ 联合计划已生成（仅准备，未写平台）: {path}"); return path
 
 
 def card_text(d):
-    s, n = d["s9"], d["s10"]["expected_contacts"]
+    s, batch = d["s9"], d["s10"]
+    n = batch["expected_contacts"]
+    saved = batch.get("saved_companies")
+    saved_text = (f"计划保存 {saved} 家公司（计划值，不代表平台已完成保存）"
+                  if isinstance(saved, int) and not isinstance(saved, bool)
+                  else "计划保存公司数未知")
     return (f"这次一并确认两件事（只做这两件，不会激活、不会发信）：\n"
-            f"① 新建一条发信序列「{s['name']}」：发件昵称 {s['from_name']}，时区 {s['tz']}，共 12 步（第 1 步 30 分钟后，第 2 步隔 5 天，第 3 步隔 15 天，之后每步隔 30 天），共 48 个邮件模板；"
+            f"① 新建一条跟进计划「{s['name']}」：发件昵称 {s['from_name']}，时区 {s['tz']}，共 12 步（第 1 步 30 分钟后，第 2 步隔 5 天，第 3 步隔 15 天，之后每步隔 30 天），共 48 个邮件模板；"
             f"每天最多 {s['max_per_day']} 封，同一家公司最多 {s['per_domain']} 封；带「询盘」「不发」标签的客户不发。\n"
-            f"② 把已确认保存批次的联系人加入这条新序列，预计 {n} 人（以平台实际回读为准）。\n"
-            f"风险：建好后序列是未启动状态，只有您另行回复「确认激活」才会真正发信；配置或批次一变，需要重新出卡。\n"
-            f"回「1」或「确认」= 同意以上两件事。")
+            f"② 加入客户：本次要加 {n} 人（按您确认的数量）。\n"
+            f"   本批保存计划：{saved_text}；公司数和联系人/邮箱数不是同一个单位，不混着算。\n"
+            f"   名单人数：加入前按平台回读核对；查不到或对不上 {n} 人，就先不加、重新出卡，不把未知当已核对。\n"
+            f"风险：建好后这条跟进计划是未启动状态，只有您另行回复「确认激活」才会真正发信；配置或批次一变，需要重新出卡。\n"
+            f"回「1」或「确认」= 同意以上两件事（只建计划并加人，不发信）。\n"
+            f"回「2」= 先暂停，什么都不做。\n"
+            f"想改数量或配置直接说，我会重新选定批次、核对后重出卡。")
 
 
 def present(a):
@@ -114,9 +128,13 @@ def confirm(a):
     if card.get("kind") != "bundle_card" or card.get("plan_hash") != d["plan_hash"] or card.get("deps") != d["deps"]: die("确认卡与当前联合计划不符；未铸审批")
     if card_sha_text(d) != card.get("card_text_sha256"): die("确认卡展示内容与计划不符；未铸审批")
     if time.time() > card.get("expires_at", 0): die("确认卡已过期，请重新出卡；未铸审批")
-    q = str(a.quote or "").strip()
+    q = str(a.quote or "")
     if any(w in q for w in ("激活", "发送", "发信", "启动")): die("这句话涉及激活/发信，不能当作本卡的确认；未铸审批")
-    if not (approval.numeric_confirm_quote(q, "S9") or approval.confirm_quote_ok(q)): die("不是明确同意（含否定/疑问/等待）；未铸审批")
+    expected = d["s10"]["expected_contacts"]
+    for digits in re.findall(r"(\d+)\s*(?:人|位|家)", q):
+        if int(digits) != expected:
+            die(f"原话出现的 {digits} 与卡面确认的 {expected} 人不一致（这是改数量）；请重新出卡后再确认；未铸审批")
+    if not approval.authorize_quote(q, "S9", {}): die("请按卡面回复1或确认；未铸审批")
     if d.get("status") != "prepared": die("该联合计划已确认过")
     ap9 = approval.record(d["project"], "S9_序列配置", "confirm", q, approval.stable_params_hash(s9_binding(d)))
     d.update(status="confirmed", s9_approval=ap9, confirmation={"quote": q, "card_path": _abs(a.card), "card_sha256": _fsha(a.card), "at": int(time.time())})
@@ -124,6 +142,40 @@ def confirm(a):
 
 
 def card_sha_text(d): return hashlib.sha256(card_text(d).encode()).hexdigest()
+
+
+def ensure_contacts_ready(d, api, *, before_create=False):
+    """加人前只读核对：名单人数必须与用户确认的 expected_contacts 精确相等。
+
+    未知或不等 → 非零退出。before_create=True 用在任何建序列/票据消费之前，
+    False 用在加人使用点；两处都只读，不新增平台接口。
+    """
+    expected = d["s10"]["expected_contacts"]
+    counts = {}
+    for tag in d["s10"]["tags"]:
+        got = None
+        for attempt in range(2):
+            r = api("contacts/contacts/show", {"current": 1, "pageSize": 10,
+                    "filters": [{"property": "tags", "operator": "include", "value": tag,
+                                 "values": [tag], "valueType": "select"}], "sort": {}})
+            data = r.get("data") if isinstance(r, dict) else None
+            n = data.get("total") if isinstance(data, dict) else data
+            if isinstance(n, int) and not isinstance(n, bool) and n >= 0:
+                got = n
+                break
+            if attempt == 0:
+                time.sleep(1)
+        if got is None:
+            die(f"名单人数未核对（平台回读未知，标签 {tag}）："
+                + ("未建序列、未铸 S10 审批、未消费票据；" if before_create else "不铸 S10 审批、")
+                + "不加人；稍后重试或重新出卡", 3)
+        counts[tag] = got
+    total = sum(counts.values())
+    if total != expected:
+        die(f"名单人数={total} 与您确认的 {expected} 人不一致（可能改批次/混标签/计数未落定）："
+            + ("未建序列、未铸 S10 审批、未消费票据；" if before_create else "")
+            + "不加人、不铸 S10 审批，请重新核对并出卡", 3)
+    return total
 
 
 def run(cmd, blob, env=None):
@@ -159,6 +211,11 @@ def execute(a):
 
 def _execute_locked(a, d):
     check_deps(d)
+    conf = d.get("confirmation") or {}
+    quote = conf.get("quote")
+    row = approval.find_approval(d.get("s9_approval"), d["project"], ("S9",), expected_hash=approval.stable_params_hash(s9_binding(d)))
+    if not row or row.get("user_quote") != quote or not approval.authorize_quote(quote, "S9", {}):
+        die("联合确认原话或S9审批不一致，请重新出卡；写 0")
     from credential_input import parse_credentials
     blob = sys.stdin.buffer.read(8193).decode("utf-8"); token, org = parse_credentials(blob.encode())
     if hashlib.sha256(org.encode()).hexdigest() != d["org_sha256"]: die("org 与联合计划不一致；写 0")
@@ -169,6 +226,9 @@ def _execute_locked(a, d):
     st, s9, s10, py = d["steps"], d["s9"], d["s10"], sys.executable
     sv = lambda: _save(a.bundle, d)
     if st.get("create") != "done":
+        # A-R2-1：首次执行在任何建序列/票据消费/平台写之前先只读核对名单；
+        # 未知或不等直接拒，不能先建序列再报人数不符。
+        ensure_contacts_ready(d, api, before_create=True)
         if st.get("create_attempted") and not st.get("seq_id"): die("建序列此前已发起但没有回执：先到平台序列列表按计划名核对，不盲重放", 3)
         if st.get("seq_id"): die(f"建序列此前未完整完成（已有序列 {st['seq_id']}）：不重新创建，请先核对该序列", 3)
         rp = _dir() / f"receipt-create-{d['plan_hash'][:12]}.json"; rp.unlink(missing_ok=True); st["create_attempted"] = int(time.time()); sv()
@@ -212,6 +272,17 @@ def _execute_locked(a, d):
                 d["status"] = "partial"; sv()
                 die(f"加人结果不确定（回读联系人数={'未知' if n is None else n}，预计 {s10['expected_contacts']}；state={st.get('contact_state')}）：保持部分完成，不盲重放", 3)
     if st.get("contact") != "done":
+        try:
+            ensure_contacts_ready(d, api)
+        except SystemExit as exc:
+            if st.get("create") == "done":
+                d["status"] = "partial"
+                st["contact_blocked"] = "名单人数在建序列后发生变化或未核对"
+                sv()
+                print(f"序列已建(序列={seq})，但名单人数核对未通过：部分完成（计划已建、未加人、未激活、票据未消费）。"
+                      f"请核对后重跑同一包；重跑会复用该序列，不重新创建。")
+                raise SystemExit(exc.code or 3) from exc
+            raise
         ap10 = approval.record(d["project"], "S10_加联系人", "confirm", d["confirmation"]["quote"], approval.stable_params_hash(s10_binding(d, seq)))
         au = auth_guard.authorize_bundle_contact(d, pay)
         if not au.get("ok"): die("加人票据未铸成: " + str(au.get("reason")))
